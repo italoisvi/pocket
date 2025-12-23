@@ -18,9 +18,6 @@
       "node": "22.11.0",
       "cache": {
         "disabled": false
-      },
-      "env": {
-        "EXPO_USE_STATIC_BUILD_CACHE": "npm install"
       }
     }
   },
