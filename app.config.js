@@ -19,6 +19,9 @@ export default {
       scheme: 'pocket',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        // --- ADICIONEI AQUI AS PERMISSÕES QUE FALTAVAM ---
+        NSCameraUsageDescription: "O Pocket precisa da câmera para escanear seus comprovantes.",
+        NSPhotoLibraryUsageDescription: "O Pocket precisa acessar suas fotos para ler comprovantes salvos.",
       },
     },
     android: {
@@ -56,6 +59,7 @@ export default {
       eas: {
         projectId: '237c2752-d411-45d3-9f97-6fa641a5430a',
       },
+      // Mantive suas variáveis de ambiente aqui
       openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
     },
   },
