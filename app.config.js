@@ -17,6 +17,9 @@ export default {
       supportsTablet: true,
       bundleIdentifier: 'com.gladius.pocket',
       scheme: 'pocket',
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
       adaptiveIcon: {
