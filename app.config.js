@@ -5,26 +5,54 @@ export default {
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
-    userInterfaceStyle: 'light',
+    userInterfaceStyle: 'automatic',
+    scheme: 'pocket',
     splash: {
-      image: './assets/splash-icon.png',
+      image: './assets/images/Pocket.png',
       resizeMode: 'contain',
       backgroundColor: '#ffffff',
     },
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
+      bundleIdentifier: 'com.pocket.app',
+      scheme: 'pocket',
     },
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#ffffff',
       },
+      package: 'com.pocket.app',
+      scheme: 'pocket',
+      intentFilters: [
+        {
+          action: 'VIEW',
+          autoVerify: true,
+          data: [
+            {
+              scheme: 'pocket',
+            },
+          ],
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+      ],
     },
     web: {
       favicon: './assets/favicon.png',
     },
+    plugins: [
+      [
+        'expo-router',
+        {
+          origin: 'pocket://',
+        },
+      ],
+    ],
     extra: {
+      eas: {
+        projectId: '237c2752-d411-45d3-9f97-6fa641a5430a',
+      },
       openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
     },
   },
