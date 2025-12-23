@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(npx create-expo-app@latest:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run format:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm start)",
+      "Bash(npx expo install --fix)",
+      "Bash(npx expo start:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx prettier --write \"app/\\(auth\\)/signup.tsx\")",
+      "Bash(npx prettier:*)",
+      "Bash(npx expo install:*)",
+      "Bash(dir:*)",
+      "Bash(ls -la \"C:\\\\Users\\\\italo\\\\source\\\\repo\\\\pocket\\\\assets\\\\images\"\" 2>nul || dir /B \"C:Usersitalosourcerepopocketassetsimages\"\")",
+      "Bash(copy \"assets\\\\images\\\\Canguru.png\" \"assets\\\\icon.png\")",
+      "Bash(copy \"assets\\\\images\\\\Canguru.png\" \"assets\\\\adaptive-icon.png\")",
+      "Bash(copy \"assets\\\\images\\\\Canguru.png\" \"assets\\\\favicon.png\")",
+      "Bash(ls:*)"
+    ]
+  }
+}

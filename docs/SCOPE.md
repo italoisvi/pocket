@@ -1,0 +1,114 @@
+## 1. Visão Geral do Projeto
+
+**Pocket** é um aplicativo mobile de **finanças pessoais**, desenvolvido com **React Native + Expo (Expo Go)** e utilizando **Supabase** como backend (autenticação e banco de dados).
+
+O objetivo do app é permitir que usuários registrem, acompanhem e visualizem suas finanças pessoais de forma simples, rápida e visualmente limpa.
+
+---
+
+## 2. Stack Tecnológica
+
+### Frontend
+
+- React Native
+- Expo (compatível com Expo Go)
+- TypeScript
+- Expo Router (se aplicável)
+- React Navigation
+- Expo Vector Icons
+
+### Backend
+
+- Supabase
+  - Supabase Auth (login e cadastro)
+  - Supabase Database (PostgreSQL)
+  - Supabase Row Level Security (RLS)
+
+---
+
+## 3. Identidade do App
+
+- **Nome:** Pocket
+- **Categoria:** Finanças pessoais
+- **Estilo visual:** Minimalista, limpo, moderno
+- **Tema inicial:** Claro (light mode)
+
+---
+
+## 4. Tela Inicial (Home / Landing)
+
+### Layout
+
+- Tela totalmente **branca**
+- Nenhum texto inicial
+- Nenhum menu visível inicialmente
+
+### Elemento Principal
+
+- Um **botão flutuante (FAB)** no canto inferior direito
+- Formato:
+  - Redondo
+  - Com sombra leve
+- Ícone:
+  - Ícone de **câmera**
+  - Centralizado dentro do botão
+- Cor:
+  - Ícone contrastante (ex: preto ou cinza escuro)
+  - Fundo do botão em tom neutro (ex: cinza claro ou branco com borda)
+
+### Comportamento
+
+- Ao tocar no botão:
+  - Deve abrir uma ação futura (por enquanto apenas log no console ou placeholder)
+  - Estrutura preparada para futura funcionalidade (ex: escanear recibos)
+
+---
+
+## 5. Autenticação (Supabase)
+
+### Funcionalidades
+
+- Cadastro de usuário (email + senha)
+- Login de usuário
+- Logout
+
+### Requisitos
+
+- Utilizar Supabase Auth
+- Manter sessão persistente
+- Proteger rotas autenticadas
+- Redirecionar usuário não autenticado para tela de login
+
+---
+
+## 6. Estrutura Inicial de Telas
+
+### Telas obrigatórias na primeira versão:
+
+1. **Login**
+2. **Cadastro**
+3. **Home (tela branca com botão flutuante)**
+
+---
+
+## 7. Banco de Dados (Supabase)
+
+### Tabela: `profiles`
+
+- `id` (uuid, primary key, reference auth.users)
+- `created_at` (timestamp)
+- `name` (text, opcional)
+
+### Regras
+
+- Cada usuário só pode acessar seus próprios dados
+- RLS ativado desde o início
+
+### SVG do ícone
+
+- "<?xml version="1.0" encoding="UTF-8"?>
+  <svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 24 24">
+  <path d="M12,8c-3.309,0-6,2.691-6,6s2.691,6,6,6,6-2.691,6-6-2.691-6-6-6Zm0,11c-2.757,0-5-2.243-5-5s2.243-5,5-5,5,2.243,5,5-2.243,5-5,5Zm7.5-15h-1.25l-2.25-3c-.47-.626-1.218-1-2-1h-4c-.782,0-1.53,.374-2,1l-2.25,3h-1.25C2.019,4,0,6.019,0,8.5v11c0,2.481,2.019,4.5,4.5,4.5h15c2.481,0,4.5-2.019,4.5-4.5V8.5c0-2.481-2.019-4.5-4.5-4.5ZM8.8,1.6c.282-.376,.73-.6,1.2-.6h4c.47,0,.918,.224,1.2,.6l1.8,2.4H7l1.8-2.4Zm14.2,17.9c0,1.93-1.57,3.5-3.5,3.5H4.5c-1.93,0-3.5-1.57-3.5-3.5V8.5c0-1.93,1.57-3.5,3.5-3.5h15c1.93,0,3.5,1.57,3.5,3.5v11Z"/>
+  </svg>"
+
+---
