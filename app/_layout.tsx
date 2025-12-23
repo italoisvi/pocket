@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import * as Font from 'expo-font';
 import { ThemeProvider } from '@/lib/theme';
+import { ErrorBoundary } from '@/lib/errorBoundary';
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -73,48 +74,50 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          gestureEnabled: true,
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="index" />
-        <Stack.Screen name="expense/[id]" />
-        <Stack.Screen
-          name="financial-overview"
-          options={{
+    <ErrorBoundary>
+      <ThemeProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
             gestureEnabled: true,
             animation: 'slide_from_right',
           }}
-        />
-        <Stack.Screen
-          name="custos-fixos"
-          options={{
-            gestureEnabled: true,
-            animation: 'slide_from_right',
-          }}
-        />
-        <Stack.Screen
-          name="custos-variaveis"
-          options={{
-            gestureEnabled: true,
-            animation: 'slide_from_right',
-          }}
-        />
-        <Stack.Screen
-          name="graficos-tabelas"
-          options={{
-            gestureEnabled: true,
-            animation: 'slide_from_right',
-          }}
-        />
-      </Stack>
-    </ThemeProvider>
+        >
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="index" />
+          <Stack.Screen name="expense/[id]" />
+          <Stack.Screen
+            name="financial-overview"
+            options={{
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
+          <Stack.Screen
+            name="custos-fixos"
+            options={{
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
+          <Stack.Screen
+            name="custos-variaveis"
+            options={{
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
+          <Stack.Screen
+            name="graficos-tabelas"
+            options={{
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
+        </Stack>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 
