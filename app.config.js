@@ -15,7 +15,7 @@ export default {
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.pocket.app',
+      bundleIdentifier: 'com.gladius.pocket',
       scheme: 'pocket',
     },
     android: {
@@ -23,7 +23,7 @@ export default {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#ffffff',
       },
-      package: 'com.pocket.app',
+      package: 'com.gladius.pocket',
       scheme: 'pocket',
       intentFilters: [
         {
