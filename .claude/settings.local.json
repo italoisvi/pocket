@@ -20,7 +20,9 @@
       "Bash(copy \"assets\\\\images\\\\Canguru.png\" \"assets\\\\icon.png\")",
       "Bash(copy \"assets\\\\images\\\\Canguru.png\" \"assets\\\\adaptive-icon.png\")",
       "Bash(copy \"assets\\\\images\\\\Canguru.png\" \"assets\\\\favicon.png\")",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
