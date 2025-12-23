@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Redirect, Stack, useSegments } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import * as Font from 'expo-font';
@@ -10,7 +11,6 @@ export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [fontsLoaded, setFontsLoaded] = useState(false);
-  const router = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
@@ -28,42 +28,19 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    // Import dinâmico para evitar crash no iOS release
-    const initAuth = async () => {
-      const { supabase } = await import('@/lib/supabase');
-
-      const { data: { session } } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+    });
 
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-      });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
-      return () => subscription.unsubscribe();
-    };
-
-    initAuth();
+    return () => subscription.unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (loading || !fontsLoaded) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-
-    // Timeout para garantir que router está pronto no iOS release
-    const timeoutId = setTimeout(() => {
-      if (!session && !inAuthGroup) {
-        router.replace('/(auth)/login');
-      } else if (session && inAuthGroup) {
-        router.replace('/(tabs)/home');
-      }
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [session, segments, loading, fontsLoaded]);
 
   if (loading || !fontsLoaded) {
     return (
@@ -71,6 +48,17 @@ export default function RootLayout() {
         <ActivityIndicator size="large" color="#000" />
       </View>
     );
+  }
+
+  const inAuthGroup = segments[0] === '(auth)';
+
+  // Usar Redirect ao invés de router.replace
+  if (!session && !inAuthGroup) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (session && inAuthGroup) {
+    return <Redirect href="/(tabs)/home" />;
   }
 
   return (
