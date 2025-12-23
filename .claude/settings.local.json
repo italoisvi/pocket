@@ -22,7 +22,8 @@
       "Bash(copy \"assets\\\\images\\\\Canguru.png\" \"assets\\\\favicon.png\")",
       "Bash(ls:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
