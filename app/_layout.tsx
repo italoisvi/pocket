@@ -48,11 +48,16 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    if (!session && !inAuthGroup) {
-      router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
-      router.replace('/(tabs)/home');
-    }
+    // Timeout para garantir que router está pronto no iOS release
+    const timeoutId = setTimeout(() => {
+      if (!session && !inAuthGroup) {
+        router.replace('/(auth)/login');
+      } else if (session && inAuthGroup) {
+        router.replace('/(tabs)/home');
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [session, segments, loading, fontsLoaded]);
 
   if (loading || !fontsLoaded) {
