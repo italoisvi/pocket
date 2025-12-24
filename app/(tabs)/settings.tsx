@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { useTheme, type ThemeMode } from '@/lib/theme';
+import * as Sentry from '@sentry/react-native';
 
 export default function SettingsScreen() {
   const { theme, themeMode, setThemeMode } = useTheme();
@@ -76,6 +77,18 @@ export default function SettingsScreen() {
     setShowThemeModal(false);
   };
 
+  const handleTestSentry = () => {
+    try {
+      Sentry.captureException(new Error('Sentry test error from Settings'));
+      Alert.alert(
+        'Teste Enviado',
+        'Um erro de teste foi enviado para o Sentry. Verifique em:\nhttps://gladius-gs.sentry.io/issues/?project=4510589471293440'
+      );
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível enviar o teste para o Sentry.');
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView
@@ -118,6 +131,28 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+            ]}
+            onPress={handleTestSentry}
+          >
+            <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+              🐛 Testar Sentry
+            </Text>
+            <Text
+              style={[styles.settingCardValue, { color: theme.textSecondary }]}
+            >
+              Enviar erro de teste
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.spacer} />
 
         <View style={styles.actionsSection}>
@@ -125,9 +160,17 @@ export default function SettingsScreen() {
             style={[
               styles.logoutButton,
               {
-                backgroundColor: themeMode === 'dark' || (themeMode === 'system' && theme.background === '#000') ? theme.card : theme.primary,
+                backgroundColor:
+                  themeMode === 'dark' ||
+                  (themeMode === 'system' && theme.background === '#000')
+                    ? theme.card
+                    : theme.primary,
                 borderWidth: 2,
-                borderColor: themeMode === 'dark' || (themeMode === 'system' && theme.background === '#000') ? theme.cardBorder : theme.primary,
+                borderColor:
+                  themeMode === 'dark' ||
+                  (themeMode === 'system' && theme.background === '#000')
+                    ? theme.cardBorder
+                    : theme.primary,
               },
             ]}
             onPress={handleLogout}
@@ -136,7 +179,11 @@ export default function SettingsScreen() {
               style={[
                 styles.logoutButtonText,
                 {
-                  color: themeMode === 'dark' || (themeMode === 'system' && theme.background === '#000') ? theme.text : '#fff',
+                  color:
+                    themeMode === 'dark' ||
+                    (themeMode === 'system' && theme.background === '#000')
+                      ? theme.text
+                      : '#fff',
                 },
               ]}
             >
