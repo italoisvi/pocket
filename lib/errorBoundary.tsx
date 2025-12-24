@@ -23,13 +23,21 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary caught:', error, errorInfo);
+    console.error('[ErrorBoundary] Error caught:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+    });
     // Send error to Sentry
     Sentry.captureException(error, {
       contexts: {
         react: {
           componentStack: errorInfo.componentStack,
         },
+      },
+      tags: {
+        errorBoundary: 'root',
       },
     });
   }
@@ -70,13 +78,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontWeight: 'bold',
     marginBottom: 12,
     color: '#000',
   },
   message: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
     marginBottom: 24,
     color: '#666',
@@ -90,6 +97,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontWeight: '600',
   },
 });
