@@ -7,33 +7,39 @@ Guias passo a passo para publicar o aplicativo Pocket.
 Siga os guias nesta ordem:
 
 ### 1. [Setup do GitHub](01-github-setup.md)
+
 Aprenda a criar repositório e fazer upload do código.
 
 **Tempo estimado:** 15-30 minutos
 
 **Você vai aprender:**
+
 - Criar repositório no GitHub
 - Configurar Git local
 - Fazer primeiro commit e push
 - Boas práticas de commit messages
 
 ### 2. [Configuração do Ícone](02-app-icon-setup.md)
+
 Configure o ícone do canguru no aplicativo.
 
 **Tempo estimado:** 30-60 minutos
 
 **Você vai aprender:**
+
 - Preparar imagem para ícone iOS e Android
 - Adicionar fundo branco para iOS
 - Configurar adaptive icon do Android
 - Testar o ícone no dispositivo
 
 ### 3. [Deploy no TestFlight](03-testflight-deployment.md)
+
 Publique o app para testes via TestFlight.
 
 **Tempo estimado:** 2-3 horas (primeira vez)
 
 **Você vai aprender:**
+
 - Configurar Apple Developer Account
 - Criar app no App Store Connect
 - Usar EAS Build para gerar builds
@@ -43,17 +49,20 @@ Publique o app para testes via TestFlight.
 ## Pré-requisitos Gerais
 
 ### Contas Necessárias
+
 - ✅ Conta GitHub (gratuito)
 - ✅ Apple Developer Program ($99/ano) - para TestFlight
 - ✅ Conta Expo (gratuito)
 
 ### Software Necessário
+
 - ✅ Git instalado
 - ✅ Node.js e npm instalados
 - ✅ Expo CLI instalado
 - ✅ EAS CLI instalado (para iOS build)
 
 ### Conhecimento Recomendado
+
 - Básico de linha de comando/terminal
 - Básico de Git (commit, push, pull)
 - Como navegar no terminal
@@ -77,16 +86,17 @@ pocket/
 
 ## Custos Envolvidos
 
-| Serviço | Custo | Necessário Para |
-|---------|-------|-----------------|
-| GitHub | Gratuito | Hospedar código |
-| Expo Account | Gratuito | Builds básicos |
-| Apple Developer | $99/ano | TestFlight + App Store |
-| EAS Production | $29/mês | Builds ilimitados (opcional) |
+| Serviço         | Custo    | Necessário Para              |
+| --------------- | -------- | ---------------------------- |
+| GitHub          | Gratuito | Hospedar código              |
+| Expo Account    | Gratuito | Builds básicos               |
+| Apple Developer | $99/ano  | TestFlight + App Store       |
+| EAS Production  | $29/mês  | Builds ilimitados (opcional) |
 
 ## Fluxo de Trabalho Típico
 
 ### Desenvolvimento Local
+
 ```bash
 # 1. Fazer mudanças no código
 # 2. Testar localmente
@@ -99,6 +109,7 @@ git push
 ```
 
 ### Deploy para TestFlight
+
 ```bash
 # 1. Atualizar versão no app.json
 # 2. Gerar build
@@ -112,12 +123,14 @@ eas build --platform ios --profile production
 ## Dicas Importantes
 
 ### Git e GitHub
+
 - ✅ Faça commits frequentes com mensagens claras
 - ✅ Use Conventional Commits (feat:, fix:, etc.)
 - ✅ Nunca commite arquivos `.env` com secrets
 - ✅ Sempre faça `git pull` antes de começar a trabalhar
 
 ### TestFlight
+
 - ⏱️ Primeiro build pode levar 24-48h para aprovação
 - ⏱️ Builds seguintes são instantâneos
 - 👥 Até 100 testadores internos (sem revisão)
@@ -125,6 +138,7 @@ eas build --platform ios --profile production
 - 🔄 Testadores recebem notificações automáticas de updates
 
 ### EAS Build
+
 - 🎯 Use profile `production` para TestFlight
 - 🎯 Use profile `preview` para testes internos
 - 💰 Free tier: 30 builds/mês
@@ -133,31 +147,37 @@ eas build --platform ios --profile production
 ## Solução Rápida de Problemas
 
 ### Git
+
 **Problema:** "permission denied"
 **Solução:** Use Personal Access Token em vez de senha
 
 ### TestFlight
+
 **Problema:** Build não aparece
 **Solução:** Aguarde 10-15 min, builds precisam processar
 
 ### EAS Build
+
 **Problema:** Build falha
 **Solução:** Verifique `eas build:list` para ver logs de erro
 
 ## Recursos e Links Úteis
 
 ### Documentação Oficial
+
 - [Expo Docs](https://docs.expo.dev/)
 - [EAS Build Docs](https://docs.expo.dev/build/introduction/)
 - [TestFlight Docs](https://developer.apple.com/testflight/)
 - [Git Docs](https://git-scm.com/doc)
 
 ### Comunidade
+
 - [Expo Forum](https://forums.expo.dev/)
 - [Expo Discord](https://chat.expo.dev/)
 - [Stack Overflow](https://stackoverflow.com/questions/tagged/expo)
 
 ### Ferramentas
+
 - [AppIcon.co](https://www.appicon.co/) - Gerar ícones
 - [Remove.bg](https://www.remove.bg/) - Editar fundos
 - [GitHub Desktop](https://desktop.github.com/) - Git com interface gráfica
@@ -176,6 +196,7 @@ Se encontrar problemas:
 Use esta lista para acompanhar seu progresso:
 
 ### GitHub
+
 - [ ] Conta GitHub criada
 - [ ] Repositório criado
 - [ ] Git configurado localmente
@@ -184,6 +205,7 @@ Use esta lista para acompanhar seu progresso:
 - [ ] Push para GitHub concluído
 
 ### Ícone
+
 - [ ] Imagem do canguru com fundo branco (1024x1024)
 - [ ] icon.png substituído
 - [ ] adaptive-icon.png substituído
@@ -191,6 +213,7 @@ Use esta lista para acompanhar seu progresso:
 - [ ] Testado em build de desenvolvimento
 
 ### TestFlight
+
 - [ ] Apple Developer Program ativo
 - [ ] App criado no App Store Connect
 - [ ] EAS CLI instalado e configurado

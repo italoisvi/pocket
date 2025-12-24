@@ -11,12 +11,14 @@ Este documento resume **todas as proteções** implementadas no projeto Pocket p
 ### Arquivo: `lib/supabase.ts`
 
 **Proteção:**
+
 - Função `getEnvVar()` que valida existência e tipo
 - Erro explícito com mensagem detalhada
 - Lista de chaves disponíveis em caso de erro
 - Try/catch com console.error
 
 **Código:**
+
 ```ts
 function getEnvVar(key: string): string {
   const extra = Constants.expoConfig?.extra;
@@ -30,7 +32,7 @@ function getEnvVar(key: string): string {
   if (!value || typeof value !== 'string') {
     throw new Error(
       `Environment variable "${key}" not found.\n` +
-      `Available keys: ${Object.keys(extra).join(', ')}`
+        `Available keys: ${Object.keys(extra).join(', ')}`
     );
   }
 
@@ -39,6 +41,7 @@ function getEnvVar(key: string): string {
 ```
 
 **Impede:**
+
 - ❌ Crash silencioso por env vars undefined
 - ❌ Supabase client com credenciais inválidas
 
@@ -49,11 +52,13 @@ function getEnvVar(key: string): string {
 ### Arquivo: `app/_layout.tsx`
 
 **Proteção:**
+
 - Import dinâmico do Supabase dentro de `useEffect`
 - Garante que Constants está disponível antes do import
 - Evita execução no module scope
 
 **Código:**
+
 ```ts
 useEffect(() => {
   const initAuth = async () => {
@@ -66,6 +71,7 @@ useEffect(() => {
 ```
 
 **Impede:**
+
 - ❌ Import-time crash (Hermes executa antes do React)
 - ❌ Constants.expoConfig não disponível
 
@@ -76,11 +82,13 @@ useEffect(() => {
 ### Arquivo: `app/index.tsx`
 
 **Proteção:**
+
 - `setTimeout` de 50ms antes de navegar
 - Uso de `router.replace()` dentro de `useEffect`
 - Loading indicator durante delay
 
 **Código:**
+
 ```ts
 useEffect(() => {
   const timer = setTimeout(() => {
@@ -92,6 +100,7 @@ useEffect(() => {
 ```
 
 **Impede:**
+
 - ❌ Race condition (Router não montado)
 - ❌ Navegação antes do React renderizar
 
@@ -100,10 +109,12 @@ useEffect(() => {
 ### Arquivo: `app/_layout.tsx`
 
 **Proteção adicional:**
+
 - `setTimeout` de 100ms para redirecionamento auth
 - Só navega após loading e fonts carregadas
 
 **Código:**
+
 ```ts
 useEffect(() => {
   if (loading || !fontsLoaded) return;
@@ -125,12 +136,14 @@ useEffect(() => {
 ### Arquivo: `lib/errorBoundary.tsx`
 
 **Proteção:**
+
 - Component Error Boundary React
 - Captura erros em toda árvore de componentes
 - Fallback UI com mensagem de erro
 - Botão "Tentar Novamente"
 
 **Código:**
+
 ```tsx
 export class ErrorBoundary extends Component {
   static getDerivedStateFromError(error: Error) {
@@ -151,6 +164,7 @@ export class ErrorBoundary extends Component {
 ```
 
 **Usado em:** `app/_layout.tsx`
+
 ```tsx
 return (
   <ErrorBoundary>
@@ -162,6 +176,7 @@ return (
 ```
 
 **Impede:**
+
 - ❌ Crash total do app
 - ❌ Popup "App Falhou" sem contexto
 - ✅ Mostra erro ao usuário com opção de recovery
@@ -173,11 +188,13 @@ return (
 ### Arquivo: `app/_layout.tsx`
 
 **Proteção:**
+
 - Estado `fontsLoaded` separado
 - Loading screen até fontes carregarem
 - UI principal só renderiza com fontes prontas
 
 **Código:**
+
 ```ts
 const [fontsLoaded, setFontsLoaded] = useState(false);
 
@@ -195,6 +212,7 @@ if (loading || !fontsLoaded) {
 ```
 
 **Impede:**
+
 - ❌ Render com fontes não carregadas
 - ❌ Text components com fontFamily undefined
 
@@ -205,11 +223,13 @@ if (loading || !fontsLoaded) {
 ### Arquivo: `app/_layout.tsx`
 
 **Proteção:**
+
 - Estado `loading` para session
 - Não renderiza UI principal durante auth check
 - Só navega após session resolver
 
 **Impede:**
+
 - ❌ Navegação antes de saber se usuário está logado
 - ❌ Flash de tela incorreta
 
@@ -217,20 +237,21 @@ if (loading || !fontsLoaded) {
 
 ## 📊 Cobertura Total
 
-| Tipo de Crash | Proteção | Status |
-|---------------|----------|--------|
-| Env vars undefined | Layer 1 | ✅ |
-| Import-time error | Layer 2 | ✅ |
-| Router não montado | Layer 3 | ✅ |
-| React component error | Layer 4 | ✅ |
-| Fontes não carregadas | Layer 5 | ✅ |
-| Session não resolvida | Layer 6 | ✅ |
+| Tipo de Crash         | Proteção | Status |
+| --------------------- | -------- | ------ |
+| Env vars undefined    | Layer 1  | ✅     |
+| Import-time error     | Layer 2  | ✅     |
+| Router não montado    | Layer 3  | ✅     |
+| React component error | Layer 4  | ✅     |
+| Fontes não carregadas | Layer 5  | ✅     |
+| Session não resolvida | Layer 6  | ✅     |
 
 ---
 
 ## 🧪 Validação
 
 ### Checklist de Teste:
+
 - [x] `lib/supabase.ts` valida env vars
 - [x] `app/_layout.tsx` usa dynamic import
 - [x] `app/index.tsx` tem setTimeout na navegação
@@ -242,6 +263,7 @@ if (loading || !fontsLoaded) {
 - [x] Nenhum `router.replace()` síncrono
 
 ### Arquivos Críticos Auditados:
+
 - ✅ `app/_layout.tsx` - Safe
 - ✅ `app/index.tsx` - Safe
 - ✅ `lib/supabase.ts` - Safe com validação
@@ -256,10 +278,12 @@ if (loading || !fontsLoaded) {
 Com todas essas proteções:
 
 ### ✅ Development (Expo Go)
+
 - Funciona como antes
 - Red screen com stack trace em caso de erro
 
 ### ✅ Release (TestFlight)
+
 - **Não crashará silenciosamente**
 - Erros de env vars mostram mensagem clara
 - ErrorBoundary captura erros de React
@@ -271,6 +295,7 @@ Com todas essas proteções:
 ## 🚀 Próximos Passos
 
 1. **Build de teste:**
+
    ```bash
    eas build --platform ios --profile production
    ```

@@ -56,7 +56,9 @@ export default function ExpenseDetailScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
@@ -64,7 +66,9 @@ export default function ExpenseDetailScreen() {
 
   if (!expense) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
         <Text style={[styles.errorText, { color: theme.text }]}>
           Gasto não encontrado
         </Text>
@@ -75,7 +79,9 @@ export default function ExpenseDetailScreen() {
   const formattedDate = new Date(expense.date).toLocaleDateString('pt-BR');
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -110,13 +116,15 @@ export default function ExpenseDetailScreen() {
             {expense.items.map((item, index) => (
               <View
                 key={index}
-                style={[
-                  styles.item,
-                  { borderBottomColor: theme.border },
-                ]}
+                style={[styles.item, { borderBottomColor: theme.border }]}
               >
                 <View style={styles.itemLeft}>
-                  <Text style={[styles.itemQuantity, { color: theme.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.itemQuantity,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     {item.quantity}x
                   </Text>
                   <Text style={[styles.itemName, { color: theme.text }]}>

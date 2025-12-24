@@ -9,11 +9,13 @@ Usaremos a imagem: `assets/images/Canguru.png`
 ## Requisitos de Ícones
 
 ### iOS
+
 - **App Icon:** 1024x1024px (PNG sem transparência)
 - Formato: PNG
 - Background: Necessário (iOS não aceita transparência no ícone)
 
 ### Android
+
 - **Foreground:** 1024x1024px (PNG com transparência permitida)
 - **Background:** Cor sólida ou imagem 1024x1024px
 - Formato: PNG
@@ -55,12 +57,14 @@ Substitua os ícones existentes:
 Como o ícone do canguru tem fundo transparente, você precisa adicionar um fundo branco:
 
 #### Usando Ferramenta Online:
+
 1. Acesse: [https://www.remove.bg/](https://www.remove.bg/) ou editor de imagem
 2. Adicione um fundo branco à imagem do canguru
 3. Salve como `icon.png` (1024x1024px)
 4. Substitua `assets/icon.png`
 
 #### Usando PowerPoint/Keynote:
+
 1. Crie slide com 1024x1024px
 2. Adicione fundo branco
 3. Insira imagem do canguru centralizada
@@ -108,9 +112,11 @@ npx expo run:ios
 ### 7. Testar o Ícone
 
 #### No Expo Go (Limitado)
+
 O Expo Go não mostra o ícone personalizado. Você verá o ícone padrão do Expo.
 
 #### Em Build de Desenvolvimento
+
 ```bash
 # Android
 npx expo run:android
@@ -136,15 +142,19 @@ assets/
 ## Solução de Problemas
 
 ### Ícone não aparece no Expo Go
+
 **Solução:** Normal. O Expo Go sempre mostra o ícone padrão. Use build de desenvolvimento.
 
 ### Ícone aparece cortado no iOS
+
 **Solução:** iOS adiciona máscara arredondada. Deixe margem de 10-15% nas bordas da imagem.
 
 ### Ícone tem fundo preto no iOS
+
 **Solução:** iOS não aceita transparência. Adicione fundo branco à imagem.
 
 ### Ícone aparece borrado
+
 **Solução:** Certifique-se que a imagem é exatamente 1024x1024px em alta resolução.
 
 ## Ferramentas Úteis
@@ -157,4 +167,5 @@ assets/
 ## Próximos Passos
 
 Após configurar o ícone, consulte:
+
 - `03-testflight-deployment.md` - Distribuir o app via TestFlight

@@ -156,6 +156,7 @@ Use este formato para mensagens de commit:
 - `chore: descrição` - Tarefas de manutenção
 
 Exemplos:
+
 ```bash
 git commit -m "feat: adiciona modo escuro nas páginas de login"
 git commit -m "fix: corrige exibição do saldo oculto"
@@ -165,17 +166,22 @@ git commit -m "refactor: melhora estrutura do componente ExpenseCard"
 ## Solução de Problemas
 
 ### Erro: "repository already exists"
+
 O repositório já foi inicializado. Pule o comando `git init`.
 
 ### Erro: "remote origin already exists"
+
 Remova e adicione novamente:
+
 ```bash
 git remote remove origin
 git remote add origin https://github.com/SEU_USUARIO/pocket.git
 ```
 
 ### Erro de autenticação
+
 Use Personal Access Token ao invés de senha:
+
 1. GitHub → Settings → Developer settings → Personal access tokens
 2. Generate new token (classic)
 3. Marque `repo` scope
@@ -184,5 +190,6 @@ Use Personal Access Token ao invés de senha:
 ## Próximos Passos
 
 Após o projeto estar no GitHub, consulte:
+
 - `02-app-icon-setup.md` - Configurar ícone do app
 - `03-testflight-deployment.md` - Distribuir via TestFlight

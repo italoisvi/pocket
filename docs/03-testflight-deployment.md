@@ -5,6 +5,7 @@ Este guia completo explica como publicar o app Pocket no TestFlight para testes.
 ## Pré-requisitos
 
 ### Contas e Inscrições
+
 - ✅ Apple ID ativo
 - ✅ **Apple Developer Program** ($99/ano USD) - **OBRIGATÓRIO**
   - Inscreva-se em: [developer.apple.com/programs](https://developer.apple.com/programs)
@@ -12,6 +13,7 @@ Este guia completo explica como publicar o app Pocket no TestFlight para testes.
 - ✅ Mac com macOS (necessário para build iOS)
 
 ### Software Necessário
+
 - ✅ Xcode instalado (via App Store)
 - ✅ Expo CLI instalado (`npm install -g expo-cli`)
 - ✅ EAS CLI instalado (`npm install -g eas-cli`)
@@ -92,6 +94,7 @@ eas login
 ```
 
 Se não tem conta Expo:
+
 ```bash
 # Criar conta
 eas register
@@ -175,6 +178,7 @@ eas build --platform ios --profile production
 ```
 
 Você será perguntado:
+
 - **Generate a new Apple Distribution Certificate?** → Yes
 - **Generate a new Apple Provisioning Profile?** → Yes
 - **Set up Push Notifications?** → Yes (se quiser notificações no futuro)
@@ -193,6 +197,7 @@ Você pode acompanhar em: [expo.dev/accounts/SEU_USUARIO/projects/pocket/builds]
 ### 4.3. Download do IPA (Opcional)
 
 Quando terminar, você receberá:
+
 - Link para download do arquivo `.ipa`
 - Build foi automaticamente enviado ao TestFlight
 
@@ -253,6 +258,7 @@ Quando terminar, você receberá:
 ### 7.2. Para Outros Testadores
 
 Envie convite via:
+
 - **Email direto:** App Store Connect adiciona automaticamente
 - **Link público:** TestFlight → External Testing → "Public Link"
 
@@ -298,12 +304,12 @@ eas submit --platform ios
 
 ## Custos
 
-| Item | Custo |
-|------|-------|
-| Apple Developer Program | $99/ano USD |
-| EAS Build (Expo) | Gratuito (primeiros builds) |
-| EAS Build Production | $29/mês USD (unlimited builds) |
-| Hospedagem do código | Gratuito (GitHub) |
+| Item                    | Custo                          |
+| ----------------------- | ------------------------------ |
+| Apple Developer Program | $99/ano USD                    |
+| EAS Build (Expo)        | Gratuito (primeiros builds)    |
+| EAS Build Production    | $29/mês USD (unlimited builds) |
+| Hospedagem do código    | Gratuito (GitHub)              |
 
 ### Planos EAS
 
@@ -314,19 +320,25 @@ eas submit --platform ios
 ## Solução de Problemas
 
 ### Erro: "Bundle identifier is not available"
+
 **Solução:** O Bundle ID já está em uso. Mude no `app.json`:
+
 ```json
 "bundleIdentifier": "com.seuNome.pocket"
 ```
 
 ### Erro: "Apple ID authentication failed"
+
 **Solução:**
+
 1. Habilite autenticação de dois fatores no Apple ID
 2. Gere App-Specific Password: [appleid.apple.com](https://appleid.apple.com)
 3. Use a senha específica ao fazer login no EAS
 
 ### Build falha com erro de certificado
+
 **Solução:**
+
 ```bash
 # Limpar credenciais e reconfigurar
 eas credentials
@@ -336,13 +348,17 @@ eas build --platform ios --profile production
 ```
 
 ### TestFlight não recebe build
+
 **Solução:**
+
 1. Verifique em App Store Connect → Activity → All Builds
 2. Build pode estar "Processing" (aguarde 10-15 min)
 3. Verifique email por mensagens da Apple
 
 ### Testadores não recebem convite
+
 **Solução:**
+
 1. Verifique pasta de spam
 2. No TestFlight, clique em "Resend Invite"
 3. Use link público como alternativa
@@ -380,6 +396,7 @@ Primeiro build:
 ## Próximos Passos
 
 Após TestFlight funcionando:
+
 1. Coletar feedback dos testadores
 2. Corrigir bugs encontrados
 3. Quando estável, preparar para publicação na App Store

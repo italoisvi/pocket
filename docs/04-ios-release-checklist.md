@@ -5,31 +5,37 @@ Este checklist garante que o app não quebre no iOS release (TestFlight/App Stor
 ## ✅ Antes de Fazer Build
 
 ### 1. Variáveis de Ambiente
+
 - [ ] Todas as env vars estão em `app.config.js` → `extra`
 - [ ] Nenhum `process.env` usado diretamente no código
 - [ ] Usar sempre `Constants.expoConfig.extra`
 
 ### 2. Imports Críticos
+
 - [ ] Nenhum import síncrono de Supabase em `_layout.tsx`
 - [ ] Usar `await import()` para módulos que acessam env vars
 - [ ] Validação de env vars com `try/catch`
 
 ### 3. Navegação
+
 - [ ] Nenhum `<Redirect>` síncrono em `index.tsx`
 - [ ] Usar `useEffect` + `setTimeout` para navegação
 - [ ] Mínimo 50ms de delay antes de `router.replace()`
 
 ### 4. Auth Flow
+
 - [ ] `supabase.auth.getSession()` só dentro de `useEffect`
 - [ ] Session state com loading indicator
 - [ ] Fallback se session não carregar
 
 ### 5. Fontes
+
 - [ ] Loading de fontes com `useState` + `useEffect`
 - [ ] Renderizar loading screen até fontes carregarem
 - [ ] Não renderizar UI principal sem fontes
 
 ### 6. Error Boundaries
+
 - [ ] `ErrorBoundary` envolvendo `<App />`
 - [ ] Fallback UI em caso de erro
 - [ ] Console.error para debugging
@@ -37,6 +43,7 @@ Este checklist garante que o app não quebre no iOS release (TestFlight/App Stor
 ## ✅ Padrões Safe
 
 ### ✅ Supabase Init (CORRETO)
+
 ```ts
 // lib/supabase.ts
 const extra = Constants.expoConfig?.extra ?? {};
@@ -48,6 +55,7 @@ if (!url) {
 ```
 
 ### ✅ Dynamic Import (CORRETO)
+
 ```ts
 // _layout.tsx
 useEffect(() => {
@@ -58,6 +66,7 @@ useEffect(() => {
 ```
 
 ### ✅ Navegação (CORRETO)
+
 ```ts
 // index.tsx
 useEffect(() => {
@@ -68,18 +77,21 @@ useEffect(() => {
 ## ❌ Anti-Patterns
 
 ### ❌ Supabase Import Síncrono
+
 ```ts
 // _layout.tsx - ERRADO
 import { supabase } from '@/lib/supabase'; // ❌ Crash
 ```
 
 ### ❌ Redirect Síncrono
+
 ```tsx
 // index.tsx - ERRADO
 return <Redirect href="/home" />; // ❌ Race condition
 ```
 
 ### ❌ process.env Direto
+
 ```ts
 // ERRADO
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL; // ❌ undefined no iOS
@@ -88,11 +100,13 @@ const url = process.env.EXPO_PUBLIC_SUPABASE_URL; // ❌ undefined no iOS
 ## 🧪 Como Testar
 
 ### Teste Local (iOS Release)
+
 ```bash
 npx expo run:ios --configuration Release
 ```
 
 ### Teste no TestFlight
+
 1. Fazer build: `eas build --platform ios --profile production`
 2. Aguardar upload automático para TestFlight
 3. Instalar via TestFlight no dispositivo físico
@@ -114,12 +128,12 @@ Se você vir isso, PARE e corrija:
 
 ## 📊 Sintomas de Problema
 
-| Sintoma | Causa Provável |
-|---------|----------------|
-| App fecha instantaneamente | Import-time error (env vars undefined) |
-| "App Falhou" sem log | Hermes crash antes do React montar |
-| Red screen no dev, crash no release | process.env undefined |
-| Funciona em Android, quebra iOS | Hermes optimization diferente |
+| Sintoma                             | Causa Provável                         |
+| ----------------------------------- | -------------------------------------- |
+| App fecha instantaneamente          | Import-time error (env vars undefined) |
+| "App Falhou" sem log                | Hermes crash antes do React montar     |
+| Red screen no dev, crash no release | process.env undefined                  |
+| Funciona em Android, quebra iOS     | Hermes optimization diferente          |
 
 ## 🛡️ Defesa em Profundidade
 
