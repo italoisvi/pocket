@@ -28,7 +28,7 @@ if (sentryDsn) {
   console.warn('[Sentry] DSN not found, Sentry will not be initialized');
 }
 
-export default Sentry.wrap(function RootLayout() {
+function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -173,7 +173,9 @@ export default Sentry.wrap(function RootLayout() {
       </ThemeProvider>
     </ErrorBoundary>
   );
-});
+}
+
+export default RootLayout;
 
 const styles = StyleSheet.create({
   loadingContainer: {
