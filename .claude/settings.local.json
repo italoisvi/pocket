@@ -29,7 +29,10 @@
       "Bash(move tsconfig.base.json tsconfig.base)",
       "Bash(ren tsconfig.base.json tsconfig.base)",
       "Bash(echo:*)",
-      "Bash(npx @sentry/wizard@latest -i reactNative:*)"
+      "Bash(npx @sentry/wizard@latest -i reactNative:*)",
+      "Bash(eas secret:list:*)",
+      "Bash(eas env:list:*)",
+      "Bash(eas env:create:*)"
     ]
   }
 }
