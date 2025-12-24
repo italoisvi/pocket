@@ -15,23 +15,36 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function loadFonts() {
-      await Font.loadAsync({
-        'CormorantGaramond-Light': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Light.ttf'),
-        'CormorantGaramond-Regular': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Regular.ttf'),
-        'CormorantGaramond-Medium': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Medium.ttf'),
-        'CormorantGaramond-SemiBold': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-SemiBold.ttf'),
-        'CormorantGaramond-Bold': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Bold.ttf'),
-      });
-      setFontsLoaded(true);
+      try {
+        await Font.loadAsync({
+          'CormorantGaramond-Light': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Light.ttf'),
+          'CormorantGaramond-Regular': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Regular.ttf'),
+          'CormorantGaramond-Medium': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Medium.ttf'),
+          'CormorantGaramond-SemiBold': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-SemiBold.ttf'),
+          'CormorantGaramond-Bold': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Bold.ttf'),
+        });
+      } catch (error) {
+        console.error('Font loading error:', error);
+      } finally {
+        setFontsLoaded(true);
+      }
     }
     loadFonts();
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+      })
+      .catch((error) => {
+        console.error('Auth session error:', error);
+        setSession(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     const {
       data: { subscription },
