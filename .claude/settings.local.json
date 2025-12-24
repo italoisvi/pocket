@@ -28,7 +28,8 @@
       "Bash(code --list-extensions:*)",
       "Bash(move tsconfig.base.json tsconfig.base)",
       "Bash(ren tsconfig.base.json tsconfig.base)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(npx @sentry/wizard@latest -i reactNative:*)"
     ]
   }
 }

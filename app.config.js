@@ -20,8 +20,10 @@ export default {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         // --- ADICIONEI AQUI AS PERMISSÕES QUE FALTAVAM ---
-        NSCameraUsageDescription: "O Pocket precisa da câmera para escanear seus comprovantes.",
-        NSPhotoLibraryUsageDescription: "O Pocket precisa acessar suas fotos para ler comprovantes salvos.",
+        NSCameraUsageDescription:
+          'O Pocket precisa da câmera para escanear seus comprovantes.',
+        NSPhotoLibraryUsageDescription:
+          'O Pocket precisa acessar suas fotos para ler comprovantes salvos.',
       },
     },
     android: {
@@ -54,6 +56,7 @@ export default {
           origin: 'pocket://',
         },
       ],
+      '@sentry/react-native/expo',
     ],
     extra: {
       eas: {
@@ -63,6 +66,7 @@ export default {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
+      sentryDsn: process.env.SENTRY_DSN,
     },
   },
 };

@@ -6,6 +6,27 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import * as Font from 'expo-font';
 import { ThemeProvider } from '@/lib/theme';
 import { ErrorBoundary } from '@/lib/errorBoundary';
+import * as Sentry from '@sentry/react-native';
+import Constants from 'expo-constants';
+
+// Initialize Sentry
+const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    debug: __DEV__, // Enable debug mode in development
+    tracesSampleRate: 1.0, // Capture 100% of transactions for performance monitoring
+    enableAutoSessionTracking: true,
+    sessionTrackingIntervalMillis: 10000,
+    enableNative: true,
+    enableNativeCrashHandling: true,
+    attachScreenshot: true,
+    attachViewHierarchy: true,
+  });
+  console.log('[Sentry] Initialized successfully');
+} else {
+  console.warn('[Sentry] DSN not found, Sentry will not be initialized');
+}
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);

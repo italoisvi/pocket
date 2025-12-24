@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import * as Sentry from '@sentry/react-native';
 
 // Função auxiliar para validação segura
 function getEnvVar(key: string): string {
@@ -42,6 +43,11 @@ try {
   console.log('[Supabase] URL:', supabaseUrl?.substring(0, 20) + '...');
 } catch (error) {
   console.error('[Supabase] Initialization error:', error);
+  Sentry.captureException(error, {
+    tags: {
+      component: 'supabase-init',
+    },
+  });
   throw error;
 }
 
