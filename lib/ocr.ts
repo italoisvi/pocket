@@ -107,9 +107,12 @@ async function convertImageToBase64(uri: string): Promise<string> {
     const file = new File(uri);
     const arrayBuffer = await file.arrayBuffer();
     // Convert ArrayBuffer to base64
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const binaryString = String.fromCharCode(...uint8Array);
-    const base64 = btoa(binaryString);
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
     return base64;
   } catch (error) {
     console.error('Error converting image to base64:', error);
