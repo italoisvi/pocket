@@ -17,7 +17,7 @@
       "autoIncrement": true,
       "node": "22.11.0",
       "cache": {
-        "disabled": false
+        "disabled": true
       }
     }
   },
