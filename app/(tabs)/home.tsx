@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { useCallback } from 'react';
 import { CameraIcon } from '@/components/CameraIcon';
 import { SettingsIcon } from '@/components/SettingsIcon';
@@ -152,26 +151,34 @@ export default function HomeScreen() {
   };
 
   const handleCameraPress = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    try {
+      // Dynamic import to prevent iOS release crash
+      const ImagePicker = await import('expo-image-picker');
 
-    if (status !== 'granted') {
-      Alert.alert(
-        'Permissão Necessária',
-        'Precisamos de permissão para acessar sua câmera.'
-      );
-      return;
-    }
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 1,
-    });
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permissão Necessária',
+          'Precisamos de permissão para acessar sua câmera.'
+        );
+        return;
+      }
 
-    if (!result.canceled) {
-      const imageUri = result.assets[0].uri;
-      setCurrentImageUri(imageUri);
-      await processReceipt(imageUri);
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        const imageUri = result.assets[0].uri;
+        setCurrentImageUri(imageUri);
+        await processReceipt(imageUri);
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Erro', 'Não foi possível abrir a câmera.');
     }
   };
 

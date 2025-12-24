@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { File } from 'expo-file-system';
 
 export type ReceiptData = {
   establishmentName: string;
@@ -102,16 +103,16 @@ export async function extractReceiptData(
 }
 
 async function convertImageToBase64(uri: string): Promise<string> {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      const base64Data = base64.split(',')[1];
-      resolve(base64Data);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+  try {
+    const file = new File(uri);
+    const arrayBuffer = await file.arrayBuffer();
+    // Convert ArrayBuffer to base64
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const binaryString = String.fromCharCode(...uint8Array);
+    const base64 = btoa(binaryString);
+    return base64;
+  } catch (error) {
+    console.error('Error converting image to base64:', error);
+    throw new Error('Não foi possível processar a imagem');
+  }
 }
