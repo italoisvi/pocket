@@ -23,7 +23,12 @@
       "Bash(ls:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npx expo-file-system:*)",
+      "Bash(code --list-extensions:*)",
+      "Bash(move tsconfig.base.json tsconfig.base)",
+      "Bash(ren tsconfig.base.json tsconfig.base)",
+      "Bash(echo:*)"
     ]
   }
 }

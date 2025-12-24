@@ -18,7 +18,7 @@ function getEnvVar(key: string): string {
   if (!value || typeof value !== 'string') {
     throw new Error(
       `❌ Environment variable "${key}" not found in app.config.js extra.\n` +
-      `Available keys: ${Object.keys(extra).join(', ')}`
+        `Available keys: ${Object.keys(extra).join(', ')}`
     );
   }
 
@@ -29,11 +29,19 @@ function getEnvVar(key: string): string {
 let supabaseUrl: string;
 let supabaseAnonKey: string;
 
+console.log('[Supabase] Initializing Supabase client...');
+console.log(
+  '[Supabase] Constants.expoConfig?.extra:',
+  JSON.stringify(Constants.expoConfig?.extra || {}, null, 2)
+);
+
 try {
   supabaseUrl = getEnvVar('supabaseUrl');
   supabaseAnonKey = getEnvVar('supabaseAnonKey');
+  console.log('[Supabase] Environment variables loaded successfully');
+  console.log('[Supabase] URL:', supabaseUrl?.substring(0, 20) + '...');
 } catch (error) {
-  console.error('Supabase initialization error:', error);
+  console.error('[Supabase] Initialization error:', error);
   throw error;
 }
 

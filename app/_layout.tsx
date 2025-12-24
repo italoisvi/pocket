@@ -15,6 +15,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function loadFonts() {
+      console.log('[RootLayout] Starting font loading...');
       try {
         await Font.loadAsync({
           'CormorantGaramond-Light': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Light.ttf'),
@@ -23,32 +24,41 @@ export default function RootLayout() {
           'CormorantGaramond-SemiBold': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-SemiBold.ttf'),
           'CormorantGaramond-Bold': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Bold.ttf'),
         });
+        console.log('[RootLayout] Fonts loaded successfully');
       } catch (error) {
-        console.error('Font loading error:', error);
+        console.error('[RootLayout] Font loading error:', error);
       } finally {
         setFontsLoaded(true);
+        console.log('[RootLayout] fontsLoaded set to true');
       }
     }
     loadFonts();
   }, []);
 
   useEffect(() => {
+    console.log('[RootLayout] Starting auth session check...');
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
+        console.log(
+          '[RootLayout] Session retrieved:',
+          session ? 'logged in' : 'not logged in'
+        );
         setSession(session);
       })
       .catch((error) => {
-        console.error('Auth session error:', error);
+        console.error('[RootLayout] Auth session error:', error);
         setSession(null);
       })
       .finally(() => {
         setLoading(false);
+        console.log('[RootLayout] loading set to false');
       });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('[RootLayout] Auth state changed:', _event);
       setSession(session);
     });
 
@@ -56,6 +66,12 @@ export default function RootLayout() {
   }, []);
 
   if (loading || !fontsLoaded) {
+    console.log(
+      '[RootLayout] Showing loading screen. loading:',
+      loading,
+      'fontsLoaded:',
+      fontsLoaded
+    );
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#000" />
@@ -64,15 +80,31 @@ export default function RootLayout() {
   }
 
   const inAuthGroup = segments[0] === '(auth)';
+  console.log(
+    '[RootLayout] Rendering main layout. session:',
+    !!session,
+    'inAuthGroup:',
+    inAuthGroup,
+    'segments:',
+    segments
+  );
 
   // Usar Redirect ao invés de router.replace
   if (!session && !inAuthGroup) {
+    console.log(
+      '[RootLayout] Redirecting to login (no session, not in auth group)'
+    );
     return <Redirect href="/(auth)/login" />;
   }
 
   if (session && inAuthGroup) {
+    console.log(
+      '[RootLayout] Redirecting to home (has session, in auth group)'
+    );
     return <Redirect href="/(tabs)/home" />;
   }
+
+  console.log('[RootLayout] Rendering Stack');
 
   return (
     <ErrorBoundary>
