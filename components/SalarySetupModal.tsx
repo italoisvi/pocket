@@ -144,24 +144,24 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: 'CormorantGaramond-Bold',
     marginBottom: 12,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
     color: '#666',
     textAlign: 'center',
     marginBottom: 32,
-    lineHeight: 24,
+    lineHeight: 26,
   },
   inputContainer: {
     marginBottom: 32,
   },
   label: {
-    fontSize: 14,
+    fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
     marginBottom: 8,
     color: '#666',
@@ -175,14 +175,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   currency: {
-    fontSize: 20,
+    fontSize: 24,
     fontFamily: 'CormorantGaramond-SemiBold',
     color: '#666',
     marginRight: 8,
   },
   input: {
     flex: 1,
-    fontSize: 20,
+    fontSize: 24,
     fontFamily: 'CormorantGaramond-SemiBold',
     paddingVertical: 16,
     color: '#000',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: '#000',
     borderRadius: 12,
-    padding: 16,
+    padding: 18,
     alignItems: 'center',
   },
   buttonDisabled: {
@@ -198,11 +198,11 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
   },
   hint: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     color: '#999',
     marginTop: 6,
