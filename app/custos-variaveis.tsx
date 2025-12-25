@@ -56,7 +56,8 @@ export default function CustosVariaveisScreen() {
           .filter(
             (exp) =>
               CATEGORIES[exp.category as ExpenseCategory] &&
-              CATEGORIES[exp.category as ExpenseCategory].type === 'variable'
+              CATEGORIES[exp.category as ExpenseCategory].type ===
+                'nao_essencial'
           )
           .forEach((exp) => {
             const category = (exp.category as ExpenseCategory) || 'outros';
@@ -98,7 +99,7 @@ export default function CustosVariaveisScreen() {
           <ChevronLeftIcon size={20} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]}>
-          Custos Variáveis
+          Custos Não Essenciais
         </Text>
         <View style={styles.placeholder} />
       </SafeAreaView>
@@ -122,7 +123,7 @@ export default function CustosVariaveisScreen() {
               ]}
             >
               <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>
-                Total de Custos Variáveis
+                Total de Custos Não Essenciais
               </Text>
               <Text style={[styles.totalValue, { color: theme.text }]}>
                 {formatCurrency(totalVariable)}
@@ -186,7 +187,7 @@ export default function CustosVariaveisScreen() {
                 <Text
                   style={[styles.emptyText, { color: theme.textSecondary }]}
                 >
-                  Nenhum custo variável registrado este mês
+                  Nenhum custo não essencial registrado este mês
                 </Text>
               </View>
             )}

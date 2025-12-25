@@ -56,7 +56,7 @@ export default function CustosFixosScreen() {
           .filter(
             (exp) =>
               CATEGORIES[exp.category as ExpenseCategory] &&
-              CATEGORIES[exp.category as ExpenseCategory].type === 'fixed'
+              CATEGORIES[exp.category as ExpenseCategory].type === 'essencial'
           )
           .forEach((exp) => {
             const category = (exp.category as ExpenseCategory) || 'outros';
@@ -97,7 +97,9 @@ export default function CustosFixosScreen() {
         >
           <ChevronLeftIcon size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.text }]}>Custos Fixos</Text>
+        <Text style={[styles.title, { color: theme.text }]}>
+          Custos Essenciais
+        </Text>
         <View style={styles.placeholder} />
       </SafeAreaView>
 
@@ -120,7 +122,7 @@ export default function CustosFixosScreen() {
               ]}
             >
               <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>
-                Total de Custos Fixos
+                Total de Custos Essenciais
               </Text>
               <Text style={[styles.totalValue, { color: theme.text }]}>
                 {formatCurrency(totalFixed)}
@@ -184,7 +186,7 @@ export default function CustosFixosScreen() {
                 <Text
                   style={[styles.emptyText, { color: theme.textSecondary }]}
                 >
-                  Nenhum custo fixo registrado este mês
+                  Nenhum custo essencial registrado este mês
                 </Text>
               </View>
             )}
