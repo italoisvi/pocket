@@ -1,5 +1,5 @@
-// Sistema de categorias baseado no documento de especificação
-// Organizadas por tipo: Essenciais (fixas), Não Essenciais (variáveis), Investimentos e Dívidas
+// Sistema de categorias com SUBCATEGORIAS
+// Baseado no documento de especificação: Essenciais, Não Essenciais, Investimentos e Dívidas
 
 export type ExpenseCategory =
   // ESSENCIAIS (Fixas)
@@ -32,232 +32,353 @@ export type CategoryType =
   | 'divida'
   | 'outro';
 
+export interface SubcategoryInfo {
+  name: string;
+  keywords: string[];
+}
+
 export interface CategoryInfo {
   name: string;
   type: CategoryType;
-  keywords: string[];
   icon: string;
   iconType?: 'emoji' | 'component';
   color: string;
   description: string;
+  subcategories: SubcategoryInfo[];
 }
 
-// Mapeamento de categorias com palavras-chave para classificação automática
+// Função auxiliar para detectar subcategoria baseada no nome do estabelecimento
+function detectSubcategory(
+  establishmentName: string,
+  subcategories: SubcategoryInfo[]
+): string | null {
+  const nameLower = establishmentName.toLowerCase();
+
+  for (const subcategory of subcategories) {
+    for (const keyword of subcategory.keywords) {
+      if (nameLower.includes(keyword.toLowerCase())) {
+        return subcategory.name;
+      }
+    }
+  }
+
+  return null;
+}
+
+// Mapeamento de categorias com subcategorias
 export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
   // ===== ESSENCIAIS =====
   moradia: {
     name: 'Moradia',
     type: 'essencial',
-    description: 'Aluguel, condomínio, IPTU, água, luz, gás',
-    keywords: [
-      // Aluguel e condomínio
-      'aluguel',
-      'condominio',
-      'condomínio',
-      'iptu',
-      'imobiliaria',
-      'imobiliária',
-      'seguro fianca',
-      'seguro fiança',
-      // Energia/Luz
-      'energia',
-      'luz',
-      'eletricidade',
-      'enel',
-      'coel',
-      'celpe',
-      'equatorial',
-      'cemig',
-      'copel',
-      'elektro',
-      'light',
-      'cosern',
-      'celg',
-      'ceee',
-      'energetica',
-      'energética',
-      'eletrica',
-      'elétrica',
-      // Água
-      'agua',
-      'água',
-      'saneamento',
-      'cagece',
-      'sabesp',
-      'embasa',
-      'cedae',
-      'caesb',
-      'sanepar',
-      // Gás
-      'gas',
-      'gás',
-      'ultragaz',
-      'comgas',
-      // Internet e telefone
-      'vivo',
-      'claro',
-      'tim',
-      'oi',
-      'brisanet',
-      'mob',
-      'multiplay',
-      'net',
-      'fibra',
-      'telecom',
-      'internet',
-      'telefone',
-    ],
+    description:
+      'Aluguel, condomínio, IPTU, água, luz, gás, internet, telefone',
     icon: 'house',
     iconType: 'component',
     color: '#FF6B6B',
+    subcategories: [
+      {
+        name: 'Energia',
+        keywords: [
+          'energia',
+          'luz',
+          'eletricidade',
+          'enel',
+          'coel',
+          'celpe',
+          'equatorial',
+          'cemig',
+          'copel',
+          'elektro',
+          'light',
+          'cosern',
+          'celg',
+          'ceee',
+          'energetica',
+          'energética',
+          'eletrica',
+          'elétrica',
+        ],
+      },
+      {
+        name: 'Água',
+        keywords: [
+          'agua',
+          'água',
+          'saneamento',
+          'cagece',
+          'sabesp',
+          'embasa',
+          'cedae',
+          'caesb',
+          'sanepar',
+        ],
+      },
+      {
+        name: 'Gás',
+        keywords: ['gas', 'gás', 'ultragaz', 'comgas'],
+      },
+      {
+        name: 'Aluguel',
+        keywords: ['aluguel'],
+      },
+      {
+        name: 'Condomínio',
+        keywords: ['condominio', 'condomínio'],
+      },
+      {
+        name: 'IPTU',
+        keywords: ['iptu'],
+      },
+      {
+        name: 'Internet',
+        keywords: [
+          'internet',
+          'vivo',
+          'claro',
+          'tim',
+          'oi',
+          'brisanet',
+          'mob',
+          'multiplay',
+          'net',
+          'fibra',
+          'telecom',
+        ],
+      },
+      {
+        name: 'Telefone',
+        keywords: ['telefone', 'celular', 'móvel', 'movel'],
+      },
+      {
+        name: 'Seguro',
+        keywords: [
+          'seguro fianca',
+          'seguro fiança',
+          'seguro residencial',
+          'seguro',
+        ],
+      },
+    ],
   },
+
   alimentacao: {
     name: 'Alimentação',
     type: 'essencial',
     description: 'Supermercado, feira, açougue',
-    keywords: [
-      'supermercado',
-      'mercadinho',
-      'atacadao',
-      'atacadão',
-      'assai',
-      'assaí',
-      'carrefour',
-      'pao de acucar',
-      'pão de açúcar',
-      'sao luiz',
-      'são luiz',
-      'extra',
-      'walmart',
-      'big',
-      'cometa',
-      'hortifruti',
-      'mercearia',
-      'mercado',
-      'feira',
-      'açougue',
-      'acougue',
-      'padaria',
-      'quitanda',
-    ],
     icon: 'shopping-basket',
     iconType: 'component',
     color: '#4ECDC4',
+    subcategories: [
+      {
+        name: 'Supermercado',
+        keywords: [
+          'supermercado',
+          'carrefour',
+          'pao de acucar',
+          'pão de açúcar',
+          'extra',
+          'walmart',
+          'big',
+          'cometa',
+          'sao luiz',
+          'são luiz',
+        ],
+      },
+      {
+        name: 'Atacadão',
+        keywords: ['atacadao', 'atacadão', 'assai', 'assaí'],
+      },
+      {
+        name: 'Feira',
+        keywords: ['feira', 'hortifruti', 'quitanda'],
+      },
+      {
+        name: 'Açougue',
+        keywords: ['açougue', 'acougue'],
+      },
+      {
+        name: 'Padaria',
+        keywords: ['padaria'],
+      },
+      {
+        name: 'Mercearia',
+        keywords: ['mercearia', 'mercadinho', 'mercado'],
+      },
+    ],
   },
+
   transporte: {
     name: 'Transporte',
     type: 'essencial',
     description: 'Combustível, transporte público, manutenção',
-    keywords: [
-      // Combustível
-      'posto',
-      'gasolina',
-      'etanol',
-      'diesel',
-      'combustivel',
-      'combustível',
-      'shell',
-      'ipiranga',
-      'petrobras',
-      'ale',
-      // Transporte público
-      'metro',
-      'metrô',
-      'onibus',
-      'ônibus',
-      'trem',
-      'bilhete',
-      'recarga',
-      // Estacionamento
-      'estacionamento',
-      'zona azul',
-      'sem parar',
-      'veloe',
-      // Manutenção
-      'mecanica',
-      'mecânica',
-      'oficina',
-      'revisao',
-      'revisão',
-      'manutencao',
-      'manutenção',
-      'pneu',
-      'oleo',
-      'óleo',
-    ],
-    icon: '🚗',
+    icon: 'transporte',
+    iconType: 'component',
     color: '#FFD93D',
+    subcategories: [
+      {
+        name: 'Combustível',
+        keywords: [
+          'posto',
+          'gasolina',
+          'etanol',
+          'diesel',
+          'combustivel',
+          'combustível',
+          'shell',
+          'ipiranga',
+          'petrobras',
+          'ale',
+        ],
+      },
+      {
+        name: 'Transporte Público',
+        keywords: [
+          'metro',
+          'metrô',
+          'onibus',
+          'ônibus',
+          'trem',
+          'bilhete',
+          'recarga',
+        ],
+      },
+      {
+        name: 'Aplicativos',
+        keywords: ['uber', '99', '99pop', 'taxi', 'táxi'],
+      },
+      {
+        name: 'Estacionamento',
+        keywords: [
+          'estacionamento',
+          'zona azul',
+          'sem parar',
+          'veloe',
+          'estapar',
+        ],
+      },
+      {
+        name: 'Manutenção',
+        keywords: [
+          'mecanica',
+          'mecânica',
+          'oficina',
+          'revisao',
+          'revisão',
+          'manutencao',
+          'manutenção',
+          'pneu',
+          'oleo',
+          'óleo',
+        ],
+      },
+    ],
   },
+
   saude: {
     name: 'Saúde',
     type: 'essencial',
     description: 'Plano de saúde, medicamentos, consultas',
-    keywords: [
-      'farmacia',
-      'farmácia',
-      'drogasil',
-      'pague menos',
-      'extrafarma',
-      'drogaria',
-      'panvel',
-      'droga raia',
-      'unimed',
-      'hapvida',
-      'amil',
-      'sulamerica',
-      'sulamérica',
-      'bradesco saude',
-      'bradesco saúde',
-      'notredame',
-      'laboratorio',
-      'laboratório',
-      'consulta',
-      'medico',
-      'médico',
-      'hospital',
-      'clinica',
-      'clínica',
-      'dentista',
-      'odontologico',
-      'odontológico',
-      'plano de saude',
-      'plano de saúde',
-      'exame',
-      'medicamento',
-    ],
-    icon: '⚕️',
+    icon: 'saude',
+    iconType: 'component',
     color: '#FCBAD3',
+    subcategories: [
+      {
+        name: 'Farmácia',
+        keywords: [
+          'farmacia',
+          'farmácia',
+          'drogasil',
+          'pague menos',
+          'extrafarma',
+          'drogaria',
+          'panvel',
+          'droga raia',
+        ],
+      },
+      {
+        name: 'Plano de Saúde',
+        keywords: [
+          'unimed',
+          'hapvida',
+          'amil',
+          'sulamerica',
+          'sulamérica',
+          'bradesco saude',
+          'bradesco saúde',
+          'notredame',
+          'plano de saude',
+          'plano de saúde',
+        ],
+      },
+      {
+        name: 'Consulta',
+        keywords: [
+          'consulta',
+          'medico',
+          'médico',
+          'hospital',
+          'clinica',
+          'clínica',
+        ],
+      },
+      {
+        name: 'Exames',
+        keywords: ['laboratorio', 'laboratório', 'exame'],
+      },
+      {
+        name: 'Dentista',
+        keywords: ['dentista', 'odontologico', 'odontológico'],
+      },
+    ],
   },
+
   educacao: {
     name: 'Educação',
     type: 'essencial',
     description: 'Mensalidade, material escolar, cursos',
-    keywords: [
-      'escola',
-      'colegio',
-      'colégio',
-      'faculdade',
-      'universidade',
-      'curso',
-      'mensalidade',
-      'matricula',
-      'matrícula',
-      'material escolar',
-      'livro',
-      'apostila',
-      'udemy',
-      'coursera',
-      'alura',
-      'rocketseat',
-      'edx',
-      'duolingo',
-      'wizard',
-      'ccaa',
-      'cultura inglesa',
-      'kumon',
-    ],
-    icon: '📚',
+    icon: 'educacao',
+    iconType: 'component',
     color: '#95E1D3',
+    subcategories: [
+      {
+        name: 'Escola',
+        keywords: ['escola', 'colegio', 'colégio'],
+      },
+      {
+        name: 'Faculdade',
+        keywords: ['faculdade', 'universidade'],
+      },
+      {
+        name: 'Curso',
+        keywords: ['curso', 'udemy', 'coursera', 'alura', 'rocketseat', 'edx'],
+      },
+      {
+        name: 'Idiomas',
+        keywords: [
+          'wizard',
+          'ccaa',
+          'cultura inglesa',
+          'duolingo',
+          'ingles',
+          'inglês',
+        ],
+      },
+      {
+        name: 'Material Escolar',
+        keywords: [
+          'material escolar',
+          'livro',
+          'apostila',
+          'caderno',
+          'papelaria',
+        ],
+      },
+      {
+        name: 'Reforço',
+        keywords: ['kumon', 'reforço', 'reforco'],
+      },
+    ],
   },
 
   // ===== NÃO ESSENCIAIS =====
@@ -265,202 +386,286 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     name: 'Lazer',
     type: 'nao_essencial',
     description: 'Cinema, streaming, hobbies, viagens',
-    keywords: [
-      'netflix',
-      'spotify',
-      'amazon prime',
-      'disney',
-      'hbo',
-      'max',
-      'globoplay',
-      'paramount',
-      'apple tv',
-      'youtube premium',
-      'cinema',
-      'cinemark',
-      'kinoplex',
-      'ingresso',
-      'sympla',
-      'eventim',
-      'show',
-      'teatro',
-      'parque',
-      'museu',
-      'clube',
-      'academia',
-      'smartfit',
-      'bodytech',
-      'natacao',
-      'natação',
-      'futebol',
-      'hobby',
-      'viagem',
-      'hotel',
-      'pousada',
-      'airbnb',
-      'passagem',
-      'azul',
-      'gol',
-      'latam',
-    ],
-    icon: '🎮',
+    icon: 'lazer',
+    iconType: 'component',
     color: '#A8D8EA',
+    subcategories: [
+      {
+        name: 'Streaming',
+        keywords: [
+          'netflix',
+          'spotify',
+          'amazon prime',
+          'disney',
+          'hbo',
+          'max',
+          'globoplay',
+          'paramount',
+          'apple tv',
+          'youtube premium',
+        ],
+      },
+      {
+        name: 'Cinema',
+        keywords: ['cinema', 'cinemark', 'kinoplex', 'ingresso'],
+      },
+      {
+        name: 'Shows',
+        keywords: ['show', 'teatro', 'sympla', 'eventim'],
+      },
+      {
+        name: 'Viagem',
+        keywords: [
+          'viagem',
+          'hotel',
+          'pousada',
+          'airbnb',
+          'passagem',
+          'azul',
+          'gol',
+          'latam',
+        ],
+      },
+      {
+        name: 'Academia',
+        keywords: ['academia', 'smartfit', 'bodytech', 'natacao', 'natação'],
+      },
+      {
+        name: 'Lazer',
+        keywords: [
+          'parque',
+          'museu',
+          'clube',
+          'futebol',
+          'hobby',
+          'jogo',
+          'game',
+        ],
+      },
+    ],
   },
+
   vestuario: {
     name: 'Vestuário',
     type: 'nao_essencial',
     description: 'Roupas, calçados, acessórios',
-    keywords: [
-      'renner',
-      'riachuelo',
-      'c&a',
-      'zara',
-      'hering',
-      'marisa',
-      'pernambucanas',
-      'roupa',
-      'calcado',
-      'calçado',
-      'sapato',
-      'tenis',
-      'tênis',
-      'sandalia',
-      'sandália',
-      'chinelo',
-      'bota',
-      'camisa',
-      'calca',
-      'calça',
-      'short',
-      'vestido',
-      'saia',
-      'jaqueta',
-      'casaco',
-      'bolsa',
-      'mochila',
-      'carteira',
-      'cinto',
-      'relogio',
-      'relógio',
-      'oculo',
-      'óculos',
-    ],
-    icon: '👔',
+    icon: 'vestuario',
+    iconType: 'component',
     color: '#FFB6B9',
+    subcategories: [
+      {
+        name: 'Roupas',
+        keywords: [
+          'renner',
+          'riachuelo',
+          'c&a',
+          'zara',
+          'hering',
+          'marisa',
+          'pernambucanas',
+          'roupa',
+          'camisa',
+          'calca',
+          'calça',
+          'short',
+          'vestido',
+          'saia',
+          'jaqueta',
+          'casaco',
+        ],
+      },
+      {
+        name: 'Calçados',
+        keywords: [
+          'calcado',
+          'calçado',
+          'sapato',
+          'tenis',
+          'tênis',
+          'sandalia',
+          'sandália',
+          'chinelo',
+          'bota',
+        ],
+      },
+      {
+        name: 'Acessórios',
+        keywords: [
+          'bolsa',
+          'mochila',
+          'carteira',
+          'cinto',
+          'relogio',
+          'relógio',
+          'oculo',
+          'óculos',
+        ],
+      },
+    ],
   },
+
   beleza: {
     name: 'Beleza',
     type: 'nao_essencial',
     description: 'Salão, barbearia, produtos de beleza',
-    keywords: [
-      'salao',
-      'salão',
-      'barbearia',
-      'cabelereiro',
-      'cabeleireiro',
-      'manicure',
-      'pedicure',
-      'estetica',
-      'estética',
-      'spa',
-      'massagem',
-      'depilacao',
-      'depilação',
-      'maquiagem',
-      'cosmetico',
-      'cosmético',
-      'perfume',
-      'perfumaria',
-      'boticario',
-      'boticário',
-      'natura',
-      'avon',
-      'sephora',
-      'mac',
-      'loreal',
-    ],
-    icon: '💄',
+    icon: 'beleza',
+    iconType: 'component',
     color: '#E0BBE4',
+    subcategories: [
+      {
+        name: 'Salão',
+        keywords: [
+          'salao',
+          'salão',
+          'cabelereiro',
+          'cabeleireiro',
+          'manicure',
+          'pedicure',
+        ],
+      },
+      {
+        name: 'Barbearia',
+        keywords: ['barbearia', 'barbeiro'],
+      },
+      {
+        name: 'Estética',
+        keywords: [
+          'estetica',
+          'estética',
+          'spa',
+          'massagem',
+          'depilacao',
+          'depilação',
+        ],
+      },
+      {
+        name: 'Cosméticos',
+        keywords: [
+          'cosmetico',
+          'cosmético',
+          'maquiagem',
+          'perfume',
+          'perfumaria',
+          'boticario',
+          'boticário',
+          'natura',
+          'avon',
+          'sephora',
+          'mac',
+          'loreal',
+        ],
+      },
+    ],
   },
+
   eletronicos: {
     name: 'Eletrônicos',
     type: 'nao_essencial',
     description: 'Gadgets, acessórios, games',
-    keywords: [
-      'apple',
-      'samsung',
-      'xiaomi',
-      'motorola',
-      'iphone',
-      'galaxy',
-      'notebook',
-      'computador',
-      'pc',
-      'tablet',
-      'ipad',
-      'fone',
-      'airpods',
-      'mouse',
-      'teclado',
-      'monitor',
-      'playstation',
-      'xbox',
-      'nintendo',
-      'steam',
-      'game',
-      'jogo',
-      'magazine luiza',
-      'magalu',
-      'americanas',
-      'casas bahia',
-      'fast shop',
-      'kabum',
-      'pichau',
-    ],
-    icon: '💻',
+    icon: 'eletronicos',
+    iconType: 'component',
     color: '#C5E1A5',
+    subcategories: [
+      {
+        name: 'Smartphones',
+        keywords: [
+          'apple',
+          'samsung',
+          'xiaomi',
+          'motorola',
+          'iphone',
+          'galaxy',
+          'celular',
+        ],
+      },
+      {
+        name: 'Computadores',
+        keywords: ['notebook', 'computador', 'pc', 'tablet', 'ipad', 'macbook'],
+      },
+      {
+        name: 'Acessórios',
+        keywords: ['fone', 'airpods', 'mouse', 'teclado', 'monitor', 'cabo'],
+      },
+      {
+        name: 'Games',
+        keywords: ['playstation', 'xbox', 'nintendo', 'steam', 'game', 'jogo'],
+      },
+      {
+        name: 'Lojas',
+        keywords: [
+          'magazine luiza',
+          'magalu',
+          'americanas',
+          'casas bahia',
+          'fast shop',
+          'kabum',
+          'pichau',
+        ],
+      },
+    ],
   },
+
   delivery: {
     name: 'Delivery',
     type: 'nao_essencial',
     description: 'Restaurantes, iFood, Rappi',
-    keywords: [
-      'ifood',
-      'rappi',
-      'uber eats',
-      'ze delivery',
-      'zé delivery',
-      'delivery',
-      'restaurante',
-      'lanchonete',
-      'bar',
-      'pub',
-      'churrascaria',
-      'pizzaria',
-      'hamburgueria',
-      'burger',
-      'burguer',
-      'mcdonald',
-      'mcdonalds',
-      'burger king',
-      'bk',
-      'subway',
-      'habib',
-      'china in box',
-      'pizza hut',
-      'domino',
-      'outback',
-      'coco bambu',
-      'cafe',
-      'café',
-      'starbucks',
-      'coffee',
-      'sorvete',
-      'sorveteria',
-    ],
     icon: 'restaurant',
     iconType: 'component',
     color: '#AA96DA',
+    subcategories: [
+      {
+        name: 'Apps de Entrega',
+        keywords: [
+          'ifood',
+          'rappi',
+          'uber eats',
+          'ze delivery',
+          'zé delivery',
+          'delivery',
+        ],
+      },
+      {
+        name: 'Restaurantes',
+        keywords: ['restaurante', 'churrascaria', 'outback', 'coco bambu'],
+      },
+      {
+        name: 'Fast Food',
+        keywords: [
+          'mcdonald',
+          'mcdonalds',
+          'burger king',
+          'bk',
+          'subway',
+          'habib',
+          'burger',
+          'burguer',
+          'pizza hut',
+          'domino',
+        ],
+      },
+      {
+        name: 'Lanches',
+        keywords: [
+          'lanchonete',
+          'hamburgueria',
+          'pizzaria',
+          'pizza',
+          'china in box',
+        ],
+      },
+      {
+        name: 'Bares',
+        keywords: ['bar', 'pub'],
+      },
+      {
+        name: 'Cafeterias',
+        keywords: ['cafe', 'café', 'starbucks', 'coffee'],
+      },
+      {
+        name: 'Sorveteria',
+        keywords: ['sorvete', 'sorveteria', 'gelato'],
+      },
+    ],
   },
 
   // ===== INVESTIMENTOS =====
@@ -468,52 +673,80 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     name: 'Poupança',
     type: 'investimento',
     description: 'Depósitos em poupança',
-    keywords: ['poupanca', 'poupança', 'caderneta'],
-    icon: '🐷',
+    icon: 'poupanca',
+    iconType: 'component',
     color: '#81C784',
+    subcategories: [
+      {
+        name: 'Poupança',
+        keywords: ['poupanca', 'poupança', 'caderneta'],
+      },
+    ],
   },
+
   previdencia: {
     name: 'Previdência',
     type: 'investimento',
     description: 'Previdência privada (PGBL, VGBL)',
-    keywords: [
-      'previdencia',
-      'previdência',
-      'pgbl',
-      'vgbl',
-      'aposentadoria',
-      'prev',
-    ],
-    icon: '🏦',
+    icon: 'previdencia',
+    iconType: 'component',
     color: '#64B5F6',
+    subcategories: [
+      {
+        name: 'Previdência',
+        keywords: [
+          'previdencia',
+          'previdência',
+          'pgbl',
+          'vgbl',
+          'aposentadoria',
+          'prev',
+        ],
+      },
+    ],
   },
+
   investimentos: {
     name: 'Investimentos',
     type: 'investimento',
     description: 'Ações, fundos, renda fixa, CDB, tesouro',
-    keywords: [
-      'investimento',
-      'acao',
-      'ação',
-      'acoes',
-      'ações',
-      'fundo',
-      'cdb',
-      'lci',
-      'lca',
-      'tesouro',
-      'renda fixa',
-      'bolsa',
-      'b3',
-      'xp',
-      'clear',
-      'rico',
-      'inter',
-      'nubank investimentos',
-      'btg',
-    ],
-    icon: '📈',
+    icon: 'investimentos',
+    iconType: 'component',
     color: '#4DB6AC',
+    subcategories: [
+      {
+        name: 'Ações',
+        keywords: ['acao', 'ação', 'acoes', 'ações', 'bolsa', 'b3'],
+      },
+      {
+        name: 'Fundos',
+        keywords: ['fundo', 'fundos'],
+      },
+      {
+        name: 'Renda Fixa',
+        keywords: [
+          'cdb',
+          'lci',
+          'lca',
+          'tesouro',
+          'renda fixa',
+          'titulo',
+          'título',
+        ],
+      },
+      {
+        name: 'Corretora',
+        keywords: [
+          'xp',
+          'clear',
+          'rico',
+          'inter',
+          'nubank investimentos',
+          'btg',
+          'investimento',
+        ],
+      },
+    ],
   },
 
   // ===== DÍVIDAS =====
@@ -521,65 +754,89 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     name: 'Cartão de Crédito',
     type: 'divida',
     description: 'Fatura do cartão de crédito',
-    keywords: [
-      'cartao',
-      'cartão',
-      'credito',
-      'crédito',
-      'fatura',
-      'nubank',
-      'inter',
-      'c6',
-      'itau',
-      'itaú',
-      'bradesco',
-      'santander',
-      'banco do brasil',
-      'caixa',
-      'visa',
-      'mastercard',
-      'elo',
-      'amex',
-      'american express',
-    ],
-    icon: '💳',
+    icon: 'cartao',
+    iconType: 'component',
     color: '#EF5350',
+    subcategories: [
+      {
+        name: 'Cartão',
+        keywords: [
+          'cartao',
+          'cartão',
+          'credito',
+          'crédito',
+          'fatura',
+          'nubank',
+          'inter',
+          'c6',
+          'itau',
+          'itaú',
+          'bradesco',
+          'santander',
+          'banco do brasil',
+          'caixa',
+          'visa',
+          'mastercard',
+          'elo',
+          'amex',
+          'american express',
+        ],
+      },
+    ],
   },
+
   emprestimos: {
     name: 'Empréstimos',
     type: 'divida',
     description: 'Empréstimos pessoais e consignados',
-    keywords: [
-      'emprestimo',
-      'empréstimo',
-      'credito pessoal',
-      'crédito pessoal',
-      'consignado',
-      'refinanciamento',
-      'picpay emprestimo',
-      'empréstimo pessoal',
-    ],
-    icon: '💰',
+    icon: 'emprestimos',
+    iconType: 'component',
     color: '#FF7043',
+    subcategories: [
+      {
+        name: 'Empréstimo',
+        keywords: [
+          'emprestimo',
+          'empréstimo',
+          'credito pessoal',
+          'crédito pessoal',
+          'consignado',
+          'refinanciamento',
+          'picpay emprestimo',
+          'empréstimo pessoal',
+        ],
+      },
+    ],
   },
+
   financiamentos: {
     name: 'Financiamentos',
     type: 'divida',
     description: 'Financiamento de veículo, imóvel',
-    keywords: [
-      'financiamento',
-      'prestacao',
-      'prestação',
-      'parcela',
-      'consorcio',
-      'consórcio',
-      'carro financiado',
-      'imovel financiado',
-      'imóvel financiado',
-      'casa financiada',
-    ],
-    icon: '🏠',
+    icon: 'financiamentos',
+    iconType: 'component',
     color: '#FF8A65',
+    subcategories: [
+      {
+        name: 'Veículo',
+        keywords: ['carro financiado', 'veiculo financiado'],
+      },
+      {
+        name: 'Imóvel',
+        keywords: ['imovel financiado', 'imóvel financiado', 'casa financiada'],
+      },
+      {
+        name: 'Financiamento',
+        keywords: [
+          'financiamento',
+          'prestacao',
+          'prestação',
+          'parcela',
+          'consorcio',
+          'consórcio',
+        ],
+      },
+    ],
   },
 
   // ===== OUTROS =====
@@ -587,26 +844,42 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     name: 'Outros',
     type: 'outro',
     description: 'Gastos não categorizados',
-    keywords: [],
-    icon: '📦',
+    icon: 'outros',
+    iconType: 'component',
     color: '#B0BEC5',
+    subcategories: [
+      {
+        name: 'Outros',
+        keywords: [],
+      },
+    ],
   },
 };
 
-// Função para categorizar automaticamente um gasto baseado no nome do estabelecimento
-export function categorizeExpense(establishmentName: string): ExpenseCategory {
+// Função para categorizar automaticamente um gasto e retornar a SUBCATEGORIA
+export function categorizeExpense(establishmentName: string): {
+  category: ExpenseCategory;
+  subcategory: string;
+} {
   const nameLower = establishmentName.toLowerCase();
 
   // Percorre todas as categorias em ordem de prioridade
   for (const [category, info] of Object.entries(CATEGORIES)) {
-    for (const keyword of info.keywords) {
-      if (nameLower.includes(keyword.toLowerCase())) {
-        return category as ExpenseCategory;
-      }
+    // Tenta detectar a subcategoria
+    const subcategoryName = detectSubcategory(
+      establishmentName,
+      info.subcategories
+    );
+
+    if (subcategoryName) {
+      return {
+        category: category as ExpenseCategory,
+        subcategory: subcategoryName,
+      };
     }
   }
 
-  return 'outros';
+  return { category: 'outros', subcategory: 'Outros' };
 }
 
 // Função para obter informações de uma categoria

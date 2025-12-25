@@ -33,6 +33,7 @@ type Expense = {
   amount: number;
   date: string;
   created_at: string;
+  subcategory?: string;
 };
 
 export default function HomeScreen() {
@@ -250,8 +251,10 @@ export default function HomeScreen() {
         imageUrl = publicUrl;
       }
 
-      // Categorizar automaticamente o gasto
-      const category = categorizeExpense(data.establishmentName);
+      // Categorizar automaticamente o gasto e obter subcategoria
+      const { category, subcategory } = categorizeExpense(
+        data.establishmentName
+      );
 
       const { error } = await supabase.from('expenses').insert({
         user_id: user.id,
@@ -261,6 +264,7 @@ export default function HomeScreen() {
         items: data.items,
         image_url: imageUrl,
         category: category,
+        subcategory: subcategory,
       });
 
       if (error) throw error;
@@ -421,6 +425,7 @@ export default function HomeScreen() {
                         establishmentName={expense.establishment_name}
                         amount={expense.amount}
                         date={expense.date}
+                        subcategory={expense.subcategory}
                         onPress={() => handleExpensePress(expense.id)}
                       />
                     </View>

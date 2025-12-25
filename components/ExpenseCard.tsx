@@ -7,6 +7,7 @@ type ExpenseCardProps = {
   establishmentName: string;
   amount: number;
   date: string;
+  subcategory?: string;
   onPress: () => void;
 };
 
@@ -14,6 +15,7 @@ export function ExpenseCard({
   establishmentName,
   amount,
   date,
+  subcategory,
   onPress,
 }: ExpenseCardProps) {
   const { theme } = useTheme();
@@ -35,6 +37,11 @@ export function ExpenseCard({
         <Text style={[styles.title, { color: theme.text }]}>
           {establishmentName}
         </Text>
+        {subcategory && (
+          <Text style={[styles.subcategory, { color: theme.primary }]}>
+            {subcategory}
+          </Text>
+        )}
         <Text style={[styles.date, { color: theme.textSecondary }]}>
           {formattedDate}
         </Text>
@@ -70,6 +77,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
     marginBottom: 4,
+  },
+  subcategory: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Medium',
+    marginBottom: 2,
   },
   date: {
     fontSize: 16,

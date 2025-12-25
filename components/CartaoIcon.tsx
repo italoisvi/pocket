@@ -1,0 +1,14 @@
+import Svg, { Path } from 'react-native-svg';
+
+type CartaoIconProps = {
+  size?: number;
+  color?: string;
+};
+
+export function CartaoIcon({ size = 24, color = '#000' }: CartaoIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="m19.5,3H4.5C2.019,3,0,5.019,0,7.5v9c0,2.481,2.019,4.5,4.5,4.5h15c2.481,0,4.5-2.019,4.5-4.5V7.5c0-2.481-2.019-4.5-4.5-4.5ZM1,8h22v2H1v-2Zm3.5-4h15c1.758,0,3.204,1.308,3.449,3H1.051c.245-1.692,1.691-3,3.449-3Zm15,16H4.5c-1.93,0-3.5-1.57-3.5-3.5v-5.5h22v5.5c0,1.93-1.57,3.5-3.5,3.5Zm-14.5-6c-1.103,0-2,.897-2,2s.897,2,2,2,2-.897,2-2-.897-2-2-2Zm0,3c-.551,0-1-.448-1-1s.449-1,1-1,1,.448,1,1-.449,1-1,1Z" />
+    </Svg>
+  );
+}
