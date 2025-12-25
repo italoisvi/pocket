@@ -47,39 +47,77 @@ ADD COLUMN IF NOT EXISTS category_new expense_category,
 ADD COLUMN IF NOT EXISTS subcategory text;
 
 -- 3. Migrar dados existentes do sistema antigo para o novo
--- Mapeamento das categorias antigas para as novas:
-UPDATE expenses
-SET category_new = CASE
-    -- Categorias antigas -> novas
-    WHEN category = 'moradia_contas' THEN 'moradia'::expense_category
-    WHEN category = 'comunicacao' THEN 'moradia'::expense_category  -- Internet/telefone agora são moradia
-    WHEN category = 'mercado_casa' THEN 'alimentacao'::expense_category
-    WHEN category = 'saude_farmacia' THEN 'saude'::expense_category
-    WHEN category = 'transporte' THEN 'transporte'::expense_category
-    WHEN category = 'alimentacao_delivery' THEN 'delivery'::expense_category
-    WHEN category = 'lazer_streaming' THEN 'lazer'::expense_category
-    WHEN category = 'compras' THEN 'vestuario'::expense_category  -- Generalizar compras para vestuário
-    ELSE 'outros'::expense_category
-END,
-subcategory = CASE
-    -- Definir subcategorias padrão para dados migrados (serão genéricos)
-    WHEN category = 'moradia_contas' THEN 'Moradia'
-    WHEN category = 'comunicacao' THEN 'Internet'
-    WHEN category = 'mercado_casa' THEN 'Supermercado'
-    WHEN category = 'saude_farmacia' THEN 'Farmácia'
-    WHEN category = 'transporte' THEN 'Transporte'
-    WHEN category = 'alimentacao_delivery' THEN 'Delivery'
-    WHEN category = 'lazer_streaming' THEN 'Streaming'
-    WHEN category = 'compras' THEN 'Compras'
-    ELSE 'Outros'
-END
-WHERE category_new IS NULL;
+-- Verifica se existe a coluna antiga 'category' antes de migrar
+DO $$
+DECLARE
+    old_category_exists boolean;
+BEGIN
+    -- Verificar se a coluna 'category' antiga existe (tipo text, não o novo ENUM)
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'expenses'
+          AND column_name = 'category'
+          AND data_type IN ('text', 'character varying', 'USER-DEFINED')
+          AND column_name != 'category_new'
+    ) INTO old_category_exists;
+
+    IF old_category_exists THEN
+        -- Coluna antiga existe, realizar migração dos dados
+        RAISE NOTICE 'Migrando dados da coluna category antiga...';
+
+        UPDATE expenses
+        SET category_new = CASE
+            -- Categorias antigas -> novas (usando cast para text para garantir compatibilidade)
+            WHEN category::text = 'moradia_contas' THEN 'moradia'::expense_category
+            WHEN category::text = 'comunicacao' THEN 'moradia'::expense_category  -- Internet/telefone agora são moradia
+            WHEN category::text = 'mercado_casa' THEN 'alimentacao'::expense_category
+            WHEN category::text = 'saude_farmacia' THEN 'saude'::expense_category
+            WHEN category::text = 'transporte' THEN 'transporte'::expense_category
+            WHEN category::text = 'alimentacao_delivery' THEN 'delivery'::expense_category
+            WHEN category::text = 'lazer_streaming' THEN 'lazer'::expense_category
+            WHEN category::text = 'compras' THEN 'vestuario'::expense_category  -- Generalizar compras para vestuário
+            ELSE 'outros'::expense_category
+        END,
+        subcategory = CASE
+            -- Definir subcategorias padrão para dados migrados (serão genéricos)
+            WHEN category::text = 'moradia_contas' THEN 'Moradia'
+            WHEN category::text = 'comunicacao' THEN 'Internet'
+            WHEN category::text = 'mercado_casa' THEN 'Supermercado'
+            WHEN category::text = 'saude_farmacia' THEN 'Farmácia'
+            WHEN category::text = 'transporte' THEN 'Transporte'
+            WHEN category::text = 'alimentacao_delivery' THEN 'Delivery'
+            WHEN category::text = 'lazer_streaming' THEN 'Streaming'
+            WHEN category::text = 'compras' THEN 'Compras'
+            ELSE 'Outros'
+        END
+        WHERE category_new IS NULL;
+    ELSE
+        -- Coluna antiga não existe, definir valores padrão para registros existentes sem categoria
+        RAISE NOTICE 'Coluna category antiga não encontrada. Definindo valores padrão...';
+
+        UPDATE expenses
+        SET category_new = 'outros'::expense_category,
+            subcategory = 'Outros'
+        WHERE category_new IS NULL;
+    END IF;
+END $$;
 
 -- 4. Remover coluna antiga e renomear a nova
 ALTER TABLE expenses DROP COLUMN IF EXISTS category;
 ALTER TABLE expenses RENAME COLUMN category_new TO category;
 
 -- 5. Adicionar NOT NULL constraints
+-- Garantir que todos os registros tenham valores antes de aplicar NOT NULL
+UPDATE expenses
+SET category = 'outros'::expense_category
+WHERE category IS NULL;
+
+UPDATE expenses
+SET subcategory = 'Outros'
+WHERE subcategory IS NULL;
+
 ALTER TABLE expenses
 ALTER COLUMN category SET NOT NULL,
 ALTER COLUMN subcategory SET NOT NULL;
