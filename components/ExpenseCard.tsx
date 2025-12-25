@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/lib/theme';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 type ExpenseCardProps = {
   id: string;
@@ -39,7 +40,7 @@ export function ExpenseCard({
         </Text>
       </View>
       <Text style={[styles.amount, { color: theme.text }]}>
-        R$ {amount.toFixed(2)}
+        {formatCurrency(amount)}
       </Text>
     </TouchableOpacity>
   );

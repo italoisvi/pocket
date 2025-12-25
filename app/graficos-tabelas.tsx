@@ -6,11 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
@@ -110,8 +112,10 @@ export default function GraficosTabelasScreen() {
 
       <ScrollView style={styles.content}>
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={{ color: theme.text }}>Carregando...</Text>
+          <View
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+          >
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : (
           <>
@@ -258,7 +262,7 @@ export default function GraficosTabelasScreen() {
                           <Text
                             style={[styles.tableCell, { color: theme.text }]}
                           >
-                            R$ {item.total.toFixed(2).replace('.', ',')}
+                            {formatCurrency(item.total)}
                           </Text>
                           <Text
                             style={[styles.tableCell, { color: theme.text }]}
@@ -285,7 +289,7 @@ export default function GraficosTabelasScreen() {
                     <Text
                       style={[styles.tableTotalValue, { color: theme.text }]}
                     >
-                      R$ {totalExpenses.toFixed(2).replace('.', ',')}
+                      {formatCurrency(totalExpenses)}
                     </Text>
                     <Text
                       style={[styles.tableTotalValue, { color: theme.text }]}

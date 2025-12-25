@@ -22,6 +22,7 @@ import { ExpenseConfirmModal } from '@/components/ExpenseConfirmModal';
 import { SalarySetupModal } from '@/components/SalarySetupModal';
 import { extractReceiptData, type ReceiptData } from '@/lib/ocr';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/formatCurrency';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { categorizeExpense } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
@@ -338,13 +339,12 @@ export default function HomeScreen() {
               onPress={() => router.push('/financial-overview')}
             >
               <Text style={[styles.salaryText, { color: theme.text }]}>
-                R${' '}
                 {salaryVisible
-                  ? monthlySalary.toLocaleString('pt-BR', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
-                  : '*.***,**'}
+                  ? formatCurrency(
+                      monthlySalary -
+                        expenses.reduce((sum, exp) => sum + exp.amount, 0)
+                    )
+                  : 'R$ *.***,**'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity

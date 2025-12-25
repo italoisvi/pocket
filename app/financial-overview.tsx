@@ -6,11 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
@@ -33,12 +35,22 @@ export default function FinancialOverviewScreen() {
     []
   );
   const [loading, setLoading] = useState(true);
-  const [showSummary, setShowSummary] = useState(false);
-  const [showDailyBudget, setShowDailyBudget] = useState(false);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
   useEffect(() => {
     loadFinancialData();
   }, []);
+
+  const toggleCategory = (cardId: string) => {
+    setExpandedCard((currentExpanded) => {
+      // Se o card clicado já está expandido, fechar ele
+      if (currentExpanded === cardId) {
+        return null;
+      }
+      // Se outro card está expandido, fechar o anterior e abrir o novo
+      return cardId;
+    });
+  };
 
   const loadFinancialData = async () => {
     try {
@@ -165,8 +177,10 @@ export default function FinancialOverviewScreen() {
 
       <ScrollView style={styles.content}>
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={{ color: theme.text }}>Carregando...</Text>
+          <View
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+          >
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : (
           <>
@@ -179,7 +193,7 @@ export default function FinancialOverviewScreen() {
                   borderColor: theme.cardBorder,
                 },
               ]}
-              onPress={() => setShowSummary(!showSummary)}
+              onPress={() => toggleCategory('summary')}
             >
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
@@ -187,14 +201,18 @@ export default function FinancialOverviewScreen() {
                 </Text>
                 <View
                   style={{
-                    transform: [{ rotate: showSummary ? '180deg' : '0deg' }],
+                    transform: [
+                      {
+                        rotate: expandedCard === 'summary' ? '180deg' : '0deg',
+                      },
+                    ],
                   }}
                 >
                   <ChevronDownIcon size={20} color={theme.text} />
                 </View>
               </View>
 
-              {showSummary && (
+              {expandedCard === 'summary' && (
                 <View style={styles.cardContent}>
                   <View style={styles.row}>
                     <Text
@@ -203,7 +221,7 @@ export default function FinancialOverviewScreen() {
                       Renda Mensal
                     </Text>
                     <Text style={[styles.value, { color: theme.text }]}>
-                      R$ {monthlySalary.toFixed(2).replace('.', ',')}
+                      {formatCurrency(monthlySalary)}
                     </Text>
                   </View>
 
@@ -214,7 +232,7 @@ export default function FinancialOverviewScreen() {
                       Total Gasto
                     </Text>
                     <Text style={[styles.value, { color: theme.text }]}>
-                      R$ {totalExpenses.toFixed(2).replace('.', ',')}
+                      {formatCurrency(totalExpenses)}
                     </Text>
                   </View>
 
@@ -227,7 +245,7 @@ export default function FinancialOverviewScreen() {
                       Saldo Restante
                     </Text>
                     <Text style={[styles.valueBold, { color: theme.text }]}>
-                      R$ {remainingBalance.toFixed(2).replace('.', ',')}
+                      {formatCurrency(remainingBalance)}
                     </Text>
                   </View>
 
@@ -268,7 +286,7 @@ export default function FinancialOverviewScreen() {
                   borderColor: theme.cardBorder,
                 },
               ]}
-              onPress={() => setShowDailyBudget(!showDailyBudget)}
+              onPress={() => toggleCategory('daily')}
             >
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
@@ -277,7 +295,7 @@ export default function FinancialOverviewScreen() {
                 <View
                   style={{
                     transform: [
-                      { rotate: showDailyBudget ? '180deg' : '0deg' },
+                      { rotate: expandedCard === 'daily' ? '180deg' : '0deg' },
                     ],
                   }}
                 >
@@ -285,10 +303,10 @@ export default function FinancialOverviewScreen() {
                 </View>
               </View>
 
-              {showDailyBudget && (
+              {expandedCard === 'daily' && (
                 <View style={styles.cardContent}>
                   <Text style={[styles.dailyAmount, { color: theme.text }]}>
-                    R$ {dailyBudget.toFixed(2).replace('.', ',')}
+                    {formatCurrency(dailyBudget)}
                   </Text>
                   <Text
                     style={[styles.dailyText, { color: theme.textSecondary }]}

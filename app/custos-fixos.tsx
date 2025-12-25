@@ -5,10 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
@@ -101,8 +103,10 @@ export default function CustosFixosScreen() {
 
       <ScrollView style={styles.content}>
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={{ color: theme.text }}>Carregando...</Text>
+          <View
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+          >
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : (
           <>
@@ -119,7 +123,7 @@ export default function CustosFixosScreen() {
                 Total de Custos Fixos
               </Text>
               <Text style={[styles.totalValue, { color: theme.text }]}>
-                R$ {totalFixed.toFixed(2).replace('.', ',')}
+                {formatCurrency(totalFixed)}
               </Text>
             </View>
 
@@ -157,7 +161,7 @@ export default function CustosFixosScreen() {
                         Valor
                       </Text>
                       <Text style={[styles.value, { color: theme.text }]}>
-                        R$ {item.total.toFixed(2).replace('.', ',')}
+                        {formatCurrency(item.total)}
                       </Text>
                     </View>
                     <View style={styles.row}>

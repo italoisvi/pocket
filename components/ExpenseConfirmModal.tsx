@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import type { ReceiptData } from '@/lib/ocr';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 type ExpenseConfirmModalProps = {
   visible: boolean;
@@ -106,7 +107,7 @@ export function ExpenseConfirmModal({
                       {item.quantity}x {item.name}
                     </Text>
                     <Text style={styles.itemPrice}>
-                      R$ {item.price.toFixed(2)}
+                      {formatCurrency(item.price)}
                     </Text>
                   </View>
                 ))}

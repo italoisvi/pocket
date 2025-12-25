@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { useTheme } from '@/lib/theme';
 
 type Expense = {
@@ -105,7 +106,7 @@ export default function ExpenseDetailScreen() {
           {formattedDate}
         </Text>
         <Text style={[styles.amount, { color: theme.text }]}>
-          R$ {expense.amount.toFixed(2)}
+          {formatCurrency(expense.amount)}
         </Text>
 
         {expense.items.length > 0 && (
@@ -132,7 +133,7 @@ export default function ExpenseDetailScreen() {
                   </Text>
                 </View>
                 <Text style={[styles.itemPrice, { color: theme.text }]}>
-                  R$ {item.price.toFixed(2)}
+                  {formatCurrency(item.price)}
                 </Text>
               </View>
             ))}
