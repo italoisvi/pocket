@@ -119,7 +119,8 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
       'açougue',
       'acougue',
     ],
-    icon: '🛒',
+    icon: 'shopping-basket',
+    iconType: 'component',
     color: '#95E1D3',
   },
   saude_farmacia: {

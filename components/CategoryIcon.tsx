@@ -1,6 +1,7 @@
 import { Text } from 'react-native';
 import { HouseIcon } from './HouseIcon';
 import { RestaurantIcon } from './RestaurantIcon';
+import { ShoppingBasketIcon } from './ShoppingBasketIcon';
 import type { CategoryInfo } from '@/lib/categories';
 
 type CategoryIconProps = {
@@ -23,6 +24,8 @@ export function CategoryIcon({
         return <HouseIcon size={size} color={iconColor} />;
       case 'restaurant':
         return <RestaurantIcon size={size} color={iconColor} />;
+      case 'shopping-basket':
+        return <ShoppingBasketIcon size={size} color={iconColor} />;
       default:
         // Fallback para emoji se o componente não existir
         return <Text style={{ fontSize: size }}>{categoryInfo.icon}</Text>;
