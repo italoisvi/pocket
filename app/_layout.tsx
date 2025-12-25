@@ -110,21 +110,6 @@ function RootLayout() {
     segments
   );
 
-  // Usar Redirect ao invés de router.replace
-  if (!session && !inAuthGroup) {
-    console.log(
-      '[RootLayout] Redirecting to login (no session, not in auth group)'
-    );
-    return <Redirect href="/(auth)/login" />;
-  }
-
-  if (session && inAuthGroup) {
-    console.log(
-      '[RootLayout] Redirecting to home (has session, in auth group)'
-    );
-    return <Redirect href="/(tabs)/home" />;
-  }
-
   console.log('[RootLayout] Rendering Stack');
 
   return (
