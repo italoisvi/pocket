@@ -20,16 +20,17 @@ import { useTheme } from '@/lib/theme';
 
 const screenWidth = Dimensions.get('window').width;
 
-type CategoryExpense = {
+type SubcategoryExpense = {
   category: ExpenseCategory;
+  subcategory: string;
   total: number;
 };
 
 export default function GraficosTabelasScreen() {
   const { theme } = useTheme();
-  const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>(
-    []
-  );
+  const [categoryExpenses, setCategoryExpenses] = useState<
+    SubcategoryExpense[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
 
@@ -51,7 +52,7 @@ export default function GraficosTabelasScreen() {
 
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category')
+        .select('amount, category, subcategory')
         .gte('created_at', firstDayOfMonth.toISOString())
         .lte('created_at', lastDayOfMonth.toISOString());
 
@@ -59,21 +60,30 @@ export default function GraficosTabelasScreen() {
         const total = expensesData.reduce((sum, exp) => sum + exp.amount, 0);
         setTotalExpenses(total);
 
-        const categoryMap = new Map<ExpenseCategory, number>();
+        // Agrupar por categoria + subcategoria
+        const subcategoryMap = new Map<string, SubcategoryExpense>();
         expensesData.forEach((exp) => {
           const category = (exp.category as ExpenseCategory) || 'outros';
-          const current = categoryMap.get(category) || 0;
-          categoryMap.set(category, current + exp.amount);
+          const subcategory = exp.subcategory || 'Outros';
+          const key = `${category}-${subcategory}`;
+
+          if (subcategoryMap.has(key)) {
+            const existing = subcategoryMap.get(key)!;
+            existing.total += exp.amount;
+          } else {
+            subcategoryMap.set(key, {
+              category,
+              subcategory,
+              total: exp.amount,
+            });
+          }
         });
 
-        const categories: CategoryExpense[] = Array.from(
-          categoryMap.entries()
-        ).map(([category, total]) => ({
-          category,
-          total,
-        }));
+        const subcategories: SubcategoryExpense[] = Array.from(
+          subcategoryMap.values()
+        );
 
-        setCategoryExpenses(categories.sort((a, b) => b.total - a.total));
+        setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
       }
     } catch (error) {
       console.error('Erro ao carregar gastos:', error);
@@ -85,7 +95,7 @@ export default function GraficosTabelasScreen() {
   const chartData = categoryExpenses
     .filter((item) => CATEGORIES[item.category])
     .map((item) => ({
-      name: '',
+      name: item.subcategory,
       population: item.total,
       color: CATEGORIES[item.category].color,
       legendFontColor: '#666',
@@ -160,7 +170,10 @@ export default function GraficosTabelasScreen() {
                             : 0;
 
                         return (
-                          <View key={item.category} style={styles.legendItem}>
+                          <View
+                            key={`${item.category}-${item.subcategory}`}
+                            style={styles.legendItem}
+                          >
                             <View
                               style={[
                                 styles.legendColorBox,
@@ -169,13 +182,26 @@ export default function GraficosTabelasScreen() {
                             />
                             <CategoryIcon
                               categoryInfo={categoryInfo}
-                              size={24}
+                              size={20}
                             />
-                            <Text
-                              style={[styles.legendText, { color: theme.text }]}
-                            >
-                              {categoryInfo.name} ({percentage.toFixed(1)}%)
-                            </Text>
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={[
+                                  styles.legendText,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                {item.subcategory}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.legendSubtext,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                {categoryInfo.name} - {percentage.toFixed(1)}%
+                              </Text>
+                            </View>
                           </View>
                         );
                       })}
@@ -239,7 +265,7 @@ export default function GraficosTabelasScreen() {
 
                       return (
                         <View
-                          key={item.category}
+                          key={`${item.category}-${item.subcategory}`}
                           style={[
                             styles.tableRow,
                             { borderBottomColor: theme.border },
@@ -248,16 +274,26 @@ export default function GraficosTabelasScreen() {
                           <View style={styles.tableCategoryCell}>
                             <CategoryIcon
                               categoryInfo={categoryInfo}
-                              size={24}
+                              size={20}
                             />
-                            <Text
-                              style={[
-                                styles.categoryName,
-                                { color: theme.text },
-                              ]}
-                            >
-                              {categoryInfo.name}
-                            </Text>
+                            <View>
+                              <Text
+                                style={[
+                                  styles.subcategoryName,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                {item.subcategory}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.categoryLabel,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                {categoryInfo.name}
+                              </Text>
+                            </View>
                           </View>
                           <Text
                             style={[styles.tableCell, { color: theme.text }]}
@@ -389,9 +425,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  categoryName: {
-    fontSize: 18,
+  subcategoryName: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  categoryLabel: {
+    fontSize: 13,
     fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 2,
   },
   tableCell: {
     flex: 1,
@@ -439,7 +480,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendText: {
-    fontSize: 18,
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  legendSubtext: {
+    fontSize: 13,
     fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 2,
   },
 });

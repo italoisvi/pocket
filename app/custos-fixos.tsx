@@ -16,16 +16,17 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
 
-type CategoryExpense = {
+type SubcategoryExpense = {
   category: ExpenseCategory;
+  subcategory: string;
   total: number;
 };
 
 export default function CustosFixosScreen() {
   const { theme } = useTheme();
-  const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>(
-    []
-  );
+  const [categoryExpenses, setCategoryExpenses] = useState<
+    SubcategoryExpense[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,12 +47,13 @@ export default function CustosFixosScreen() {
 
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category')
+        .select('amount, category, subcategory')
         .gte('created_at', firstDayOfMonth.toISOString())
         .lte('created_at', lastDayOfMonth.toISOString());
 
       if (expensesData) {
-        const categoryMap = new Map<ExpenseCategory, number>();
+        // Agrupar por categoria + subcategoria
+        const subcategoryMap = new Map<string, SubcategoryExpense>();
         expensesData
           .filter(
             (exp) =>
@@ -60,18 +62,26 @@ export default function CustosFixosScreen() {
           )
           .forEach((exp) => {
             const category = (exp.category as ExpenseCategory) || 'outros';
-            const current = categoryMap.get(category) || 0;
-            categoryMap.set(category, current + exp.amount);
+            const subcategory = exp.subcategory || 'Outros';
+            const key = `${category}-${subcategory}`;
+
+            if (subcategoryMap.has(key)) {
+              const existing = subcategoryMap.get(key)!;
+              existing.total += exp.amount;
+            } else {
+              subcategoryMap.set(key, {
+                category,
+                subcategory,
+                total: exp.amount,
+              });
+            }
           });
 
-        const categories: CategoryExpense[] = Array.from(
-          categoryMap.entries()
-        ).map(([category, total]) => ({
-          category,
-          total,
-        }));
+        const subcategories: SubcategoryExpense[] = Array.from(
+          subcategoryMap.values()
+        );
 
-        setCategoryExpenses(categories.sort((a, b) => b.total - a.total));
+        setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
       }
     } catch (error) {
       console.error('Erro ao carregar custos fixos:', error);
@@ -136,7 +146,7 @@ export default function CustosFixosScreen() {
 
               return (
                 <View
-                  key={item.category}
+                  key={`${item.category}-${item.subcategory}`}
                   style={[
                     styles.card,
                     {
@@ -148,11 +158,24 @@ export default function CustosFixosScreen() {
                   <View style={styles.cardHeader}>
                     <View style={styles.categoryLeft}>
                       <CategoryIcon categoryInfo={categoryInfo} size={24} />
-                      <Text
-                        style={[styles.categoryName, { color: theme.text }]}
-                      >
-                        {categoryInfo.name}
-                      </Text>
+                      <View>
+                        <Text
+                          style={[
+                            styles.subcategoryName,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {item.subcategory}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.categoryLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {categoryInfo.name}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                   <View style={styles.cardContent}>
@@ -262,9 +285,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  categoryName: {
+  subcategoryName: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  categoryLabel: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 2,
   },
   row: {
     flexDirection: 'row',
