@@ -144,68 +144,99 @@ export default function GraficosTabelasScreen() {
                   <Text style={[styles.sectionTitle, { color: theme.text }]}>
                     Distribuição por Categoria
                   </Text>
-                  <PieChart
-                    data={chartData}
-                    width={screenWidth - 48}
-                    height={220}
-                    chartConfig={{
-                      color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                    }}
-                    accessor="population"
-                    backgroundColor="transparent"
-                    paddingLeft="15"
-                    absolute
-                    hasLegend={false}
+                  <View style={styles.chartWrapper}>
+                    <PieChart
+                      data={chartData}
+                      width={screenWidth - 88}
+                      height={220}
+                      chartConfig={{
+                        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                      }}
+                      accessor="population"
+                      backgroundColor="transparent"
+                      paddingLeft="15"
+                      absolute
+                      hasLegend={false}
+                    />
+                  </View>
+
+                  {/* Divider line */}
+                  <View
+                    style={[
+                      styles.chartDivider,
+                      { backgroundColor: theme.border },
+                    ]}
                   />
 
-                  {/* Legendas customizadas com ícones */}
-                  <View style={styles.legendContainer}>
-                    {categoryExpenses
-                      .filter((item) => CATEGORIES[item.category])
-                      .map((item) => {
-                        const categoryInfo = CATEGORIES[item.category];
-                        const percentage =
-                          totalExpenses > 0
-                            ? (item.total / totalExpenses) * 100
-                            : 0;
+                  {/* Legendas customizadas com ícones em scroll horizontal */}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={true}
+                    contentContainerStyle={styles.legendScrollContent}
+                    style={styles.legendScrollView}
+                  >
+                    {(() => {
+                      const filteredItems = categoryExpenses.filter(
+                        (item) => CATEGORIES[item.category]
+                      );
+                      const columns = [];
+                      for (let i = 0; i < filteredItems.length; i += 3) {
+                        columns.push(filteredItems.slice(i, i + 3));
+                      }
 
-                        return (
-                          <View
-                            key={`${item.category}-${item.subcategory}`}
-                            style={styles.legendItem}
-                          >
-                            <View
-                              style={[
-                                styles.legendColorBox,
-                                { backgroundColor: categoryInfo.color },
-                              ]}
-                            />
-                            <CategoryIcon
-                              categoryInfo={categoryInfo}
-                              size={20}
-                            />
-                            <View style={{ flex: 1 }}>
-                              <Text
-                                style={[
-                                  styles.legendText,
-                                  { color: theme.text },
-                                ]}
+                      return columns.map((column, colIndex) => (
+                        <View
+                          key={`column-${colIndex}`}
+                          style={styles.legendColumn}
+                        >
+                          {column.map((item) => {
+                            const categoryInfo = CATEGORIES[item.category];
+                            const percentage =
+                              totalExpenses > 0
+                                ? (item.total / totalExpenses) * 100
+                                : 0;
+
+                            return (
+                              <View
+                                key={`${item.category}-${item.subcategory}`}
+                                style={styles.legendItem}
                               >
-                                {item.subcategory}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.legendSubtext,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                {categoryInfo.name} - {percentage.toFixed(1)}%
-                              </Text>
-                            </View>
-                          </View>
-                        );
-                      })}
-                  </View>
+                                <View
+                                  style={[
+                                    styles.legendColorBox,
+                                    { backgroundColor: categoryInfo.color },
+                                  ]}
+                                />
+                                <CategoryIcon
+                                  categoryInfo={categoryInfo}
+                                  size={20}
+                                />
+                                <View style={styles.legendTextContainer}>
+                                  <Text
+                                    style={[
+                                      styles.legendText,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {item.subcategory}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.legendSubtext,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    {categoryInfo.name} -{' '}
+                                    {percentage.toFixed(1)}%
+                                  </Text>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      ));
+                    })()}
+                  </ScrollView>
                 </View>
 
                 {/* Tabela de Dados */}
@@ -388,7 +419,16 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 24,
     borderWidth: 2,
+  },
+  chartWrapper: {
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  chartDivider: {
+    height: 2,
+    width: '100%',
+    marginVertical: 16,
   },
   tableCard: {
     borderRadius: 12,
@@ -400,7 +440,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
     marginBottom: 16,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
+    textAlign: 'center',
   },
   tableHeader: {
     flexDirection: 'row',
@@ -464,27 +505,39 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
   },
-  legendContainer: {
-    marginTop: 24,
+  legendScrollView: {
     width: '100%',
+  },
+  legendScrollContent: {
+    paddingHorizontal: 4,
+  },
+  legendColumn: {
+    flexDirection: 'column',
     gap: 12,
+    marginRight: 16,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    width: (screenWidth - 88) / 2,
   },
   legendColorBox: {
-    width: 20,
-    height: 20,
+    width: 16,
+    height: 16,
     borderRadius: 4,
+    flexShrink: 0,
+  },
+  legendTextContainer: {
+    flex: 1,
+    minWidth: 0,
   },
   legendText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'CormorantGaramond-SemiBold',
   },
   legendSubtext: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
     marginTop: 2,
   },

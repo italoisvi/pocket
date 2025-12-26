@@ -13,6 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { CheckIcon } from '@/components/CheckIcon';
+import { ModoEscuroIcon } from '@/components/ModoEscuroIcon';
+import { SolIcon } from '@/components/SolIcon';
+import { LuaIcon } from '@/components/LuaIcon';
+import { BotaoMovelIcon } from '@/components/BotaoMovelIcon';
 import { useTheme, type ThemeMode } from '@/lib/theme';
 
 export default function SettingsScreen() {
@@ -107,9 +112,12 @@ export default function SettingsScreen() {
             ]}
             onPress={() => setShowThemeModal(true)}
           >
-            <Text style={[styles.settingCardTitle, { color: theme.text }]}>
-              Aparência
-            </Text>
+            <View style={styles.settingCardLeft}>
+              <ModoEscuroIcon size={24} color={theme.text} />
+              <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                Aparência
+              </Text>
+            </View>
             <Text
               style={[styles.settingCardValue, { color: theme.textSecondary }]}
             >
@@ -203,16 +211,14 @@ export default function SettingsScreen() {
               ]}
               onPress={() => handleThemeSelect('light')}
             >
-              <Text style={[styles.themeOptionText, { color: theme.text }]}>
-                Modo Claro
-              </Text>
+              <View style={styles.themeOptionLeft}>
+                <SolIcon size={20} color={theme.text} />
+                <Text style={[styles.themeOptionText, { color: theme.text }]}>
+                  Modo Claro
+                </Text>
+              </View>
               {themeMode === 'light' && (
-                <View
-                  style={[
-                    styles.selectedIndicator,
-                    { backgroundColor: theme.primary },
-                  ]}
-                />
+                <CheckIcon size={20} color={theme.primary} />
               )}
             </TouchableOpacity>
 
@@ -229,16 +235,14 @@ export default function SettingsScreen() {
               ]}
               onPress={() => handleThemeSelect('dark')}
             >
-              <Text style={[styles.themeOptionText, { color: theme.text }]}>
-                Modo Escuro
-              </Text>
+              <View style={styles.themeOptionLeft}>
+                <LuaIcon size={20} color={theme.text} />
+                <Text style={[styles.themeOptionText, { color: theme.text }]}>
+                  Modo Escuro
+                </Text>
+              </View>
               {themeMode === 'dark' && (
-                <View
-                  style={[
-                    styles.selectedIndicator,
-                    { backgroundColor: theme.primary },
-                  ]}
-                />
+                <CheckIcon size={20} color={theme.primary} />
               )}
             </TouchableOpacity>
 
@@ -255,16 +259,14 @@ export default function SettingsScreen() {
               ]}
               onPress={() => handleThemeSelect('system')}
             >
-              <Text style={[styles.themeOptionText, { color: theme.text }]}>
-                Modo do Sistema
-              </Text>
+              <View style={styles.themeOptionLeft}>
+                <BotaoMovelIcon size={20} color={theme.text} />
+                <Text style={[styles.themeOptionText, { color: theme.text }]}>
+                  Modo do Sistema
+                </Text>
+              </View>
               {themeMode === 'system' && (
-                <View
-                  style={[
-                    styles.selectedIndicator,
-                    { backgroundColor: theme.primary },
-                  ]}
-                />
+                <CheckIcon size={20} color={theme.primary} />
               )}
             </TouchableOpacity>
           </View>
@@ -317,6 +319,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  settingCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   settingCardTitle: {
     fontSize: 20,
@@ -396,13 +403,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 2,
   },
+  themeOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   themeOptionText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Medium',
-  },
-  selectedIndicator: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
   },
 });

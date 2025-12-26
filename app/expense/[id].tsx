@@ -7,11 +7,17 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Image,
+  Alert,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { useTheme } from '@/lib/theme';
+import { LixoIcon } from '@/components/LixoIcon';
+import { LapisIcon } from '@/components/LapisIcon';
+import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 
 type Expense = {
   id: string;
@@ -32,6 +38,8 @@ export default function ExpenseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [expense, setExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadExpense();
@@ -53,6 +61,42 @@ export default function ExpenseDetailScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!expense) return;
+
+    setDeleting(true);
+    try {
+      // Delete image from storage if it exists
+      if (expense.image_url) {
+        const imagePath = expense.image_url.split('/').pop();
+        if (imagePath) {
+          await supabase.storage.from('receipts').remove([imagePath]);
+        }
+      }
+
+      // Delete expense from database
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', expense.id);
+
+      if (error) throw error;
+
+      // Navigate back to home
+      router.replace('/(tabs)/home');
+    } catch (error) {
+      console.error('Erro ao deletar gasto:', error);
+      Alert.alert('Erro', 'Não foi possível deletar o gasto. Tente novamente.');
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleEdit = () => {
+    router.push(`/expense/edit/${id}`);
   };
 
   if (loading) {
@@ -80,78 +124,138 @@ export default function ExpenseDetailScreen() {
   const formattedDate = new Date(expense.date).toLocaleDateString('pt-BR');
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
+    <>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <SafeAreaView
+          edges={['top']}
+          style={[styles.header, { backgroundColor: theme.background }]}
         >
-          <Text style={[styles.backButtonText, { color: theme.text }]}>
-            ← Voltar
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ChevronLeftIcon size={20} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.text }]}>Detalhes</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.iconButton} onPress={handleEdit}>
+              <LapisIcon size={24} color={theme.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => setShowDeleteModal(true)}
+            >
+              <LixoIcon size={24} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
 
-      {expense.image_url && (
-        <Image source={{ uri: expense.image_url }} style={styles.image} />
-      )}
+        <ScrollView style={styles.scrollContent}>
+          {expense.image_url && (
+            <Image source={{ uri: expense.image_url }} style={styles.image} />
+          )}
 
-      <View style={styles.content}>
-        <Text style={[styles.establishment, { color: theme.text }]}>
-          {expense.establishment_name}
-        </Text>
-        <Text style={[styles.date, { color: theme.textSecondary }]}>
-          {formattedDate}
-        </Text>
-        <Text style={[styles.amount, { color: theme.text }]}>
-          {formatCurrency(expense.amount)}
-        </Text>
-
-        {expense.items.length > 0 && (
-          <View style={styles.itemsSection}>
-            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-              Itens
+          <View style={styles.content}>
+            <Text style={[styles.establishment, { color: theme.text }]}>
+              {expense.establishment_name}
             </Text>
-            {expense.items.map((item, index) => (
-              <View
-                key={index}
-                style={[styles.item, { borderBottomColor: theme.border }]}
-              >
-                <View style={styles.itemLeft}>
-                  <Text
-                    style={[
-                      styles.itemQuantity,
-                      { color: theme.textSecondary },
-                    ]}
+            <Text style={[styles.date, { color: theme.textSecondary }]}>
+              {formattedDate}
+            </Text>
+            <Text style={[styles.amount, { color: theme.text }]}>
+              {formatCurrency(expense.amount)}
+            </Text>
+
+            {expense.items.length > 0 && (
+              <View style={styles.itemsSection}>
+                <Text
+                  style={[styles.sectionTitle, { color: theme.textSecondary }]}
+                >
+                  Itens
+                </Text>
+                {expense.items.map((item, index) => (
+                  <View
+                    key={index}
+                    style={[styles.item, { borderBottomColor: theme.border }]}
                   >
-                    {item.quantity}x
-                  </Text>
-                  <Text style={[styles.itemName, { color: theme.text }]}>
-                    {item.name}
-                  </Text>
-                </View>
-                <Text style={[styles.itemPrice, { color: theme.text }]}>
-                  {formatCurrency(item.price)}
+                    <View style={styles.itemLeft}>
+                      <Text
+                        style={[
+                          styles.itemQuantity,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {item.quantity}x
+                      </Text>
+                      <Text style={[styles.itemName, { color: theme.text }]}>
+                        {item.name}
+                      </Text>
+                    </View>
+                    <Text style={[styles.itemPrice, { color: theme.text }]}>
+                      {formatCurrency(item.price)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {expense.notes && (
+              <View style={styles.notesSection}>
+                <Text
+                  style={[styles.sectionTitle, { color: theme.textSecondary }]}
+                >
+                  Observações
+                </Text>
+                <Text style={[styles.notes, { color: theme.text }]}>
+                  {expense.notes}
                 </Text>
               </View>
-            ))}
+            )}
           </View>
-        )}
-
-        {expense.notes && (
-          <View style={styles.notesSection}>
-            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-              Observações
-            </Text>
-            <Text style={[styles.notes, { color: theme.text }]}>
-              {expense.notes}
-            </Text>
-          </View>
-        )}
+        </ScrollView>
       </View>
-    </ScrollView>
+
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              Confirmar Exclusão
+            </Text>
+            <Text style={[styles.modalMessage, { color: theme.textSecondary }]}>
+              Tem certeza que deseja excluir este comprovante? Esta ação não
+              pode ser desfeita.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowDeleteModal(false)}
+                disabled={deleting}
+              >
+                <Text style={[styles.cancelButtonText, { color: theme.text }]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.deleteButton]}
+                onPress={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.deleteButtonText}>Excluir</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -169,15 +273,37 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-Regular',
   },
   header: {
-    padding: 16,
-    paddingTop: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  backButtonText: {
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+  title: {
+    fontSize: 26,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    flex: 1,
+    textAlign: 'center',
+    marginLeft: -40,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
+    flex: 1,
   },
   image: {
     width: '100%',
@@ -240,5 +366,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     lineHeight: 24,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: 24,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontFamily: 'CormorantGaramond-Bold',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-Regular',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+  },
+  cancelButtonText: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  deleteButton: {
+    backgroundColor: '#ef4444',
+  },
+  deleteButtonText: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    color: '#fff',
   },
 });

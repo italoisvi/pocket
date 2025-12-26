@@ -1,12 +1,15 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/lib/theme';
 import { formatCurrency } from '@/lib/formatCurrency';
+import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
+import { CategoryIcon } from '@/components/CategoryIcon';
 
 type ExpenseCardProps = {
   id: string;
   establishmentName: string;
   amount: number;
   date: string;
+  category: string;
   subcategory?: string;
   onPress: () => void;
 };
@@ -14,12 +17,13 @@ type ExpenseCardProps = {
 export function ExpenseCard({
   establishmentName,
   amount,
-  date,
+  category,
   subcategory,
   onPress,
 }: ExpenseCardProps) {
   const { theme } = useTheme();
-  const formattedDate = new Date(date).toLocaleDateString('pt-BR');
+  const currentDate = new Date().toLocaleDateString('pt-BR');
+  const categoryInfo = CATEGORIES[category as ExpenseCategory];
 
   return (
     <TouchableOpacity
@@ -33,18 +37,21 @@ export function ExpenseCard({
       ]}
       onPress={onPress}
     >
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.text }]}>
-          {establishmentName}
-        </Text>
-        {subcategory && (
-          <Text style={[styles.subcategory, { color: theme.primary }]}>
-            {subcategory}
+      <View style={styles.leftSection}>
+        {categoryInfo && <CategoryIcon categoryInfo={categoryInfo} size={32} />}
+        <View style={styles.content}>
+          <Text style={[styles.title, { color: theme.text }]}>
+            {establishmentName}
           </Text>
-        )}
-        <Text style={[styles.date, { color: theme.textSecondary }]}>
-          {formattedDate}
-        </Text>
+          {subcategory && (
+            <Text style={[styles.subcategory, { color: theme.primary }]}>
+              {subcategory}
+            </Text>
+          )}
+          <Text style={[styles.date, { color: theme.textSecondary }]}>
+            {currentDate}
+          </Text>
+        </View>
       </View>
       <Text style={[styles.amount, { color: theme.text }]}>
         {formatCurrency(amount)}
@@ -69,6 +76,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+  },
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
   content: {
     flex: 1,

@@ -36,7 +36,9 @@
       "Bash(same version. Instead got: react: 19.2.3, react-native-renderer: 19.1.0\"\n\nReact Native 0.81.5 requires React 19.1.0, not 19.2.3. This mismatch\nwas causing the app to crash immediately on TestFlight launch.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(npm run lint)",
       "Bash(npm run format:check:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(node:*)",
+      "Bash(del test-categorize.js)"
     ]
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,12 +7,18 @@ import {
   FlatList,
   ActivityIndicator,
   Text,
+  Image,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { CameraIcon } from '@/components/CameraIcon';
 import { SettingsIcon } from '@/components/SettingsIcon';
+import { UsuarioIcon } from '@/components/UsuarioIcon';
+import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
+import { CarregarIcon } from '@/components/CarregarIcon';
+import { DividirContaIcon } from '@/components/DividirContaIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { EyeIcon } from '@/components/EyeIcon';
@@ -33,6 +39,7 @@ type Expense = {
   amount: number;
   date: string;
   created_at: string;
+  category: string;
   subcategory?: string;
 };
 
@@ -47,8 +54,11 @@ export default function HomeScreen() {
   const [saving, setSaving] = useState(false);
   const [showSalarySetup, setShowSalarySetup] = useState(false);
   const [monthlySalary, setMonthlySalary] = useState<number | null>(null);
-  const [salaryVisible, setSalaryVisible] = useState(true);
+  const [salaryVisible, setSalaryVisible] = useState(false);
   const [savingSalary, setSavingSalary] = useState(false);
+  const [showFloatingButtons, setShowFloatingButtons] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const floatingButtonsAnim = useRef(new Animated.Value(0)).current;
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => {
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -62,6 +72,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       loadExpenses();
+      loadProfile();
     }, [])
   );
 
@@ -75,7 +86,7 @@ export default function HomeScreen() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('monthly_salary')
+        .select('monthly_salary, avatar_url')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -87,7 +98,14 @@ export default function HomeScreen() {
       // Se o perfil existe e tem salário, carregar
       if (data?.monthly_salary !== null && data?.monthly_salary !== undefined) {
         setMonthlySalary(data.monthly_salary);
-      } else {
+      }
+
+      // Carregar avatar
+      if (data?.avatar_url) {
+        setProfileImage(data.avatar_url);
+      }
+
+      if (data?.monthly_salary === null || data?.monthly_salary === undefined) {
         // Verificar se já mostrou o modal antes
         const hasShownSetup = await AsyncStorage.getItem(
           `salary_setup_shown_${user.id}`
@@ -106,7 +124,9 @@ export default function HomeScreen() {
     try {
       const { data, error } = await supabase
         .from('expenses')
-        .select('id, establishment_name, amount, date, created_at')
+        .select(
+          'id, establishment_name, amount, date, created_at, category, subcategory'
+        )
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -152,7 +172,27 @@ export default function HomeScreen() {
     }
   };
 
-  const handleCameraPress = async () => {
+  const handleCameraPress = () => {
+    if (showFloatingButtons) {
+      // Fechar com animação
+      Animated.timing(floatingButtonsAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => setShowFloatingButtons(false));
+    } else {
+      // Abrir com animação
+      setShowFloatingButtons(true);
+      Animated.timing(floatingButtonsAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    setShowFloatingButtons(false);
     try {
       // Dynamic import to prevent iOS release crash
       const ImagePicker = await import('expo-image-picker');
@@ -181,6 +221,40 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Camera error:', error);
       Alert.alert('Erro', 'Não foi possível abrir a câmera.');
+    }
+  };
+
+  const handlePickImage = async () => {
+    setShowFloatingButtons(false);
+    try {
+      // Dynamic import to prevent iOS release crash
+      const ImagePicker = await import('expo-image-picker');
+
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permissão Necessária',
+          'Precisamos de permissão para acessar sua galeria.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        const imageUri = result.assets[0].uri;
+        setCurrentImageUri(imageUri);
+        await processReceipt(imageUri);
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Erro', 'Não foi possível abrir a galeria.');
     }
   };
 
@@ -366,15 +440,22 @@ export default function HomeScreen() {
         <View style={styles.spacer} />
         <TouchableOpacity
           style={[
-            styles.settingsButton,
+            styles.headerButton,
             {
               backgroundColor: theme.surface,
               borderColor: theme.border,
             },
           ]}
-          onPress={handleSettingsPress}
+          onPress={() => router.push('/perfil')}
         >
-          <SettingsIcon size={24} color={theme.text} />
+          {profileImage ? (
+            <Image
+              source={{ uri: profileImage }}
+              style={styles.profileButtonImage}
+            />
+          ) : (
+            <UsuarioIcon size={24} color={theme.text} />
+          )}
         </TouchableOpacity>
       </SafeAreaView>
 
@@ -425,6 +506,7 @@ export default function HomeScreen() {
                         establishmentName={expense.establishment_name}
                         amount={expense.amount}
                         date={expense.date}
+                        category={expense.category}
                         subcategory={expense.subcategory}
                         onPress={() => handleExpensePress(expense.id)}
                       />
@@ -437,6 +519,21 @@ export default function HomeScreen() {
         />
       )}
 
+      {/* Botão flutuante dividir conta */}
+      <TouchableOpacity
+        style={[
+          styles.fabDividir,
+          {
+            backgroundColor: theme.fabBackground,
+            shadowColor: theme.shadow,
+          },
+        ]}
+        onPress={() => router.push('/dividir-conta')}
+      >
+        <DividirContaIcon size={28} color={theme.fabIcon} />
+      </TouchableOpacity>
+
+      {/* Botão flutuante câmera */}
       <TouchableOpacity
         style={[
           styles.fab,
@@ -468,6 +565,66 @@ export default function HomeScreen() {
         onConfirm={handleSalarySetup}
         loading={savingSalary}
       />
+
+      {/* Botões flutuantes para tirar foto ou carregar arquivo */}
+      {showFloatingButtons && (
+        <>
+          <Animated.View
+            style={[
+              styles.floatingButton,
+              styles.uploadButton,
+              {
+                opacity: floatingButtonsAnim,
+                transform: [
+                  {
+                    translateY: floatingButtonsAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [80, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.floatingButtonInner,
+                { backgroundColor: theme.card },
+              ]}
+              onPress={handlePickImage}
+            >
+              <CarregarIcon size={22} color={theme.primary} />
+            </TouchableOpacity>
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.floatingButton,
+              styles.cameraButton,
+              {
+                opacity: floatingButtonsAnim,
+                transform: [
+                  {
+                    translateY: floatingButtonsAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [80, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.floatingButtonInner,
+                { backgroundColor: theme.card },
+              ]}
+              onPress={handleTakePhoto}
+            >
+              <CapturaDeFotoIcon size={22} color={theme.primary} />
+            </TouchableOpacity>
+          </Animated.View>
+        </>
+      )}
     </View>
   );
 }
@@ -509,7 +666,7 @@ const styles = StyleSheet.create({
   spacer: {
     flex: 1,
   },
-  settingsButton: {
+  headerButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -523,6 +680,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
     borderWidth: 1,
+    overflow: 'hidden',
+  },
+  profileButtonImage: {
+    width: '100%',
+    height: '100%',
   },
   loadingContainer: {
     flex: 1,
@@ -582,5 +744,46 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 8,
+  },
+  fabDividir: {
+    position: 'absolute',
+    left: 24,
+    bottom: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingButton: {
+    position: 'absolute',
+    right: 24,
+  },
+  floatingButtonInner: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  cameraButton: {
+    bottom: 96,
+  },
+  uploadButton: {
+    bottom: 160,
   },
 });

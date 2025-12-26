@@ -55,8 +55,20 @@ function detectSubcategory(
   const nameLower = establishmentName.toLowerCase();
 
   for (const subcategory of subcategories) {
+    // Pular subcategorias sem keywords (como "Outros")
+    if (subcategory.keywords.length === 0) continue;
+
     for (const keyword of subcategory.keywords) {
-      if (nameLower.includes(keyword.toLowerCase())) {
+      const keywordLower = keyword.toLowerCase();
+
+      // Usar regex para busca mais precisa com word boundaries
+      // Isso evita matches parciais incorretos
+      const regex = new RegExp(
+        `\\b${keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+        'i'
+      );
+
+      if (regex.test(establishmentName) || nameLower.includes(keywordLower)) {
         return subcategory.name;
       }
     }
@@ -183,11 +195,29 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
           'cometa',
           'sao luiz',
           'são luiz',
+          'bh',
+          'guanabara',
+          'zona sul',
+          'mundial',
+          'rede economia',
+          'epa',
+          'santa luzia',
+          'super',
+          'market',
+          'hiper',
         ],
       },
       {
         name: 'Atacadão',
-        keywords: ['atacadao', 'atacadão', 'assai', 'assaí'],
+        keywords: [
+          'atacadao',
+          'atacadão',
+          'assai',
+          'assaí',
+          'makro',
+          'maxxi',
+          'atack',
+        ],
       },
       {
         name: 'Feira',
@@ -294,6 +324,13 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
           'drogaria',
           'panvel',
           'droga raia',
+          'sao paulo',
+          'são paulo',
+          'farma',
+          'medicamento',
+          'remedio',
+          'remédio',
+          'drog',
         ],
       },
       {
@@ -626,7 +663,18 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
       },
       {
         name: 'Restaurantes',
-        keywords: ['restaurante', 'churrascaria', 'outback', 'coco bambu'],
+        keywords: [
+          'restaurante',
+          'churrascaria',
+          'outback',
+          'coco bambu',
+          'madero',
+          'giraffa',
+          'applebees',
+          'comida japonesa',
+          'sushi',
+          'temaki',
+        ],
       },
       {
         name: 'Fast Food',
@@ -641,6 +689,10 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
           'burguer',
           'pizza hut',
           'domino',
+          'bobs',
+          'giraffa',
+          'spoleto',
+          'gendai',
         ],
       },
       {
@@ -651,6 +703,11 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
           'pizzaria',
           'pizza',
           'china in box',
+          'lanche',
+          'lanches',
+          'pastel',
+          'pastelaria',
+          'espetinho',
         ],
       },
       {
