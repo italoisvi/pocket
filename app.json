@@ -8,9 +8,6 @@
     "userInterfaceStyle": "automatic",
     "scheme": "pocket",
     "extra": {
-      "eas": {
-        "projectId": ""
-      }
     },
     "splash": {
       "image": "./assets/images/Pocket.png",
