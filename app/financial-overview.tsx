@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
@@ -41,6 +41,13 @@ export default function FinancialOverviewScreen() {
     loadFinancialData();
   }, []);
 
+  // Colapsar todos os cards quando a tela ganhar foco (usuário retornar de outra página)
+  useFocusEffect(
+    useCallback(() => {
+      setExpandedCard(null);
+    }, [])
+  );
+
   const toggleCategory = (cardId: string) => {
     setExpandedCard((currentExpanded) => {
       // Se o card clicado já está expandido, fechar ele
@@ -63,13 +70,34 @@ export default function FinancialOverviewScreen() {
       // Carregar salário e dia de pagamento
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('monthly_salary, salary_payment_day')
+        .select('monthly_salary, salary_payment_day, income_cards')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (profileData?.monthly_salary) {
-        setMonthlySalary(profileData.monthly_salary);
-        setSalaryPaymentDay(profileData.salary_payment_day || 1);
+      // Calcular total de rendas
+      let totalIncome = 0;
+
+      // Verificar se há income_cards (novo sistema)
+      if (
+        profileData?.income_cards &&
+        Array.isArray(profileData.income_cards)
+      ) {
+        totalIncome = profileData.income_cards.reduce((sum, card) => {
+          const salary = parseFloat(
+            card.salary.replace(/\./g, '').replace(',', '.')
+          );
+          return sum + (isNaN(salary) ? 0 : salary);
+        }, 0);
+      }
+
+      // Se não há income_cards mas tem monthly_salary (compatibilidade)
+      if (totalIncome === 0 && profileData?.monthly_salary) {
+        totalIncome = profileData.monthly_salary;
+      }
+
+      if (totalIncome > 0) {
+        setMonthlySalary(totalIncome);
+        setSalaryPaymentDay(profileData?.salary_payment_day || 1);
       }
 
       // Carregar gastos do mês atual

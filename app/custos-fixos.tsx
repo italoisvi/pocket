@@ -28,6 +28,7 @@ export default function CustosFixosScreen() {
     SubcategoryExpense[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const [totalIncome, setTotalIncome] = useState<number>(0);
 
   useEffect(() => {
     loadFixedExpenses();
@@ -40,6 +41,30 @@ export default function CustosFixosScreen() {
       } = await supabase.auth.getUser();
 
       if (!user) return;
+
+      // Carregar renda total
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('monthly_salary, income_cards')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      let income = 0;
+      if (
+        profileData?.income_cards &&
+        Array.isArray(profileData.income_cards)
+      ) {
+        income = profileData.income_cards.reduce((sum, card) => {
+          const salary = parseFloat(
+            card.salary.replace(/\./g, '').replace(',', '.')
+          );
+          return sum + (isNaN(salary) ? 0 : salary);
+        }, 0);
+      }
+      if (income === 0 && profileData?.monthly_salary) {
+        income = profileData.monthly_salary;
+      }
+      setTotalIncome(income);
 
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -142,7 +167,7 @@ export default function CustosFixosScreen() {
             {categoryExpenses.map((item) => {
               const categoryInfo = CATEGORIES[item.category];
               const percentage =
-                totalFixed > 0 ? (item.total / totalFixed) * 100 : 0;
+                totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
 
               return (
                 <View
@@ -193,7 +218,7 @@ export default function CustosFixosScreen() {
                       <Text
                         style={[styles.label, { color: theme.textSecondary }]}
                       >
-                        % do Total
+                        % da Renda
                       </Text>
                       <Text style={[styles.value, { color: theme.text }]}>
                         {percentage.toFixed(1)}%

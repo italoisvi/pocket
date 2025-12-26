@@ -27,6 +27,7 @@ import {
   type Conversation,
 } from '@/lib/deepseek';
 import { supabase } from '@/lib/supabase';
+import { CATEGORIES } from '@/lib/categories';
 
 const CURRENT_CONVERSATION_KEY = '@pocket_current_conversation';
 
@@ -76,7 +77,10 @@ export default function ChatScreen() {
 
   const [userContext, setUserContext] = useState<{
     totalExpenses?: number;
+    totalIncome?: number;
     categoryBreakdown?: { [key: string]: number };
+    essentialExpenses?: { [key: string]: number };
+    nonEssentialExpenses?: { [key: string]: number };
     recentExpenses?: Array<{ name: string; amount: number; category: string }>;
   }>({});
 
@@ -87,15 +91,29 @@ export default function ChatScreen() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Load user profile to get name
+      // Load user profile to get name and income
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name')
+        .select('name, monthly_salary, income_cards')
         .eq('id', user.id)
         .maybeSingle();
 
       if (profile?.name) {
         setUserName(profile.name);
+      }
+
+      // Calculate total income
+      let totalIncome = 0;
+      if (profile?.income_cards && Array.isArray(profile.income_cards)) {
+        totalIncome = profile.income_cards.reduce((sum, card) => {
+          const salary = parseFloat(
+            card.salary.replace(/\./g, '').replace(',', '.')
+          );
+          return sum + (isNaN(salary) ? 0 : salary);
+        }, 0);
+      }
+      if (totalIncome === 0 && profile?.monthly_salary) {
+        totalIncome = profile.monthly_salary;
       }
 
       // Get expenses from current month
@@ -105,7 +123,7 @@ export default function ChatScreen() {
 
       const { data: expenses } = await supabase
         .from('expenses')
-        .select('establishment_name, amount, category')
+        .select('establishment_name, amount, category, subcategory')
         .eq('user_id', user.id)
         .gte('date', firstDayISO)
         .order('date', { ascending: false });
@@ -117,10 +135,28 @@ export default function ChatScreen() {
         );
 
         const categoryBreakdown: { [key: string]: number } = {};
+        const essentialExpenses: { [key: string]: number } = {};
+        const nonEssentialExpenses: { [key: string]: number } = {};
+
         expenses.forEach((exp) => {
           const category = exp.category || 'Outros';
+          const subcategory = exp.subcategory || 'Outros';
           categoryBreakdown[category] =
             (categoryBreakdown[category] || 0) + exp.amount;
+
+          // Separar em essenciais e não essenciais
+          const categoryInfo =
+            CATEGORIES[exp.category as keyof typeof CATEGORIES];
+          if (categoryInfo) {
+            const key = `${categoryInfo.name} - ${subcategory}`;
+            if (categoryInfo.type === 'essencial') {
+              essentialExpenses[key] =
+                (essentialExpenses[key] || 0) + exp.amount;
+            } else {
+              nonEssentialExpenses[key] =
+                (nonEssentialExpenses[key] || 0) + exp.amount;
+            }
+          }
         });
 
         const recentExpenses = expenses.slice(0, 10).map((exp) => ({
@@ -131,8 +167,15 @@ export default function ChatScreen() {
 
         setUserContext({
           totalExpenses,
+          totalIncome,
           categoryBreakdown,
+          essentialExpenses,
+          nonEssentialExpenses,
           recentExpenses,
+        });
+      } else {
+        setUserContext({
+          totalIncome,
         });
       }
     } catch (error) {

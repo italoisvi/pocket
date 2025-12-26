@@ -132,7 +132,7 @@ export default function ExpenseDetailScreen() {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.replace('/(tabs)/home')}
           >
             <ChevronLeftIcon size={20} color={theme.text} />
           </TouchableOpacity>
@@ -288,9 +288,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontFamily: 'CormorantGaramond-SemiBold',
-    flex: 1,
+    position: 'absolute',
+    left: 56,
+    right: 96,
     textAlign: 'center',
-    marginLeft: -40,
+    alignSelf: 'center',
   },
   headerActions: {
     flexDirection: 'row',

@@ -16,13 +16,13 @@ export type Conversation = {
   updatedAt: number;
 };
 
-const SYSTEM_PROMPT = `Você é Walts Treat (pode me chamar de Walts), um consultor financeiro pessoal inteligente, cordial e sempre solicito. Você ajuda usuários a gerenciar suas finanças pessoais usando o app Pocket, analisando seus gastos e oferecendo conselhos práticos.
+const SYSTEM_PROMPT = `Você é Walts Treat (pode me chamar de Walts), um consultor financeiro pessoal inteligente, cordial e sempre solicito. Você ajuda usuários a gerenciar suas finanças pessoais usando o app Pocket, analisando seus gastos e rendas e oferecendo conselhos práticos.
 
 ## Sobre o App Pocket:
 O Pocket é um aplicativo de controle financeiro pessoal com as seguintes funcionalidades:
 
 **Gestão de Despesas:**
-- Captura de comprovantes por foto ou upload de imagem
+- Captura de comprovantes por foto ou galeria
 - OCR automático para extrair dados do comprovante (estabelecimento, valor, data, itens)
 - Categorização automática de gastos em 16 categorias principais (cada uma com subcategorias):
   - Apps de Entrega, Assinaturas Digitais, Bares & Restaurantes, Casa & Decoração, Compras Online
@@ -33,33 +33,41 @@ O Pocket é um aplicativo de controle financeiro pessoal com as seguintes funcio
 - Exclusão de comprovantes com confirmação
 - Detalhes completos de cada gasto (imagem, itens, observações)
 
+**Gestão de Rendas:**
+- Painel Financeiro: Permite cadastrar múltiplas fontes de renda
+- Para cada fonte de renda: valor mensal, dia de recebimento, origem (CLT, PJ, Autônomo, Freelancer, Empresário, Aposentado, Pensionista, Investimentos, Outros)
+- Acesso via página Meu Perfil → Card "Painel Financeiro"
+- Saldo na Home = Soma de todas as rendas - Total de gastos
+
+**Análise Financeira:**
+- **Resumo do Mês:** Renda total, gastos totais, saldo restante, porcentagem gasta
+- **Meta Diária:** Quanto pode gastar por dia até o próximo pagamento
+- **Custos Fixos (Essenciais):** Gastos essenciais por subcategoria com % da renda
+- **Custos Variáveis (Não essenciais):** Gastos não essenciais por subcategoria com % da renda
+- **Gráficos & Tabelas:** Gráfico de pizza e tabela com distribuição de gastos
+
 **Perfil do Usuário:**
-- Configuração de salário mensal
-- Visualização do saldo (salário - gastos do mês)
-- Foto de perfil personalizável
-- Nome do usuário
+- Editar nome e foto de perfil
+- Painel Financeiro com múltiplas rendas
+- Indique um amigo
 
 **Recursos Adicionais:**
-- **Dividir Conta:** Ferramenta para dividir contas entre amigos com:
-  - OCR de comprovantes para capturar valor total
-  - Divisão por número de pessoas
-  - Opção de incluir taxa de serviço (10%)
-- **Gráficos e Tabelas:** Visualização de gastos por categoria e período
+- **Dividir Conta:** Ferramenta para dividir contas entre amigos com OCR, divisão por pessoas e taxa de serviço
 - **Modo Escuro:** Suporte completo a tema claro/escuro/sistema
 
 **Chat com Walts (você):**
-- Acesso a dados de gastos do mês atual do usuário
+- Acesso a dados de renda total e gastos do mês atual do usuário
 - Histórico de conversas salvo localmente
-- Contexto sobre gastos totais, breakdown por categoria e gastos recentes
+- Contexto sobre rendas totais, gastos totais, breakdown por categoria e gastos recentes
 
 ## Seu Papel:
-- Analisar padrões de gastos usando os dados fornecidos
+- Analisar padrões de gastos e rendas usando os dados fornecidos
 - Fornecer conselhos financeiros personalizados e práticos
 - Sugerir formas de economizar baseado nas categorias de gasto
-- Ajudar a criar orçamentos realistas considerando o salário e gastos
+- Ajudar a criar orçamentos realistas considerando as rendas e gastos
 - Ser encorajador, positivo e motivador, mas honesto sobre finanças
 - Lembrar de conversas anteriores e manter contexto
-- Explicar funcionalidades do app quando perguntado
+- Explicar funcionalidades do app quando perguntado (use os nomes corretos das páginas e recursos listados acima)
 - Responder SEMPRE em português do Brasil
 
 ## Estilo de Resposta:
@@ -77,7 +85,10 @@ export async function sendMessageToDeepSeek(
   messages: Message[],
   userContext?: {
     totalExpenses?: number;
+    totalIncome?: number;
     categoryBreakdown?: { [key: string]: number };
+    essentialExpenses?: { [key: string]: number };
+    nonEssentialExpenses?: { [key: string]: number };
     recentExpenses?: Array<{ name: string; amount: number; category: string }>;
   }
 ): Promise<string> {
@@ -86,14 +97,46 @@ export async function sendMessageToDeepSeek(
     let contextMessage = '';
     if (userContext) {
       contextMessage = '\n\nContexto do usuário:';
+      if (userContext.totalIncome !== undefined) {
+        contextMessage += `\n- Renda mensal total: R$ ${userContext.totalIncome.toFixed(2)}`;
+      }
       if (userContext.totalExpenses !== undefined) {
-        contextMessage += `\n- Total de gastos: R$ ${userContext.totalExpenses.toFixed(2)}`;
+        contextMessage += `\n- Total de gastos este mês: R$ ${userContext.totalExpenses.toFixed(2)}`;
+      }
+      if (
+        userContext.totalIncome !== undefined &&
+        userContext.totalExpenses !== undefined
+      ) {
+        const saldo = userContext.totalIncome - userContext.totalExpenses;
+        contextMessage += `\n- Saldo restante: R$ ${saldo.toFixed(2)}`;
       }
       if (userContext.categoryBreakdown) {
         contextMessage += '\n- Gastos por categoria:';
         Object.entries(userContext.categoryBreakdown).forEach(
           ([category, amount]) => {
             contextMessage += `\n  • ${category}: R$ ${amount.toFixed(2)}`;
+          }
+        );
+      }
+      if (
+        userContext.essentialExpenses &&
+        Object.keys(userContext.essentialExpenses).length > 0
+      ) {
+        contextMessage += '\n- Custos Fixos (Essenciais):';
+        Object.entries(userContext.essentialExpenses).forEach(
+          ([subcategory, amount]) => {
+            contextMessage += `\n  • ${subcategory}: R$ ${amount.toFixed(2)}`;
+          }
+        );
+      }
+      if (
+        userContext.nonEssentialExpenses &&
+        Object.keys(userContext.nonEssentialExpenses).length > 0
+      ) {
+        contextMessage += '\n- Custos Variáveis (Não Essenciais):';
+        Object.entries(userContext.nonEssentialExpenses).forEach(
+          ([subcategory, amount]) => {
+            contextMessage += `\n  • ${subcategory}: R$ ${amount.toFixed(2)}`;
           }
         );
       }
