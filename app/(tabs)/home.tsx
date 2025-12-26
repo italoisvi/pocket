@@ -19,6 +19,7 @@ import { UsuarioIcon } from '@/components/UsuarioIcon';
 import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
 import { CarregarIcon } from '@/components/CarregarIcon';
 import { DividirContaIcon } from '@/components/DividirContaIcon';
+import { KangarooIcon } from '@/components/KangarooIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { EyeIcon } from '@/components/EyeIcon';
@@ -533,6 +534,20 @@ export default function HomeScreen() {
         <DividirContaIcon size={28} color={theme.fabIcon} />
       </TouchableOpacity>
 
+      {/* Botão flutuante Chat Walts */}
+      <TouchableOpacity
+        style={[
+          styles.fabChat,
+          {
+            backgroundColor: theme.fabBackground,
+            shadowColor: theme.shadow,
+          },
+        ]}
+        onPress={() => router.push('/chat')}
+      >
+        <KangarooIcon size={40} inverted />
+      </TouchableOpacity>
+
       {/* Botão flutuante câmera */}
       <TouchableOpacity
         style={[
@@ -752,6 +767,24 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabChat: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -40,
+    bottom: 24,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
     shadowOffset: {
