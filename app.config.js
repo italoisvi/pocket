@@ -60,9 +60,6 @@ export default {
       '@sentry/react-native/expo',
     ],
     extra: {
-      eas: {
-        projectId: '237c2752-d411-45d3-9f97-6fa641a5430a',
-      },
       // Expor variáveis de ambiente para o runtime (funciona em builds release)
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
