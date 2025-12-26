@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
@@ -40,9 +40,14 @@ export default function ChatScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    loadCurrentConversation();
     loadUserContext();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCurrentConversation();
+    }, [])
+  );
 
   useEffect(() => {
     // Auto-scroll to bottom when messages change
@@ -301,7 +306,15 @@ export default function ChatScreen() {
                     style={[
                       styles.userMessage,
                       {
-                        backgroundColor: theme.primary,
+                        backgroundColor:
+                          theme.background === '#000'
+                            ? theme.card
+                            : theme.primary,
+                        borderWidth: theme.background === '#000' ? 2 : 0,
+                        borderColor:
+                          theme.background === '#000'
+                            ? theme.cardBorder
+                            : 'transparent',
                       },
                     ]}
                   >
@@ -323,17 +336,25 @@ export default function ChatScreen() {
                       style={{
                         body: {
                           color: theme.text,
-                          fontSize: 18,
+                          fontSize: 20,
                           fontFamily: 'CormorantGaramond-Regular',
-                          lineHeight: 24,
+                          lineHeight: 26,
+                        },
+                        text: {
+                          color: theme.text,
+                          fontSize: 20,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          lineHeight: 26,
                         },
                         strong: {
                           fontFamily: 'CormorantGaramond-SemiBold',
                           fontWeight: '600',
+                          color: theme.text,
                         },
                         em: {
                           fontFamily: 'CormorantGaramond-Italic',
                           fontStyle: 'italic',
+                          color: theme.text,
                         },
                         bullet_list: {
                           marginVertical: 4,
@@ -343,9 +364,34 @@ export default function ChatScreen() {
                         },
                         list_item: {
                           marginVertical: 2,
+                          color: theme.text,
                         },
                         paragraph: {
                           marginVertical: 4,
+                          color: theme.text,
+                          fontSize: 20,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          lineHeight: 26,
+                        },
+                        heading1: {
+                          color: theme.text,
+                          fontSize: 28,
+                          fontFamily: 'CormorantGaramond-SemiBold',
+                        },
+                        heading2: {
+                          color: theme.text,
+                          fontSize: 24,
+                          fontFamily: 'CormorantGaramond-SemiBold',
+                        },
+                        code_inline: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          backgroundColor: theme.card,
+                        },
+                        fence: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          backgroundColor: theme.card,
                         },
                       }}
                     >
@@ -482,7 +528,7 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   welcomeText: {
-    fontSize: 24,
+    fontSize: 26,
     fontFamily: 'CormorantGaramond-SemiBold',
     textAlign: 'center',
     paddingHorizontal: 40,
@@ -507,9 +553,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   messageText: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: 'CormorantGaramond-Regular',
-    lineHeight: 24,
+    lineHeight: 26,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -521,7 +567,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: 'CormorantGaramond-Regular',
     padding: 12,
     borderRadius: 20,

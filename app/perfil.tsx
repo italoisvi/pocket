@@ -14,10 +14,11 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { EditIcon } from '@/components/EditIcon';
+import { LapisIcon } from '@/components/LapisIcon';
 import { AdicionarUsuarioIcon } from '@/components/AdicionarUsuarioIcon';
 import { SettingsIcon } from '@/components/SettingsIcon';
 import { UsuarioIcon } from '@/components/UsuarioIcon';
+import { AlinhamentoGraficoIcon } from '@/components/AlinhamentoGraficoIcon';
 
 export default function PerfilScreen() {
   const { theme } = useTheme();
@@ -157,9 +158,33 @@ export default function PerfilScreen() {
                 ]}
                 onPress={() => router.push('/editar-perfil')}
               >
-                <EditIcon size={20} color={theme.text} />
+                <LapisIcon size={20} color={theme.text} />
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Card de Painel Financeiro */}
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.inviteCard}
+              onPress={() => router.push('/painel-financeiro')}
+            >
+              <View style={styles.inviteLeft}>
+                <AlinhamentoGraficoIcon size={28} color={theme.text} />
+                <Text style={[styles.inviteTitle, { color: theme.text }]}>
+                  Painel Financeiro
+                </Text>
+              </View>
+              <LapisIcon size={20} color={theme.text} />
+            </TouchableOpacity>
           </View>
 
           {/* Card de Indique um Amigo */}

@@ -38,7 +38,8 @@
       "Bash(npm run format:check:*)",
       "Bash(npm run:*)",
       "Bash(node:*)",
-      "Bash(del test-categorize.js)"
+      "Bash(del test-categorize.js)",
+      "Bash(copy \"assets\\\\images\\\\kangurupreto.png\" \"assets\\\\icon.png\")"
     ]
   }
 }

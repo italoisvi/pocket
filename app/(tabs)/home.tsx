@@ -87,7 +87,7 @@ export default function HomeScreen() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('monthly_salary, avatar_url')
+        .select('monthly_salary, avatar_url, income_cards')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -96,9 +96,27 @@ export default function HomeScreen() {
         return;
       }
 
-      // Se o perfil existe e tem salário, carregar
-      if (data?.monthly_salary !== null && data?.monthly_salary !== undefined) {
-        setMonthlySalary(data.monthly_salary);
+      // Calcular total de rendas
+      let totalIncome = 0;
+
+      // Verificar se há income_cards (novo sistema)
+      if (data?.income_cards && Array.isArray(data.income_cards)) {
+        totalIncome = data.income_cards.reduce((sum, card) => {
+          const salary = parseFloat(
+            card.salary.replace(/\./g, '').replace(',', '.')
+          );
+          return sum + (isNaN(salary) ? 0 : salary);
+        }, 0);
+      }
+
+      // Se não há income_cards mas tem monthly_salary (compatibilidade com sistema antigo)
+      if (totalIncome === 0 && data?.monthly_salary) {
+        totalIncome = data.monthly_salary;
+      }
+
+      // Se tem alguma renda, definir
+      if (totalIncome > 0) {
+        setMonthlySalary(totalIncome);
       }
 
       // Carregar avatar
@@ -106,7 +124,11 @@ export default function HomeScreen() {
         setProfileImage(data.avatar_url);
       }
 
-      if (data?.monthly_salary === null || data?.monthly_salary === undefined) {
+      // Mostrar modal de setup se não tem nenhuma renda configurada
+      if (
+        totalIncome === 0 &&
+        (!data?.income_cards || data.income_cards.length === 0)
+      ) {
         // Verificar se já mostrou o modal antes
         const hasShownSetup = await AsyncStorage.getItem(
           `salary_setup_shown_${user.id}`
@@ -149,11 +171,23 @@ export default function HomeScreen() {
 
       if (!user) throw new Error('Usuário não autenticado');
 
+      // Criar primeiro income card
+      const firstIncomeCard = {
+        id: Date.now().toString(),
+        salary: salary.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }),
+        paymentDay: paymentDay.toString(),
+        incomeSource: 'outros',
+      };
+
       const { error } = await supabase.from('profiles').upsert(
         {
           id: user.id,
           monthly_salary: salary,
           salary_payment_day: paymentDay,
+          income_cards: [firstIncomeCard],
         },
         { onConflict: 'id' }
       );
@@ -527,6 +561,7 @@ export default function HomeScreen() {
           {
             backgroundColor: theme.fabBackground,
             shadowColor: theme.shadow,
+            shadowOpacity: theme.background === '#000' ? 0.4 : 0.15,
           },
         ]}
         onPress={() => router.push('/dividir-conta')}
@@ -541,11 +576,16 @@ export default function HomeScreen() {
           {
             backgroundColor: theme.fabBackground,
             shadowColor: theme.shadow,
+            shadowOpacity: theme.background === '#000' ? 0.4 : 0.15,
           },
         ]}
         onPress={() => router.push('/chat')}
       >
-        <KangarooIcon size={40} inverted />
+        <KangarooIcon
+          size={40}
+          color={theme.background === '#000' ? '#FFF' : '#000'}
+          inverted={theme.background !== '#000'}
+        />
       </TouchableOpacity>
 
       {/* Botão flutuante câmera */}
@@ -555,6 +595,7 @@ export default function HomeScreen() {
           {
             backgroundColor: theme.fabBackground,
             shadowColor: theme.shadow,
+            shadowOpacity: theme.background === '#000' ? 0.4 : 0.15,
           },
         ]}
         onPress={handleCameraPress}
