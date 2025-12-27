@@ -39,7 +39,8 @@
       "Bash(npm run:*)",
       "Bash(node:*)",
       "Bash(del test-categorize.js)",
-      "Bash(copy \"assets\\\\images\\\\kangurupreto.png\" \"assets\\\\icon.png\")"
+      "Bash(copy \"assets\\\\images\\\\kangurupreto.png\" \"assets\\\\icon.png\")",
+      "Bash(eas secret:create:*)"
     ]
   }
 }

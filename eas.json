@@ -18,6 +18,9 @@
       "node": "22.11.0",
       "cache": {
         "disabled": true
+      },
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },
