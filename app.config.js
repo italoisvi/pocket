@@ -7,11 +7,6 @@ export default {
     icon: './assets/icon.png',
     userInterfaceStyle: 'automatic',
     scheme: 'pocket',
-    splash: {
-      image: './assets/images/Pocket.png',
-      resizeMode: 'contain',
-      backgroundColor: '#ffffff',
-    },
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,

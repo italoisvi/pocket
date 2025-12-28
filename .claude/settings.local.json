@@ -45,7 +45,10 @@
       "Bash(copy /Y \"assets\\\\images\\\\kangaroo.png\" \"assets\\\\icon.png\")",
       "Bash(copy /Y \"assets\\\\images\\\\kangaroo.png\" \"assets\\\\adaptive-icon.png\")",
       "Bash(copy /Y \"assets\\\\images\\\\kangaroo.png\" \"assets\\\\favicon.png\")",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(copy /Y \"assets\\\\images\\\\kanguroocomfundo.png\" \"assets\\\\icon.png\")",
+      "Bash(copy /Y \"assets\\\\images\\\\kanguroocomfundo.png\" \"assets\\\\adaptive-icon.png\")",
+      "Bash(copy /Y:*)"
     ]
   }
 }

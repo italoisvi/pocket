@@ -1,5 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Image, Dimensions, Animated } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Image,
+  Dimensions,
+  Animated,
+  useColorScheme,
+} from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -12,6 +19,7 @@ export function AnimatedSplashScreen({
 }: AnimatedSplashScreenProps) {
   const opacity = useRef(new Animated.Value(1)).current;
   const [isReady, setIsReady] = useState(false);
+  const colorScheme = useColorScheme();
 
   useEffect(() => {
     // Wait for GIF to play (adjust timing based on GIF duration)
@@ -34,14 +42,16 @@ export function AnimatedSplashScreen({
     }
   }, [isReady, opacity, onComplete]);
 
+  const backgroundColor = colorScheme === 'dark' ? '#000' : '#fff';
+  const gifSource =
+    colorScheme === 'dark'
+      ? require('@/assets/videos/Pocketme.gif')
+      : require('@/assets/videos/Pocket.gif');
+
   return (
-    <Animated.View style={[styles.container, { opacity }]}>
+    <Animated.View style={[styles.container, { opacity, backgroundColor }]}>
       <View style={styles.imageContainer}>
-        <Image
-          source={require('@/assets/videos/Pocket.gif')}
-          style={styles.gif}
-          resizeMode="contain"
-        />
+        <Image source={gifSource} style={styles.gif} resizeMode="contain" />
       </View>
     </Animated.View>
   );
@@ -54,7 +64,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,

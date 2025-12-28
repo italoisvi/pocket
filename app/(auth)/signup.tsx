@@ -8,11 +8,11 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
-import { KangarooIcon } from '@/components/KangarooIcon';
 
 export default function SignupScreen() {
   const { theme } = useTheme();
@@ -63,10 +63,10 @@ export default function SignupScreen() {
     >
       <View style={styles.content}>
         <View style={styles.logoContainer}>
-          <KangarooIcon
-            size={120}
-            color={theme.background === '#000' ? '#FFF' : '#000'}
-            inverted={theme.background !== '#000'}
+          <Image
+            source={require('@/assets/images/kangaroo.png')}
+            style={styles.logo}
+            resizeMode="contain"
           />
         </View>
         <Text style={[styles.title, { color: theme.text }]}>Pocket</Text>
@@ -165,6 +165,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: 16,
+  },
+  logo: {
+    width: 120,
+    height: 120,
   },
   title: {
     fontSize: 56,
