@@ -26,6 +26,32 @@ export type Database = {
           name?: string | null;
         };
       };
+      conversations: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          messages: Json;
+          created_at: number;
+          updated_at: number;
+        };
+        Insert: {
+          id: string;
+          user_id: string;
+          title: string;
+          messages: Json;
+          created_at: number;
+          updated_at: number;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          messages?: Json;
+          created_at?: number;
+          updated_at?: number;
+        };
+      };
     };
   };
 };

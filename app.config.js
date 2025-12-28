@@ -23,7 +23,6 @@ export default {
           'O Pocket precisa da câmera para escanear seus comprovantes.',
         NSPhotoLibraryUsageDescription:
           'O Pocket precisa acessar suas fotos para ler comprovantes salvos.',
-        UIStatusBarStyle: 'UIStatusBarStyleDefault',
         UIViewControllerBasedStatusBarAppearance: true,
       },
     },

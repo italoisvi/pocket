@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
+import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { LapisIcon } from '@/components/LapisIcon';
 import { AdicionarUsuarioIcon } from '@/components/AdicionarUsuarioIcon';
@@ -117,6 +118,7 @@ export default function PerfilScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
+              getCardShadowStyle(theme.background === '#000'),
             ]}
           >
             <View style={styles.cardHeader}>
@@ -171,20 +173,20 @@ export default function PerfilScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
+              getCardShadowStyle(theme.background === '#000'),
             ]}
           >
-            <TouchableOpacity
-              style={styles.inviteCard}
-              onPress={() => router.push('/painel-financeiro')}
-            >
+            <View style={styles.inviteCard}>
               <View style={styles.inviteLeft}>
                 <AlinhamentoGraficoIcon size={28} color={theme.text} />
                 <Text style={[styles.inviteTitle, { color: theme.text }]}>
                   Painel Financeiro
                 </Text>
               </View>
-              <LapisIcon size={20} color={theme.text} />
-            </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/painel-financeiro')}>
+                <LapisIcon size={20} color={theme.text} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Card de Indique um Amigo */}
@@ -195,24 +197,24 @@ export default function PerfilScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
+              getCardShadowStyle(theme.background === '#000'),
             ]}
           >
-            <TouchableOpacity
-              style={styles.inviteCard}
-              onPress={handleInviteFriend}
-            >
+            <View style={styles.inviteCard}>
               <View style={styles.inviteLeft}>
                 <AdicionarUsuarioIcon size={28} color={theme.primary} />
                 <Text style={[styles.inviteTitle, { color: theme.text }]}>
                   Indique a um amigo
                 </Text>
               </View>
-              <Text
-                style={[styles.inviteSubtitle, { color: theme.textSecondary }]}
-              >
-                CONVIDAR
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity onPress={handleInviteFriend}>
+                <Text
+                  style={[styles.inviteSubtitle, { color: theme.textSecondary }]}
+                >
+                  CONVIDAR
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       )}

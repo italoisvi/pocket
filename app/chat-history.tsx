@@ -9,14 +9,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { LixoIcon } from '@/components/LixoIcon';
 import type { Conversation } from '@/lib/deepseek';
-
-const CURRENT_CONVERSATION_KEY = '@pocket_current_conversation';
-const HISTORY_LIST_KEY = '@pocket_conversation_history';
+import { supabase } from '@/lib/supabase';
+import { getCardShadowStyle } from '@/lib/cardStyles';
 
 export default function ChatHistoryScreen() {
   const { theme } = useTheme();
@@ -29,27 +27,32 @@ export default function ChatHistoryScreen() {
 
   const loadHistory = async () => {
     try {
-      const historyListStr = await AsyncStorage.getItem(HISTORY_LIST_KEY);
-      if (!historyListStr) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
         setLoading(false);
         return;
       }
 
-      const historyList: string[] = JSON.parse(historyListStr);
-      const loadedConversations: Conversation[] = [];
+      const { data: conversationsData } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
 
-      for (const id of historyList) {
-        const key = `@pocket_conversation_${id}`;
-        const conversationStr = await AsyncStorage.getItem(key);
-        if (conversationStr) {
-          const conversation: Conversation = JSON.parse(conversationStr);
-          loadedConversations.push(conversation);
-        }
+      if (conversationsData) {
+        const mappedConversations: Conversation[] = conversationsData.map(
+          (conv) => ({
+            id: conv.id,
+            title: conv.title,
+            messages: conv.messages || [],
+            createdAt: conv.created_at,
+            updatedAt: conv.updated_at,
+          })
+        );
+        setConversations(mappedConversations);
       }
-
-      // Sort by updatedAt descending
-      loadedConversations.sort((a, b) => b.updatedAt - a.updatedAt);
-      setConversations(loadedConversations);
     } catch (error) {
       console.error('Error loading history:', error);
     } finally {
@@ -71,34 +74,17 @@ export default function ChatHistoryScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Remove from storage
-              const key = `@pocket_conversation_${conversationId}`;
-              await AsyncStorage.removeItem(key);
+              const {
+                data: { user },
+              } = await supabase.auth.getUser();
+              if (!user) return;
 
-              // Update history list
-              const historyListStr =
-                await AsyncStorage.getItem(HISTORY_LIST_KEY);
-              if (historyListStr) {
-                const historyList: string[] = JSON.parse(historyListStr);
-                const updatedList = historyList.filter(
-                  (id) => id !== conversationId
-                );
-                await AsyncStorage.setItem(
-                  HISTORY_LIST_KEY,
-                  JSON.stringify(updatedList)
-                );
-              }
-
-              // Check if this is the current conversation
-              const currentConvStr = await AsyncStorage.getItem(
-                CURRENT_CONVERSATION_KEY
-              );
-              if (currentConvStr) {
-                const currentConv: Conversation = JSON.parse(currentConvStr);
-                if (currentConv.id === conversationId) {
-                  await AsyncStorage.removeItem(CURRENT_CONVERSATION_KEY);
-                }
-              }
+              // Delete from database
+              await supabase
+                .from('conversations')
+                .delete()
+                .eq('id', conversationId)
+                .eq('user_id', user.id);
 
               // Reload history
               loadHistory();
@@ -114,11 +100,20 @@ export default function ChatHistoryScreen() {
 
   const handleOpenConversation = async (conversation: Conversation) => {
     try {
-      // Set as current conversation
-      await AsyncStorage.setItem(
-        CURRENT_CONVERSATION_KEY,
-        JSON.stringify(conversation)
-      );
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Marcar esta conversa como a mais recentemente atualizada para ser carregada
+      await supabase
+        .from('conversations')
+        .update({
+          updated_at: Date.now(),
+        })
+        .eq('id', conversation.id)
+        .eq('user_id', user.id);
+
       router.back();
     } catch (error) {
       console.error('Error opening conversation:', error);
@@ -182,6 +177,7 @@ export default function ChatHistoryScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
+                getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => handleOpenConversation(conversation)}
             >

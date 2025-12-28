@@ -71,12 +71,15 @@ O Pocket é um aplicativo de controle financeiro pessoal com as seguintes funcio
 - Responder SEMPRE em português do Brasil
 
 ## Estilo de Resposta:
+- **IMPORTANTE:** Seja CONCISO e direto ao ponto. Evite respostas muito longas que podem confundir o usuário
+- Respostas devem ter no máximo 3-4 parágrafos curtos, exceto quando o usuário pedir explicações detalhadas
+- Priorize qualidade sobre quantidade - diga apenas o essencial
 - Use **negrito** para destacar pontos importantes
-- Use listas quando apropriado (com - ou números)
-- Mantenha respostas concisas mas completas
-- Seja cordial e use emojis ocasionalmente para ser mais amigável
+- Use listas curtas quando apropriado (máximo 3-5 itens)
+- Seja cordial e use emojis ocasionalmente para ser mais amigável (mas com moderação)
 - Tom conversacional e próximo, mas profissional
 - Formate suas respostas em Markdown para melhor legibilidade
+- Se o usuário pedir análises detalhadas ou explicações longas, aí sim você pode se estender mais
 
 ## Memória:
 Você tem acesso a todo o histórico da conversa atual. SEMPRE se refira a mensagens anteriores quando relevante.`;
@@ -96,56 +99,103 @@ export async function sendMessageToDeepSeek(
     // Build context message if user data is provided
     let contextMessage = '';
     if (userContext) {
-      contextMessage = '\n\nContexto do usuário:';
+      contextMessage = '\n\n=== DADOS FINANCEIROS DO USUÁRIO ===';
+
+      // Renda e Saldo
       if (userContext.totalIncome !== undefined) {
-        contextMessage += `\n- Renda mensal total: R$ ${userContext.totalIncome.toFixed(2)}`;
+        contextMessage += `\n\n💰 RENDA MENSAL TOTAL: R$ ${userContext.totalIncome.toFixed(2)}`;
       }
       if (userContext.totalExpenses !== undefined) {
-        contextMessage += `\n- Total de gastos este mês: R$ ${userContext.totalExpenses.toFixed(2)}`;
+        contextMessage += `\n💸 TOTAL DE GASTOS ESTE MÊS: R$ ${userContext.totalExpenses.toFixed(2)}`;
+
+        // Calcular porcentagem gasta da renda
+        if (
+          userContext.totalIncome !== undefined &&
+          userContext.totalIncome > 0
+        ) {
+          const percentGasto =
+            (userContext.totalExpenses / userContext.totalIncome) * 100;
+          contextMessage += ` (${percentGasto.toFixed(1)}% da renda)`;
+        }
       }
       if (
         userContext.totalIncome !== undefined &&
         userContext.totalExpenses !== undefined
       ) {
         const saldo = userContext.totalIncome - userContext.totalExpenses;
-        contextMessage += `\n- Saldo restante: R$ ${saldo.toFixed(2)}`;
+        contextMessage += `\n💵 SALDO RESTANTE: R$ ${saldo.toFixed(2)}`;
       }
-      if (userContext.categoryBreakdown) {
-        contextMessage += '\n- Gastos por categoria:';
-        Object.entries(userContext.categoryBreakdown).forEach(
-          ([category, amount]) => {
-            contextMessage += `\n  • ${category}: R$ ${amount.toFixed(2)}`;
-          }
-        );
-      }
+
+      // Custos Fixos (Essenciais) com porcentagens
       if (
         userContext.essentialExpenses &&
         Object.keys(userContext.essentialExpenses).length > 0
       ) {
-        contextMessage += '\n- Custos Fixos (Essenciais):';
-        Object.entries(userContext.essentialExpenses).forEach(
-          ([subcategory, amount]) => {
-            contextMessage += `\n  • ${subcategory}: R$ ${amount.toFixed(2)}`;
-          }
-        );
+        const totalEssential = Object.values(
+          userContext.essentialExpenses
+        ).reduce((sum, amount) => sum + amount, 0);
+
+        contextMessage += `\n\n🏠 CUSTOS FIXOS (ESSENCIAIS):`;
+        contextMessage += `\n   Total: R$ ${totalEssential.toFixed(2)}`;
+
+        if (userContext.totalExpenses && userContext.totalExpenses > 0) {
+          const percentOfTotal =
+            (totalEssential / userContext.totalExpenses) * 100;
+          contextMessage += ` (${percentOfTotal.toFixed(1)}% dos gastos totais)`;
+        }
+
+        Object.entries(userContext.essentialExpenses)
+          .sort(([, a], [, b]) => b - a) // Ordenar do maior para o menor
+          .forEach(([subcategory, amount]) => {
+            let percentInfo = '';
+            if (userContext.totalExpenses && userContext.totalExpenses > 0) {
+              const percent = (amount / userContext.totalExpenses) * 100;
+              percentInfo = ` - ${percent.toFixed(1)}% dos gastos`;
+            }
+            contextMessage += `\n   • ${subcategory}: R$ ${amount.toFixed(2)}${percentInfo}`;
+          });
       }
+
+      // Custos Variáveis (Não Essenciais) com porcentagens
       if (
         userContext.nonEssentialExpenses &&
         Object.keys(userContext.nonEssentialExpenses).length > 0
       ) {
-        contextMessage += '\n- Custos Variáveis (Não Essenciais):';
-        Object.entries(userContext.nonEssentialExpenses).forEach(
-          ([subcategory, amount]) => {
-            contextMessage += `\n  • ${subcategory}: R$ ${amount.toFixed(2)}`;
-          }
-        );
+        const totalNonEssential = Object.values(
+          userContext.nonEssentialExpenses
+        ).reduce((sum, amount) => sum + amount, 0);
+
+        contextMessage += `\n\n🎮 CUSTOS VARIÁVEIS (NÃO ESSENCIAIS):`;
+        contextMessage += `\n   Total: R$ ${totalNonEssential.toFixed(2)}`;
+
+        if (userContext.totalExpenses && userContext.totalExpenses > 0) {
+          const percentOfTotal =
+            (totalNonEssential / userContext.totalExpenses) * 100;
+          contextMessage += ` (${percentOfTotal.toFixed(1)}% dos gastos totais)`;
+        }
+
+        Object.entries(userContext.nonEssentialExpenses)
+          .sort(([, a], [, b]) => b - a) // Ordenar do maior para o menor
+          .forEach(([subcategory, amount]) => {
+            let percentInfo = '';
+            if (userContext.totalExpenses && userContext.totalExpenses > 0) {
+              const percent = (amount / userContext.totalExpenses) * 100;
+              percentInfo = ` - ${percent.toFixed(1)}% dos gastos`;
+            }
+            contextMessage += `\n   • ${subcategory}: R$ ${amount.toFixed(2)}${percentInfo}`;
+          });
       }
+
+      // Gastos recentes
       if (userContext.recentExpenses && userContext.recentExpenses.length > 0) {
-        contextMessage += '\n- Gastos recentes:';
+        contextMessage += '\n\n📋 ÚLTIMOS 5 GASTOS:';
         userContext.recentExpenses.slice(0, 5).forEach((expense) => {
-          contextMessage += `\n  • ${expense.name} - R$ ${expense.amount.toFixed(2)} (${expense.category})`;
+          contextMessage += `\n   • ${expense.name} - R$ ${expense.amount.toFixed(2)} (${expense.category})`;
         });
       }
+
+      contextMessage +=
+        '\n\n⚠️ IMPORTANTE: Use EXATAMENTE estas porcentagens em suas respostas. NÃO recalcule, use os valores fornecidos acima.';
     }
 
     const apiMessages = [

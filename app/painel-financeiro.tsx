@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
+import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { EyeIcon } from '@/components/EyeIcon';
 import { EyeOffIcon } from '@/components/EyeOffIcon';
@@ -318,6 +319,7 @@ export default function PainelFinanceiroScreen() {
                             backgroundColor: theme.card,
                             borderColor: theme.cardBorder,
                           },
+                          getCardShadowStyle(theme.background === '#000'),
                         ]}
                       >
                         <View style={styles.displayCardHeader}>
@@ -364,7 +366,7 @@ export default function PainelFinanceiroScreen() {
                             { color: theme.text },
                           ]}
                         >
-                          {showValues ? `R$ ${card.salary}` : 'R$ ••••••'}
+                          {showValues ? `R$ ${card.salary}` : 'R$ ******'}
                         </Text>
                         <Text
                           style={[

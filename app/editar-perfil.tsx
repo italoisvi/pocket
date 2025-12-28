@@ -98,8 +98,9 @@ export default function EditarPerfilScreen() {
       const response = await fetch(uri);
       const blob = await response.blob();
       const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const fileName = `${Date.now()}.${fileExt}`;
+      // Path format: userId/filename (required by RLS policy)
+      const filePath = `${userId}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('profile-images')

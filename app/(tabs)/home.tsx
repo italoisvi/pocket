@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,31 +8,23 @@ import {
   ActivityIndicator,
   Text,
   Image,
-  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
-import { CameraIcon } from '@/components/CameraIcon';
 import { SettingsIcon } from '@/components/SettingsIcon';
 import { UsuarioIcon } from '@/components/UsuarioIcon';
-import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
-import { CarregarIcon } from '@/components/CarregarIcon';
-import { DividirContaIcon } from '@/components/DividirContaIcon';
-import { KangarooIcon } from '@/components/KangarooIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { EyeIcon } from '@/components/EyeIcon';
 import { EyeOffIcon } from '@/components/EyeOffIcon';
 import { ExpenseCard } from '@/components/ExpenseCard';
-import { ExpenseConfirmModal } from '@/components/ExpenseConfirmModal';
 import { SalarySetupModal } from '@/components/SalarySetupModal';
-import { extractReceiptData, type ReceiptData } from '@/lib/ocr';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { categorizeExpense } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
+import { getCardShadowStyle } from '@/lib/cardStyles';
 
 type Expense = {
   id: string;
@@ -48,18 +40,11 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingImage, setProcessingImage] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
-  const [currentImageUri, setCurrentImageUri] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [showSalarySetup, setShowSalarySetup] = useState(false);
   const [monthlySalary, setMonthlySalary] = useState<number | null>(null);
   const [salaryVisible, setSalaryVisible] = useState(false);
   const [savingSalary, setSavingSalary] = useState(false);
-  const [showFloatingButtons, setShowFloatingButtons] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const floatingButtonsAnim = useRef(new Animated.Value(0)).current;
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => {
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -207,197 +192,6 @@ export default function HomeScreen() {
     }
   };
 
-  const handleCameraPress = () => {
-    if (showFloatingButtons) {
-      // Fechar com animação
-      Animated.timing(floatingButtonsAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => setShowFloatingButtons(false));
-    } else {
-      // Abrir com animação
-      setShowFloatingButtons(true);
-      Animated.timing(floatingButtonsAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    setShowFloatingButtons(false);
-    try {
-      // Dynamic import to prevent iOS release crash
-      const ImagePicker = await import('expo-image-picker');
-
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permissão Necessária',
-          'Precisamos de permissão para acessar sua câmera.'
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        const imageUri = result.assets[0].uri;
-        setCurrentImageUri(imageUri);
-        await processReceipt(imageUri);
-      }
-    } catch (error) {
-      console.error('Camera error:', error);
-      Alert.alert('Erro', 'Não foi possível abrir a câmera.');
-    }
-  };
-
-  const handlePickImage = async () => {
-    setShowFloatingButtons(false);
-    try {
-      // Dynamic import to prevent iOS release crash
-      const ImagePicker = await import('expo-image-picker');
-
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permissão Necessária',
-          'Precisamos de permissão para acessar sua galeria.'
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        const imageUri = result.assets[0].uri;
-        setCurrentImageUri(imageUri);
-        await processReceipt(imageUri);
-      }
-    } catch (error) {
-      console.error('Gallery error:', error);
-      Alert.alert('Erro', 'Não foi possível abrir a galeria.');
-    }
-  };
-
-  const processReceipt = async (imageUri: string) => {
-    setProcessingImage(true);
-    try {
-      const data = await extractReceiptData(imageUri);
-      setReceiptData(data);
-      setShowConfirmModal(true);
-    } catch (error) {
-      console.error('Erro ao processar comprovante:', error);
-      Alert.alert(
-        'Erro ao processar comprovante',
-        'Não foi possível ler o comprovante automaticamente. Deseja inserir os dados manualmente?',
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel',
-            onPress: () => {
-              setCurrentImageUri(null);
-            },
-          },
-          {
-            text: 'Inserir Manualmente',
-            onPress: () => {
-              const defaultData: ReceiptData = {
-                establishmentName: '',
-                amount: 0,
-                date: new Date().toISOString().split('T')[0],
-                items: [],
-              };
-              setReceiptData(defaultData);
-              setShowConfirmModal(true);
-            },
-          },
-        ]
-      );
-    } finally {
-      setProcessingImage(false);
-    }
-  };
-
-  const handleConfirmExpense = async (data: ReceiptData) => {
-    setSaving(true);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) throw new Error('Usuário não autenticado');
-
-      let imageUrl = null;
-      if (currentImageUri) {
-        const fileName = `${user.id}/${Date.now()}.jpg`;
-        const response = await fetch(currentImageUri);
-        const blob = await response.blob();
-
-        const { error: uploadError } = await supabase.storage
-          .from('receipts')
-          .upload(fileName, blob);
-
-        if (uploadError) throw uploadError;
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from('receipts').getPublicUrl(fileName);
-
-        imageUrl = publicUrl;
-      }
-
-      // Categorizar automaticamente o gasto e obter subcategoria
-      const { category, subcategory } = categorizeExpense(
-        data.establishmentName
-      );
-
-      const { error } = await supabase.from('expenses').insert({
-        user_id: user.id,
-        establishment_name: data.establishmentName,
-        amount: data.amount,
-        date: data.date,
-        items: data.items,
-        image_url: imageUrl,
-        category: category,
-        subcategory: subcategory,
-      });
-
-      if (error) throw error;
-
-      setShowConfirmModal(false);
-      setReceiptData(null);
-      setCurrentImageUri(null);
-      await loadExpenses();
-
-      Alert.alert('Sucesso', 'Gasto registrado com sucesso!');
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível salvar o gasto. Tente novamente.');
-      console.error('Erro ao salvar gasto:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancelConfirm = () => {
-    setShowConfirmModal(false);
-    setReceiptData(null);
-    setCurrentImageUri(null);
-  };
-
   const handleExpensePress = (id: string) => {
     router.push(`/expense/${id}`);
   };
@@ -480,6 +274,7 @@ export default function HomeScreen() {
               backgroundColor: theme.surface,
               borderColor: theme.border,
             },
+            getCardShadowStyle(theme.background === '#000'),
           ]}
           onPress={() => router.push('/perfil')}
         >
@@ -554,133 +349,11 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Botão flutuante dividir conta */}
-      <TouchableOpacity
-        style={[
-          styles.fabDividir,
-          {
-            backgroundColor: theme.fabBackground,
-            shadowColor: theme.shadow,
-            shadowOpacity: theme.background === '#000' ? 0.4 : 0.15,
-          },
-        ]}
-        onPress={() => router.push('/dividir-conta')}
-      >
-        <DividirContaIcon size={28} color={theme.fabIcon} />
-      </TouchableOpacity>
-
-      {/* Botão flutuante Chat Walts */}
-      <TouchableOpacity
-        style={[
-          styles.fabChat,
-          {
-            backgroundColor: theme.fabBackground,
-            shadowColor: theme.shadow,
-            shadowOpacity: theme.background === '#000' ? 0.4 : 0.15,
-          },
-        ]}
-        onPress={() => router.push('/chat')}
-      >
-        <KangarooIcon
-          size={40}
-          color={theme.background === '#000' ? '#FFF' : '#000'}
-          inverted={theme.background !== '#000'}
-        />
-      </TouchableOpacity>
-
-      {/* Botão flutuante câmera */}
-      <TouchableOpacity
-        style={[
-          styles.fab,
-          {
-            backgroundColor: theme.fabBackground,
-            shadowColor: theme.shadow,
-            shadowOpacity: theme.background === '#000' ? 0.4 : 0.15,
-          },
-        ]}
-        onPress={handleCameraPress}
-        disabled={processingImage}
-      >
-        {processingImage ? (
-          <ActivityIndicator color={theme.fabIcon} />
-        ) : (
-          <CameraIcon size={28} color={theme.fabIcon} />
-        )}
-      </TouchableOpacity>
-
-      <ExpenseConfirmModal
-        visible={showConfirmModal}
-        receiptData={receiptData}
-        onConfirm={handleConfirmExpense}
-        onCancel={handleCancelConfirm}
-        loading={saving}
-      />
-
       <SalarySetupModal
         visible={showSalarySetup}
         onConfirm={handleSalarySetup}
         loading={savingSalary}
       />
-
-      {/* Botões flutuantes para tirar foto ou carregar arquivo */}
-      {showFloatingButtons && (
-        <>
-          <Animated.View
-            style={[
-              styles.floatingButton,
-              styles.uploadButton,
-              {
-                opacity: floatingButtonsAnim,
-                transform: [
-                  {
-                    translateY: floatingButtonsAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [80, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.floatingButtonInner,
-                { backgroundColor: theme.card },
-              ]}
-              onPress={handlePickImage}
-            >
-              <CarregarIcon size={22} color={theme.primary} />
-            </TouchableOpacity>
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.floatingButton,
-              styles.cameraButton,
-              {
-                opacity: floatingButtonsAnim,
-                transform: [
-                  {
-                    translateY: floatingButtonsAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [80, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.floatingButtonInner,
-                { backgroundColor: theme.card },
-              ]}
-              onPress={handleTakePhoto}
-            >
-              <CapturaDeFotoIcon size={22} color={theme.primary} />
-            </TouchableOpacity>
-          </Animated.View>
-        </>
-      )}
     </View>
   );
 }
@@ -728,13 +401,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -783,81 +449,5 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     marginBottom: 8,
-  },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 24,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  fabDividir: {
-    position: 'absolute',
-    left: 24,
-    bottom: 24,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  fabChat: {
-    position: 'absolute',
-    left: '50%',
-    marginLeft: -40,
-    bottom: 24,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  floatingButton: {
-    position: 'absolute',
-    right: 24,
-  },
-  floatingButtonInner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  cameraButton: {
-    bottom: 96,
-  },
-  uploadButton: {
-    bottom: 160,
   },
 });

@@ -13,6 +13,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
+import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
@@ -220,6 +221,7 @@ export default function FinancialOverviewScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
+                getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => toggleCategory('summary')}
             >
@@ -313,6 +315,7 @@ export default function FinancialOverviewScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
+                getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => toggleCategory('daily')}
             >
@@ -355,6 +358,7 @@ export default function FinancialOverviewScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
+                getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => router.push('/custos-fixos')}
             >
@@ -374,6 +378,7 @@ export default function FinancialOverviewScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
+                getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => router.push('/custos-variaveis')}
             >
@@ -393,6 +398,7 @@ export default function FinancialOverviewScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
+                getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => router.push('/graficos-tabelas')}
             >

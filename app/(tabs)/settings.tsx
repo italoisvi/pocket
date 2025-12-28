@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   Modal,
+  Linking,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,7 +19,14 @@ import { ModoEscuroIcon } from '@/components/ModoEscuroIcon';
 import { SolIcon } from '@/components/SolIcon';
 import { LuaIcon } from '@/components/LuaIcon';
 import { BotaoMovelIcon } from '@/components/BotaoMovelIcon';
+import { ChevronRightIcon } from '@/components/ChevronRightIcon';
+import { InformacoesIcon } from '@/components/InformacoesIcon';
+import { EscudoIcon } from '@/components/EscudoIcon';
+import { DocumentoIcon } from '@/components/DocumentoIcon';
+import { ComentarioIcon } from '@/components/ComentarioIcon';
+import { EnvelopeIcon } from '@/components/EnvelopeIcon';
 import { useTheme, type ThemeMode } from '@/lib/theme';
+import { getCardShadowStyle } from '@/lib/cardStyles';
 
 export default function SettingsScreen() {
   const { theme, themeMode, setThemeMode } = useTheme();
@@ -81,6 +89,22 @@ export default function SettingsScreen() {
     setShowThemeModal(false);
   };
 
+  const handleSendEmail = async (subject: string) => {
+    const email = 'contato@gladiussistemas.com.br';
+    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Erro', 'Não foi possível abrir o cliente de email.');
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível abrir o cliente de email.');
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView
@@ -109,6 +133,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
+              getCardShadowStyle(theme.background === '#000'),
             ]}
             onPress={() => setShowThemeModal(true)}
           >
@@ -123,6 +148,118 @@ export default function SettingsScreen() {
             >
               {getThemeName(themeMode)}
             </Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          Sobre o Pocket
+        </Text>
+
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+              getCardShadowStyle(theme.background === '#000'),
+            ]}
+            onPress={() => router.push('/sobre-nos')}
+          >
+            <View style={styles.settingCardLeft}>
+              <InformacoesIcon size={24} color={theme.text} />
+              <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                Sobre nós
+              </Text>
+            </View>
+            <ChevronRightIcon size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+              getCardShadowStyle(theme.background === '#000'),
+            ]}
+            onPress={() => router.push('/politica-privacidade')}
+          >
+            <View style={styles.settingCardLeft}>
+              <EscudoIcon size={24} color={theme.text} />
+              <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                Política de Privacidade
+              </Text>
+            </View>
+            <ChevronRightIcon size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+              getCardShadowStyle(theme.background === '#000'),
+            ]}
+            onPress={() => router.push('/termos-uso')}
+          >
+            <View style={styles.settingCardLeft}>
+              <DocumentoIcon size={24} color={theme.text} />
+              <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                Termos de Uso
+              </Text>
+            </View>
+            <ChevronRightIcon size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          Entre em Contato
+        </Text>
+
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+              getCardShadowStyle(theme.background === '#000'),
+            ]}
+            onPress={() => handleSendEmail('Feedback do Pocket')}
+          >
+            <View style={styles.settingCardLeft}>
+              <ComentarioIcon size={24} color={theme.text} />
+              <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                Dar feedback
+              </Text>
+            </View>
+            <ChevronRightIcon size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+              getCardShadowStyle(theme.background === '#000'),
+            ]}
+            onPress={() => handleSendEmail('Contato - Pocket')}
+          >
+            <View style={styles.settingCardLeft}>
+              <EnvelopeIcon size={24} color={theme.text} />
+              <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                Entre em contato
+              </Text>
+            </View>
+            <ChevronRightIcon size={20} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -208,6 +345,7 @@ export default function SettingsScreen() {
                 themeMode === 'light' && {
                   borderColor: theme.primary,
                 },
+                getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => handleThemeSelect('light')}
             >
@@ -232,6 +370,7 @@ export default function SettingsScreen() {
                 themeMode === 'dark' && {
                   borderColor: theme.primary,
                 },
+                getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => handleThemeSelect('dark')}
             >
@@ -256,6 +395,7 @@ export default function SettingsScreen() {
                 themeMode === 'system' && {
                   borderColor: theme.primary,
                 },
+                getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => handleThemeSelect('system')}
             >
@@ -312,6 +452,13 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    marginBottom: 12,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
   settingCard: {
     borderRadius: 12,
     padding: 16,
@@ -319,6 +466,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
   settingCardLeft: {
     flexDirection: 'row',

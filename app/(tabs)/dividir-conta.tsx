@@ -131,8 +131,8 @@ export default function DividirContaScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 0.8,
+        allowsEditing: true,
+        quality: 1,
       });
 
       if (!result.canceled) {

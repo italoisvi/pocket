@@ -7,7 +7,6 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -111,7 +110,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeContext.Provider value={{ theme, themeMode, setThemeMode, isDark }}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
       {children}
     </ThemeContext.Provider>
   );

@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { AviaDePapelIcon } from '@/components/AviaDePapelIcon';
@@ -28,8 +27,6 @@ import {
 } from '@/lib/deepseek';
 import { supabase } from '@/lib/supabase';
 import { CATEGORIES } from '@/lib/categories';
-
-const CURRENT_CONVERSATION_KEY = '@pocket_current_conversation';
 
 export default function ChatScreen() {
   const { theme } = useTheme();
@@ -59,10 +56,22 @@ export default function ChatScreen() {
 
   const loadCurrentConversation = async () => {
     try {
-      const saved = await AsyncStorage.getItem(CURRENT_CONVERSATION_KEY);
-      if (saved) {
-        const conversation: Conversation = JSON.parse(saved);
-        setMessages(conversation.messages);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Buscar a conversa mais recente do usuário
+      const { data: conversations } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (conversations && conversations.length > 0) {
+        const conversation = conversations[0];
+        setMessages(conversation.messages || []);
         setConversationId(conversation.id);
       } else {
         // Create new conversation without initial message
@@ -185,36 +194,47 @@ export default function ChatScreen() {
 
   const saveConversation = async (updatedMessages: Message[]) => {
     try {
-      const conversation: Conversation = {
-        id: conversationId,
-        title:
-          updatedMessages
-            .find((m) => m.role === 'user')
-            ?.content.substring(0, 50) || 'Nova conversa',
-        messages: updatedMessages,
-        createdAt: parseInt(conversationId),
-        updatedAt: Date.now(),
-      };
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-      await AsyncStorage.setItem(
-        CURRENT_CONVERSATION_KEY,
-        JSON.stringify(conversation)
-      );
+      const title =
+        updatedMessages
+          .find((m) => m.role === 'user')
+          ?.content.substring(0, 50) || 'Nova conversa';
 
-      // Save to history
-      const historyKey = `@pocket_conversation_${conversationId}`;
-      await AsyncStorage.setItem(historyKey, JSON.stringify(conversation));
+      const now = Date.now();
 
-      // Update history list
-      const historyListKey = '@pocket_conversation_history';
-      const historyListStr = await AsyncStorage.getItem(historyListKey);
-      const historyList: string[] = historyListStr
-        ? JSON.parse(historyListStr)
-        : [];
+      // Verificar se a conversa já existe
+      const { data: existing } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (!historyList.includes(conversationId)) {
-        historyList.unshift(conversationId);
-        await AsyncStorage.setItem(historyListKey, JSON.stringify(historyList));
+      if (existing) {
+        // Atualizar conversa existente
+        await supabase
+          .from('conversations')
+          .update({
+            title,
+            messages: updatedMessages,
+            updated_at: now,
+          })
+          .eq('id', conversationId)
+          .eq('user_id', user.id);
+      } else {
+        // Criar nova conversa
+        await supabase.from('conversations').insert({
+          id: conversationId,
+          user_id: user.id,
+          title,
+          messages: updatedMessages,
+          created_at: parseInt(conversationId),
+          updated_at: now,
+        });
       }
     } catch (error) {
       console.error('Error saving conversation:', error);
@@ -267,18 +287,32 @@ export default function ChatScreen() {
 
   const handleNewConversation = async () => {
     try {
-      // Save current conversation to history
+      // Save current conversation to database
       if (messages.length > 0) {
         await saveConversation(messages);
       }
 
-      // Create new conversation without initial message
+      // Create new conversation and save to database immediately
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
       const newId = Date.now().toString();
+      const now = Date.now();
+
+      // Insert empty conversation to database
+      await supabase.from('conversations').insert({
+        id: newId,
+        user_id: user.id,
+        title: 'Nova conversa',
+        messages: [],
+        created_at: now,
+        updated_at: now,
+      });
+
       setConversationId(newId);
       setMessages([]);
-
-      // Clear current conversation
-      await AsyncStorage.removeItem(CURRENT_CONVERSATION_KEY);
     } catch (error) {
       console.error('Error creating new conversation:', error);
     }
