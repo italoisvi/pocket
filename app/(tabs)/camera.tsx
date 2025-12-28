@@ -133,7 +133,7 @@ export default function CameraScreen() {
         establishment_name: editedData.establishmentName,
         amount: editedData.amount,
         date: editedData.date,
-        image_uri: currentImageUri,
+        image_url: currentImageUri,
         items: editedData.items,
         category: categorization.category,
         subcategory: categorization.subcategory,

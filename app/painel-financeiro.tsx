@@ -247,6 +247,11 @@ export default function PainelFinanceiroScreen() {
     setSalary(formatted);
   };
 
+  const maskValue = (value: string) => {
+    // Replace all digits with *, but keep dots and commas
+    return value.replace(/\d/g, '*');
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView
@@ -366,7 +371,9 @@ export default function PainelFinanceiroScreen() {
                             { color: theme.text },
                           ]}
                         >
-                          {showValues ? `R$ ${card.salary}` : 'R$ ******'}
+                          {showValues
+                            ? `R$ ${card.salary}`
+                            : `R$ ${maskValue(card.salary)}`}
                         </Text>
                         <Text
                           style={[

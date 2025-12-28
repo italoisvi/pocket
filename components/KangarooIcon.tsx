@@ -11,7 +11,7 @@ export function KangarooIcon({
   color = '#FDD567',
   inverted = false,
 }: KangarooIconProps) {
-  const bodyColor = inverted ? '#000' : color;
+  const bodyColor = color;
   const detailsColor = inverted ? '#FFF' : 'rgb(114,107,117)';
 
   return (

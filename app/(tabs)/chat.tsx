@@ -132,10 +132,10 @@ export default function ChatScreen() {
 
       const { data: expenses } = await supabase
         .from('expenses')
-        .select('establishment_name, amount, category, subcategory')
+        .select('establishment_name, amount, category, subcategory, date')
         .eq('user_id', user.id)
-        .gte('date', firstDayISO)
-        .order('date', { ascending: false });
+        .gte('created_at', firstDayISO)
+        .order('created_at', { ascending: false });
 
       if (expenses && expenses.length > 0) {
         const totalExpenses = expenses.reduce(

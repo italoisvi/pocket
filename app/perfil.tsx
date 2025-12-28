@@ -10,7 +10,8 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
@@ -32,6 +33,14 @@ export default function PerfilScreen() {
     loadProfile();
   }, []);
 
+  // Reload profile when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[Perfil] Screen focused, reloading profile...');
+      loadProfile();
+    }, [])
+  );
+
   const loadProfile = async () => {
     try {
       const {
@@ -45,11 +54,14 @@ export default function PerfilScreen() {
 
       setUserEmail(user.email || '');
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('name, avatar_url')
         .eq('id', user.id)
         .maybeSingle();
+
+      console.log('[Perfil] Profile data:', profile);
+      console.log('[Perfil] Profile error:', profileError);
 
       if (profile?.name) {
         setUserName(profile.name);
@@ -57,7 +69,10 @@ export default function PerfilScreen() {
         setUserName('Usuário');
       }
       if (profile?.avatar_url) {
+        console.log('[Perfil] Setting profile image:', profile.avatar_url);
         setProfileImage(profile.avatar_url);
+      } else {
+        console.log('[Perfil] No avatar_url found in profile');
       }
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
@@ -135,6 +150,16 @@ export default function PerfilScreen() {
                   <Image
                     source={{ uri: profileImage }}
                     style={styles.profilePhotoImage}
+                    onError={(error) => {
+                      console.error(
+                        '[Perfil] Image load error:',
+                        error.nativeEvent
+                      );
+                      setProfileImage(null);
+                    }}
+                    onLoad={() => {
+                      console.log('[Perfil] Image loaded successfully!');
+                    }}
                   />
                 ) : (
                   <UsuarioIcon size={32} color={theme.textSecondary} />
@@ -183,7 +208,9 @@ export default function PerfilScreen() {
                   Painel Financeiro
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => router.push('/painel-financeiro')}>
+              <TouchableOpacity
+                onPress={() => router.push('/painel-financeiro')}
+              >
                 <LapisIcon size={20} color={theme.text} />
               </TouchableOpacity>
             </View>
@@ -209,7 +236,10 @@ export default function PerfilScreen() {
               </View>
               <TouchableOpacity onPress={handleInviteFriend}>
                 <Text
-                  style={[styles.inviteSubtitle, { color: theme.textSecondary }]}
+                  style={[
+                    styles.inviteSubtitle,
+                    { color: theme.textSecondary },
+                  ]}
                 >
                   CONVIDAR
                 </Text>
@@ -291,6 +321,7 @@ const styles = StyleSheet.create({
   profilePhotoImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 32,
   },
   cardInfo: {
     flex: 1,

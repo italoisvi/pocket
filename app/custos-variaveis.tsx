@@ -73,6 +73,7 @@ export default function CustosVariaveisScreen() {
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, category, subcategory')
+        .eq('user_id', user.id)
         .gte('created_at', firstDayOfMonth.toISOString())
         .lte('created_at', lastDayOfMonth.toISOString());
 

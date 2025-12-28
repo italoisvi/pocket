@@ -57,6 +57,7 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      console.log('[Home] Screen focused, reloading data...');
       loadExpenses();
       loadProfile();
     }, [])
@@ -105,8 +106,12 @@ export default function HomeScreen() {
       }
 
       // Carregar avatar
+      console.log('[Home] Avatar URL from database:', data?.avatar_url);
       if (data?.avatar_url) {
+        console.log('[Home] Setting profile image:', data.avatar_url);
         setProfileImage(data.avatar_url);
+      } else {
+        console.log('[Home] No avatar_url found');
       }
 
       // Mostrar modal de setup se não tem nenhuma renda configurada
@@ -282,6 +287,13 @@ export default function HomeScreen() {
             <Image
               source={{ uri: profileImage }}
               style={styles.profileButtonImage}
+              onError={(error) => {
+                console.error('[Home] Image load error:', error.nativeEvent);
+                setProfileImage(null);
+              }}
+              onLoad={() => {
+                console.log('[Home] Image loaded successfully!');
+              }}
             />
           ) : (
             <UsuarioIcon size={24} color={theme.text} />
@@ -407,6 +419,7 @@ const styles = StyleSheet.create({
   profileButtonImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 24,
   },
   loadingContainer: {
     flex: 1,

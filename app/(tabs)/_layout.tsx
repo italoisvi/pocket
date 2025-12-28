@@ -1,8 +1,11 @@
 import { Tabs } from 'expo-router';
 import { CasaIcon } from '@/components/CasaIcon';
+import { CasaIconFilled } from '@/components/CasaIconFilled';
 import { DividirContaIcon } from '@/components/DividirContaIcon';
+import { DividirContaIconFilled } from '@/components/DividirContaIconFilled';
 import { KangarooIcon } from '@/components/KangarooIcon';
 import { CameraIcon } from '@/components/CameraIcon';
+import { CameraIconFilled } from '@/components/CameraIconFilled';
 import { useTheme } from '@/lib/theme';
 
 export default function TabsLayout() {
@@ -12,7 +15,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.primary,
+        tabBarActiveTintColor: '#f7c359',
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: {
           backgroundColor: theme.surface,
@@ -40,18 +43,24 @@ export default function TabsLayout() {
         name="home"
         options={{
           title: 'Início',
-          tabBarIcon: ({ color, size }) => (
-            <CasaIcon size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size, focused }) =>
+            focused ? (
+              <CasaIconFilled size={size} color={color} />
+            ) : (
+              <CasaIcon size={size} color={color} />
+            ),
         }}
       />
       <Tabs.Screen
         name="dividir-conta"
         options={{
           title: 'Dividir',
-          tabBarIcon: ({ color, size }) => (
-            <DividirContaIcon size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size, focused }) =>
+            focused ? (
+              <DividirContaIconFilled size={size} color={color} />
+            ) : (
+              <DividirContaIcon size={size} color={color} />
+            ),
         }}
       />
       <Tabs.Screen
@@ -71,9 +80,12 @@ export default function TabsLayout() {
         name="camera"
         options={{
           title: 'Adicionar',
-          tabBarIcon: ({ color, size }) => (
-            <CameraIcon size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size, focused }) =>
+            focused ? (
+              <CameraIconFilled size={size} color={color} />
+            ) : (
+              <CameraIcon size={size} color={color} />
+            ),
         }}
       />
       <Tabs.Screen

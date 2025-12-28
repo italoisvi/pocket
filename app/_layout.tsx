@@ -2,12 +2,19 @@ import { useEffect, useState } from 'react';
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  ActivityIndicator,
+  StyleSheet,
+  StatusBar,
+  useColorScheme,
+} from 'react-native';
 import * as Font from 'expo-font';
-import { ThemeProvider } from '@/lib/theme';
+import { ThemeProvider, useTheme } from '@/lib/theme';
 import { ErrorBoundary } from '@/lib/errorBoundary';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
+import { AnimatedSplashScreen } from '@/components/AnimatedSplashScreen';
 
 // Initialize Sentry
 const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
@@ -26,6 +33,64 @@ if (sentryDsn) {
   console.log('[Sentry] Initialized successfully');
 } else {
   console.warn('[Sentry] DSN not found, Sentry will not be initialized');
+}
+
+function ThemedStack() {
+  const { isDark } = useTheme();
+  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
+
+  // Update status bar whenever theme changes
+  useEffect(() => {
+    StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
+  }, [isDark]);
+
+  return (
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          gestureEnabled: true,
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="index" />
+        <Stack.Screen name="expense/[id]" />
+        <Stack.Screen
+          name="financial-overview"
+          options={{
+            gestureEnabled: true,
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="custos-fixos"
+          options={{
+            gestureEnabled: true,
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="custos-variaveis"
+          options={{
+            gestureEnabled: true,
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="graficos-tabelas"
+          options={{
+            gestureEnabled: true,
+            animation: 'slide_from_right',
+          }}
+        />
+      </Stack>
+      {showAnimatedSplash && (
+        <AnimatedSplashScreen onComplete={() => setShowAnimatedSplash(false)} />
+      )}
+    </>
+  );
 }
 
 function RootLayout() {
@@ -115,46 +180,7 @@ function RootLayout() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            gestureEnabled: true,
-            animation: 'slide_from_right',
-          }}
-        >
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="index" />
-          <Stack.Screen name="expense/[id]" />
-          <Stack.Screen
-            name="financial-overview"
-            options={{
-              gestureEnabled: true,
-              animation: 'slide_from_right',
-            }}
-          />
-          <Stack.Screen
-            name="custos-fixos"
-            options={{
-              gestureEnabled: true,
-              animation: 'slide_from_right',
-            }}
-          />
-          <Stack.Screen
-            name="custos-variaveis"
-            options={{
-              gestureEnabled: true,
-              animation: 'slide_from_right',
-            }}
-          />
-          <Stack.Screen
-            name="graficos-tabelas"
-            options={{
-              gestureEnabled: true,
-              animation: 'slide_from_right',
-            }}
-          />
-        </Stack>
+        <ThemedStack />
       </ThemeProvider>
     </ErrorBoundary>
   );

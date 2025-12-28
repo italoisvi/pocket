@@ -60,3 +60,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+// Export supabaseUrl for storage operations
+export { supabaseUrl };

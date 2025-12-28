@@ -40,7 +40,12 @@
       "Bash(node:*)",
       "Bash(del test-categorize.js)",
       "Bash(copy \"assets\\\\images\\\\kangurupreto.png\" \"assets\\\\icon.png\")",
-      "Bash(eas secret:create:*)"
+      "Bash(eas secret:create:*)",
+      "Bash(npx supabase:*)",
+      "Bash(copy /Y \"assets\\\\images\\\\kangaroo.png\" \"assets\\\\icon.png\")",
+      "Bash(copy /Y \"assets\\\\images\\\\kangaroo.png\" \"assets\\\\adaptive-icon.png\")",
+      "Bash(copy /Y \"assets\\\\images\\\\kangaroo.png\" \"assets\\\\favicon.png\")",
+      "Bash(npm uninstall:*)"
     ]
   }
 }

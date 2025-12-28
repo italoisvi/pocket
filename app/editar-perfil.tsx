@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseUrl } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { UsuarioIcon } from '@/components/UsuarioIcon';
@@ -95,29 +95,54 @@ export default function EditarPerfilScreen() {
 
   const uploadImageToStorage = async (uri: string): Promise<string | null> => {
     try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      console.log('[EditProfile] Starting upload for URI:', uri);
+
       const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${Date.now()}.${fileExt}`;
       // Path format: userId/filename (required by RLS policy)
       const filePath = `${userId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('profile-images')
-        .upload(filePath, blob, {
-          contentType: `image/${fileExt}`,
-          upsert: true,
-        });
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', {
+        uri,
+        name: fileName,
+        type: `image/${fileExt}`,
+      } as any);
 
-      if (uploadError) throw uploadError;
+      console.log('[EditProfile] Uploading to path:', filePath);
 
+      // Get Supabase URL from config
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/profile-images/${filePath}`;
+
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      console.log('[EditProfile] Upload URL:', uploadUrl);
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('[EditProfile] Upload error:', errorText);
+        throw new Error(`Upload failed: ${uploadResponse.status}`);
+      }
+
+      console.log('[EditProfile] Upload successful, getting public URL');
       const {
         data: { publicUrl },
       } = supabase.storage.from('profile-images').getPublicUrl(filePath);
 
+      console.log('[EditProfile] Public URL:', publicUrl);
       return publicUrl;
     } catch (error) {
-      console.error('Erro ao fazer upload da imagem:', error);
+      console.error('[EditProfile] Erro ao fazer upload da imagem:', error);
       return null;
     }
   };
@@ -134,7 +159,9 @@ export default function EditarPerfilScreen() {
 
       // Se a imagem foi alterada e é uma URI local, fazer upload
       if (profileImage && profileImage.startsWith('file://')) {
+        console.log('[EditProfile] Uploading image from:', profileImage);
         const uploadedUrl = await uploadImageToStorage(profileImage);
+        console.log('[EditProfile] Upload result:', uploadedUrl);
         if (uploadedUrl) {
           avatarUrl = uploadedUrl;
         } else {
@@ -145,22 +172,28 @@ export default function EditarPerfilScreen() {
         }
       }
 
-      const { error } = await supabase.from('profiles').upsert(
-        {
-          id: userId,
-          name: userName.trim(),
-          avatar_url: avatarUrl,
-        },
-        { onConflict: 'id' }
-      );
+      console.log('[EditProfile] Saving profile with avatar_url:', avatarUrl);
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert(
+          {
+            id: userId,
+            name: userName.trim(),
+            avatar_url: avatarUrl,
+          },
+          { onConflict: 'id' }
+        )
+        .select();
 
       if (error) throw error;
+
+      console.log('[EditProfile] Profile saved successfully:', data);
 
       Alert.alert('Sucesso', 'Perfil atualizado com sucesso!', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
-      console.error('Erro ao salvar perfil:', error);
+      console.error('[EditProfile] Erro ao salvar perfil:', error);
       Alert.alert('Erro', 'Não foi possível atualizar o perfil.');
     } finally {
       setSaving(false);
