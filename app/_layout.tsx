@@ -107,6 +107,13 @@ function ThemedStack() {
             animation: 'slide_from_right',
           }}
         />
+        <Stack.Screen
+          name="onboarding-paywall"
+          options={{
+            gestureEnabled: false,
+            animation: 'fade',
+          }}
+        />
       </Stack>
       {showAnimatedSplash && (
         <AnimatedSplashScreen onComplete={() => setShowAnimatedSplash(false)} />

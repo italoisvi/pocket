@@ -13,6 +13,7 @@ import {
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
+import { shouldShowOnboardingPaywall } from '@/lib/onboarding';
 
 export default function LoginScreen() {
   const { theme } = useTheme();
@@ -27,7 +28,7 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -36,7 +37,17 @@ export default function LoginScreen() {
     if (error) {
       Alert.alert('Erro ao fazer login', error.message);
     } else {
-      router.replace('/(tabs)/home');
+      const userId = data.user?.id;
+      if (userId) {
+        const shouldShow = await shouldShowOnboardingPaywall(userId);
+        if (shouldShow) {
+          router.replace('/onboarding-paywall');
+        } else {
+          router.replace('/(tabs)/home');
+        }
+      } else {
+        router.replace('/(tabs)/home');
+      }
     }
   };
 

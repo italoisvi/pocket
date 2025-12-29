@@ -26,8 +26,8 @@ The Pocket app now includes full RevenueCat integration to support premium subsc
 
 #### Modified Files
 
-1. **[app/_layout.tsx](../app/_layout.tsx)** - Added RevenueCat initialization and screen registration
-2. **[app/(tabs)/settings.tsx](../app/(tabs)/settings.tsx)** - Added premium subscription button
+1. **[app/\_layout.tsx](../app/_layout.tsx)** - Added RevenueCat initialization and screen registration
+2. **[app/(tabs)/settings.tsx](<../app/(tabs)/settings.tsx>)** - Added premium subscription button
 3. **[app.config.js](../app.config.js)** - Added RevenueCat API key configuration
 4. **[.env](.env)** - Added RevenueCat API key environment variable
 
@@ -53,7 +53,7 @@ This must match the entitlement configured in the RevenueCat dashboard.
 
 ### 1. SDK Initialization
 
-RevenueCat is initialized at app startup in [app/_layout.tsx](../app/_layout.tsx:39-44):
+RevenueCat is initialized at app startup in [app/\_layout.tsx](../app/_layout.tsx:39-44):
 
 ```typescript
 import { initializeRevenueCat } from '@/lib/revenuecat';
@@ -94,6 +94,7 @@ function MyComponent() {
 ```
 
 The hook:
+
 - Automatically checks entitlement on mount
 - Listens for customer info updates
 - Provides a `refresh()` method to manually re-check
@@ -108,6 +109,7 @@ The [app/subscription.tsx](../app/subscription.tsx) screen handles:
 - Navigation to customer center (for premium users)
 
 Key features:
+
 - Shows different UI for premium vs. non-premium users
 - Lists premium features with bullet points
 - Handles paywall presentation with proper result handling
@@ -239,15 +241,19 @@ Settings Screen
 ### Common Issues
 
 **Issue**: SDK initialization fails
+
 - **Solution**: Check that API key is correctly set in `.env` and `app.config.js`
 
 **Issue**: Paywall doesn't show
+
 - **Solution**: Verify offerings are configured in RevenueCat dashboard
 
 **Issue**: Entitlement not updating
+
 - **Solution**: Check that entitlement ID matches exactly ("Pocket")
 
 **Issue**: Restore purchases not working
+
 - **Solution**: Ensure user is signed in with same Apple ID / Google account
 
 ## Future Enhancements

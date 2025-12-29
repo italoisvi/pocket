@@ -148,7 +148,7 @@ export default function SettingsScreen() {
                   { color: isPremium ? '#fff' : theme.text },
                 ]}
               >
-                {isPremium ? 'Premium Ativo' : 'Assinar Premium'}
+                {isPremium ? 'Premium Ativo' : 'Assinar Pocket'}
               </Text>
             </View>
             <ChevronRightIcon

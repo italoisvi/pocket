@@ -3,6 +3,7 @@ import Purchases, {
   LOG_LEVEL,
   type CustomerInfo,
   type PurchasesOffering,
+  type PurchasesPackage,
 } from 'react-native-purchases';
 import * as Sentry from '@sentry/react-native';
 import { Platform } from 'react-native';
@@ -103,6 +104,23 @@ export async function restorePurchases(): Promise<CustomerInfo> {
     Sentry.captureException(error, {
       tags: {
         component: 'revenuecat-restore',
+      },
+    });
+    throw error;
+  }
+}
+
+export async function purchasePackage(
+  packageToPurchase: PurchasesPackage
+): Promise<CustomerInfo> {
+  try {
+    const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
+    return customerInfo;
+  } catch (error) {
+    console.error('[RevenueCat] Error purchasing package:', error);
+    Sentry.captureException(error, {
+      tags: {
+        component: 'revenuecat-purchase',
       },
     });
     throw error;

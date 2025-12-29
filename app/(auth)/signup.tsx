@@ -13,6 +13,7 @@ import {
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
+import { markOnboardingPaywallShown } from '@/lib/onboarding';
 
 export default function SignupScreen() {
   const { theme } = useTheme();
@@ -38,7 +39,7 @@ export default function SignupScreen() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
@@ -47,12 +48,7 @@ export default function SignupScreen() {
     if (error) {
       Alert.alert('Erro ao cadastrar', error.message);
     } else {
-      Alert.alert('Sucesso', 'Conta criada com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => router.replace('/(auth)/login'),
-        },
-      ]);
+      router.replace('/onboarding-paywall');
     }
   };
 
