@@ -19,6 +19,7 @@ Esta solução usa o `StatusBar` nativo do React Native com a API imperativa `se
 Mudamos `UIViewControllerBasedStatusBarAppearance` para `false` para permitir controle global da StatusBar:
 
 **Antes:**
+
 ```javascript
 infoPlist: {
   UIViewControllerBasedStatusBarAppearance: true,
@@ -26,6 +27,7 @@ infoPlist: {
 ```
 
 **Depois:**
+
 ```javascript
 infoPlist: {
   UIViewControllerBasedStatusBarAppearance: false,
@@ -33,6 +35,7 @@ infoPlist: {
 ```
 
 **Por quê?**
+
 - `true` = Cada ViewController controla sua própria StatusBar
 - `false` = StatusBar global controlada pela aplicação ✅
 
@@ -45,7 +48,7 @@ import {
   View,
   ActivityIndicator,
   StyleSheet,
-  StatusBar,        // ← StatusBar nativo do React Native
+  StatusBar, // ← StatusBar nativo do React Native
   useColorScheme,
 } from 'react-native';
 import { ThemeProvider, useTheme } from '@/lib/theme';
@@ -79,6 +82,7 @@ function ThemedStack() {
 ```
 
 **Lógica:**
+
 - `StatusBar.setBarStyle()` = API imperativa do React Native
 - `isDark ? 'light-content' : 'dark-content'`:
   - Tema escuro → `'light-content'` → ícones brancos ✅
@@ -89,10 +93,12 @@ function ThemedStack() {
 ## 📊 Comportamento
 
 ### Antes
+
 - ❌ Modo claro: Ícones brancos (invisíveis)
 - ✅ Modo escuro: Ícones brancos (visíveis)
 
 ### Depois
+
 - ✅ Modo claro: Ícones pretos (visíveis)
 - ✅ Modo escuro: Ícones brancos (visíveis)
 
@@ -140,5 +146,6 @@ eas build --platform ios --profile production
 ## 🎯 Resultado Esperado
 
 Os ícones nativos do celular (bateria, sinal, hora) devem estar sempre visíveis, independente do tema:
+
 - Modo claro → Ícones pretos ✅
 - Modo escuro → Ícones brancos ✅

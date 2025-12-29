@@ -3,6 +3,7 @@
 ## 🎯 Objetivo
 
 Quando um menu estiver selecionado, o ícone deve:
+
 1. Mudar para a versão **preenchida**
 2. Usar a cor **`#f7c359`** (amarelo dourado)
 3. Funcionar tanto no modo claro quanto no escuro
@@ -14,6 +15,7 @@ Quando um menu estiver selecionado, o ícone deve:
 Criados 3 novos componentes baseados nos SVGs fornecidos:
 
 #### `components/CasaIconFilled.tsx`
+
 ```typescript
 import Svg, { Path } from 'react-native-svg';
 
@@ -28,9 +30,11 @@ export function CasaIconFilled({ size = 24, color = '#000' }) {
   );
 }
 ```
+
 Baseado em: `assets/icons/chamine-da-casa-em-branco-cheio.svg`
 
 #### `components/DividirContaIconFilled.tsx`
+
 ```typescript
 import Svg, { Path } from 'react-native-svg';
 
@@ -45,9 +49,11 @@ export function DividirContaIconFilled({ size = 24, color = '#000' }) {
   );
 }
 ```
+
 Baseado em: `assets/icons/dividircheio.svg`
 
 #### `components/CameraIconFilled.tsx`
+
 ```typescript
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -67,6 +73,7 @@ export function CameraIconFilled({ size = 24, color = '#000' }) {
   );
 }
 ```
+
 Baseado em: `assets/icons/cameracheio.svg`
 
 ### 2. Atualização do Layout das Tabs
@@ -74,6 +81,7 @@ Baseado em: `assets/icons/cameracheio.svg`
 **Arquivo:** `app/(tabs)/_layout.tsx`
 
 #### Mudança de cor:
+
 ```typescript
 // Antes
 tabBarActiveTintColor: '#ffe177',
@@ -123,30 +131,32 @@ tabBarIcon: ({ color, size, focused }) =>
 
 ### Modo Claro
 
-| Menu       | Não Selecionado              | Selecionado                         |
-|------------|------------------------------|-------------------------------------|
-| Início     | Outline cinza                | **Preenchido `#f7c359`** ✅         |
-| Dividir    | Outline cinza                | **Preenchido `#f7c359`** ✅         |
-| Walts      | Preenchido cinza             | **Preenchido `#f7c359`** ✅         |
-| Adicionar  | Outline cinza                | **Preenchido `#f7c359`** ✅         |
+| Menu      | Não Selecionado  | Selecionado                 |
+| --------- | ---------------- | --------------------------- |
+| Início    | Outline cinza    | **Preenchido `#f7c359`** ✅ |
+| Dividir   | Outline cinza    | **Preenchido `#f7c359`** ✅ |
+| Walts     | Preenchido cinza | **Preenchido `#f7c359`** ✅ |
+| Adicionar | Outline cinza    | **Preenchido `#f7c359`** ✅ |
 
 ### Modo Escuro
 
-| Menu       | Não Selecionado              | Selecionado                         |
-|------------|------------------------------|-------------------------------------|
-| Início     | Outline cinza claro          | **Preenchido `#f7c359`** ✅         |
-| Dividir    | Outline cinza claro          | **Preenchido `#f7c359`** ✅         |
-| Walts      | Preenchido cinza claro       | **Preenchido `#f7c359`** ✅         |
-| Adicionar  | Outline cinza claro          | **Preenchido `#f7c359`** ✅         |
+| Menu      | Não Selecionado        | Selecionado                 |
+| --------- | ---------------------- | --------------------------- |
+| Início    | Outline cinza claro    | **Preenchido `#f7c359`** ✅ |
+| Dividir   | Outline cinza claro    | **Preenchido `#f7c359`** ✅ |
+| Walts     | Preenchido cinza claro | **Preenchido `#f7c359`** ✅ |
+| Adicionar | Outline cinza claro    | **Preenchido `#f7c359`** ✅ |
 
 ## 📝 Arquivos Criados/Modificados
 
 ### Criados:
+
 1. `components/CasaIconFilled.tsx`
 2. `components/DividirContaIconFilled.tsx`
 3. `components/CameraIconFilled.tsx`
 
 ### Modificados:
+
 1. `app/(tabs)/_layout.tsx` (linhas 2-8, 18, 46-51, 58-63, 83-88)
 
 ## 🎯 Resultado Final

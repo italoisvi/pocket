@@ -17,6 +17,7 @@
 **Arquivo:** `app.config.js`
 
 **Antes:**
+
 ```javascript
 export default {
   expo: {
@@ -34,11 +35,12 @@ export default {
     },
     assetBundlePatterns: ['**/*'],
     // ...
-  }
-}
+  },
+};
 ```
 
 **Depois:**
+
 ```javascript
 export default {
   expo: {
@@ -49,10 +51,10 @@ export default {
     icon: './assets/icon.png',
     userInterfaceStyle: 'automatic',
     scheme: 'pocket',
-    assetBundlePatterns: ['**/*'],  // Splash removido ✅
+    assetBundlePatterns: ['**/*'], // Splash removido ✅
     // ...
-  }
-}
+  },
+};
 ```
 
 **Resultado:** Agora apenas o `AnimatedSplashScreen` (com o GIF) é exibido, sem nenhuma tela antes dele.
@@ -64,6 +66,7 @@ export default {
 **Mudanças:**
 
 1. **Removido import do KangarooIcon:**
+
 ```typescript
 // Antes
 import { KangarooIcon } from '@/components/KangarooIcon';
@@ -73,6 +76,7 @@ import { Image } from 'react-native';
 ```
 
 2. **Substituído SVG por PNG:**
+
 ```typescript
 // Antes
 <View style={styles.logoContainer}>
@@ -94,6 +98,7 @@ import { Image } from 'react-native';
 ```
 
 3. **Adicionado estilo:**
+
 ```typescript
 logo: {
   width: 120,
@@ -106,6 +111,7 @@ logo: {
 **Arquivo:** `app/(auth)/signup.tsx`
 
 Mesmas mudanças aplicadas na tela de login:
+
 - Removido import do `KangarooIcon`
 - Adicionado import do `Image`
 - Substituído SVG por PNG
@@ -114,10 +120,12 @@ Mesmas mudanças aplicadas na tela de login:
 ## 📊 Resultado Final
 
 ### Splash Screen
+
 - ✅ **Antes:** Canguru preto/branco estático → GIF animado
 - ✅ **Depois:** GIF animado apenas (sem tela intermediária)
 
 ### Telas de Login e Signup
+
 - ✅ **Antes:** Ícone SVG com cor dinâmica complexa
 - ✅ **Depois:** Imagem PNG colorida do canguru (kangaroo.png)
 - ✅ Funciona perfeitamente em modo claro e escuro
@@ -143,6 +151,7 @@ A mudança no splash screen nativo só terá efeito após um novo build. As tela
 ## 🎯 Imagem Usada
 
 **`assets/images/kangaroo.png`**: Canguru amarelo/dourado colorido que é usado em:
+
 - Tela de Login
 - Tela de Signup
 - Consistente com a identidade visual do app

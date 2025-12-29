@@ -68,6 +68,7 @@ CREATE POLICY "Users can delete their own profile images"
 After running all migrations, verify:
 
 1. The `profiles` table has the `avatar_url` column:
+
    ```sql
    SELECT column_name, data_type
    FROM information_schema.columns
@@ -75,6 +76,7 @@ After running all migrations, verify:
    ```
 
 2. The `expenses` table has `category` and `subcategory` columns:
+
    ```sql
    SELECT column_name, data_type
    FROM information_schema.columns

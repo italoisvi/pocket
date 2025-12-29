@@ -25,11 +25,14 @@ import { EscudoIcon } from '@/components/EscudoIcon';
 import { DocumentoIcon } from '@/components/DocumentoIcon';
 import { ComentarioIcon } from '@/components/ComentarioIcon';
 import { EnvelopeIcon } from '@/components/EnvelopeIcon';
+import { CoroaIcon } from '@/components/CoroaIcon';
 import { useTheme, type ThemeMode } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
+import { usePremium } from '@/lib/usePremium';
 
 export default function SettingsScreen() {
   const { theme, themeMode, setThemeMode } = useTheme();
+  const { isPremium, loading: premiumLoading } = usePremium();
   const [showThemeModal, setShowThemeModal] = useState(false);
 
   const handleLogout = async () => {
@@ -125,6 +128,36 @@ export default function SettingsScreen() {
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
       >
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: isPremium ? theme.primary : theme.card,
+                borderColor: isPremium ? theme.primary : theme.cardBorder,
+              },
+              getCardShadowStyle(theme.background === '#000'),
+            ]}
+            onPress={() => router.push('/subscription')}
+          >
+            <View style={styles.settingCardLeft}>
+              <CoroaIcon size={24} color={isPremium ? '#fff' : theme.text} />
+              <Text
+                style={[
+                  styles.settingCardTitle,
+                  { color: isPremium ? '#fff' : theme.text },
+                ]}
+              >
+                {isPremium ? 'Premium Ativo' : 'Assinar Premium'}
+              </Text>
+            </View>
+            <ChevronRightIcon
+              size={20}
+              color={isPremium ? '#fff' : theme.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.section}>
           <TouchableOpacity
             style={[

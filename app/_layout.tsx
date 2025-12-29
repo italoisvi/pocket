@@ -15,6 +15,7 @@ import { ErrorBoundary } from '@/lib/errorBoundary';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { AnimatedSplashScreen } from '@/components/AnimatedSplashScreen';
+import { initializeRevenueCat } from '@/lib/revenuecat';
 
 // Initialize Sentry
 const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
@@ -33,6 +34,13 @@ if (sentryDsn) {
   console.log('[Sentry] Initialized successfully');
 } else {
   console.warn('[Sentry] DSN not found, Sentry will not be initialized');
+}
+
+// Initialize RevenueCat
+try {
+  initializeRevenueCat();
+} catch (error) {
+  console.error('[RootLayout] RevenueCat initialization failed:', error);
 }
 
 function ThemedStack() {
@@ -80,6 +88,20 @@ function ThemedStack() {
         />
         <Stack.Screen
           name="graficos-tabelas"
+          options={{
+            gestureEnabled: true,
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="subscription"
+          options={{
+            gestureEnabled: true,
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="customer-center"
           options={{
             gestureEnabled: true,
             animation: 'slide_from_right',

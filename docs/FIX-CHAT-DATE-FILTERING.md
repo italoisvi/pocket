@@ -9,15 +9,18 @@ O chat (Walts) dizia que o usuário não tinha custos fixos, mesmo quando o usu�
 **Bug crítico de filtro de data** em múltiplos arquivos:
 
 ### 1. Chat (`app/(tabs)/chat.tsx`)
+
 - **Problema:** Filtrava usando `gte('date', firstDayISO)`
 - **Issue:** Comparava coluna `date` (tipo DATE: YYYY-MM-DD) com timestamp ISO completo (YYYY-MM-DDTHH:MM:SS.sssZ)
 - **Resultado:** Filtro inconsistente que excluía gastos válidos
 
 ### 2. Custos Fixos (`app/custos-fixos.tsx`)
+
 - **Problema:** Faltava filtro `eq('user_id', user.id)`
 - **Resultado:** Potencialmente buscava gastos de TODOS os usuários (violação de privacidade!)
 
 ### 3. Custos Variáveis (`app/custos-variaveis.tsx`)
+
 - **Problema:** Faltava filtro `eq('user_id', user.id)`
 - **Resultado:** Potencialmente buscava gastos de TODOS os usuários (violação de privacidade!)
 
@@ -26,26 +29,29 @@ O chat (Walts) dizia que o usuário não tinha custos fixos, mesmo quando o usu�
 ### 1. Chat - Mudança de filtro de data
 
 **Antes:**
+
 ```typescript
 const { data: expenses } = await supabase
   .from('expenses')
   .select('establishment_name, amount, category, subcategory')
   .eq('user_id', user.id)
-  .gte('date', firstDayISO)           // ❌ Comparação DATE vs TIMESTAMP
+  .gte('date', firstDayISO) // ❌ Comparação DATE vs TIMESTAMP
   .order('date', { ascending: false });
 ```
 
 **Depois:**
+
 ```typescript
 const { data: expenses } = await supabase
   .from('expenses')
   .select('establishment_name, amount, category, subcategory, date')
   .eq('user_id', user.id)
-  .gte('created_at', firstDayISO)     // ✅ Comparação TIMESTAMP vs TIMESTAMP
+  .gte('created_at', firstDayISO) // ✅ Comparação TIMESTAMP vs TIMESTAMP
   .order('created_at', { ascending: false });
 ```
 
 **Mudanças:**
+
 - ✅ Filtra por `created_at` (TIMESTAMP) ao invés de `date` (DATE)
 - ✅ Ordena por `created_at` ao invés de `date`
 - ✅ Adiciona `date` ao SELECT para manter compatibilidade
@@ -53,20 +59,22 @@ const { data: expenses } = await supabase
 ### 2. Custos Fixos - Adicionado filtro de usuário
 
 **Antes:**
+
 ```typescript
 const { data: expensesData } = await supabase
   .from('expenses')
   .select('amount, category, subcategory')
-  .gte('created_at', firstDayOfMonth.toISOString())  // ❌ SEM filtro de user_id
+  .gte('created_at', firstDayOfMonth.toISOString()) // ❌ SEM filtro de user_id
   .lte('created_at', lastDayOfMonth.toISOString());
 ```
 
 **Depois:**
+
 ```typescript
 const { data: expensesData } = await supabase
   .from('expenses')
   .select('amount, category, subcategory')
-  .eq('user_id', user.id)                            // ✅ COM filtro de user_id
+  .eq('user_id', user.id) // ✅ COM filtro de user_id
   .gte('created_at', firstDayOfMonth.toISOString())
   .lte('created_at', lastDayOfMonth.toISOString());
 ```
@@ -74,20 +82,22 @@ const { data: expensesData } = await supabase
 ### 3. Custos Variáveis - Adicionado filtro de usuário
 
 **Antes:**
+
 ```typescript
 const { data: expensesData } = await supabase
   .from('expenses')
   .select('amount, category, subcategory')
-  .gte('created_at', firstDayOfMonth.toISOString())  // ❌ SEM filtro de user_id
+  .gte('created_at', firstDayOfMonth.toISOString()) // ❌ SEM filtro de user_id
   .lte('created_at', lastDayOfMonth.toISOString());
 ```
 
 **Depois:**
+
 ```typescript
 const { data: expensesData } = await supabase
   .from('expenses')
   .select('amount, category, subcategory')
-  .eq('user_id', user.id)                            // ✅ COM filtro de user_id
+  .eq('user_id', user.id) // ✅ COM filtro de user_id
   .gte('created_at', firstDayOfMonth.toISOString())
   .lte('created_at', lastDayOfMonth.toISOString());
 ```
@@ -95,11 +105,13 @@ const { data: expensesData } = await supabase
 ## 📊 Impacto
 
 ### Antes
+
 - ❌ Chat não via custos fixos (água, luz, etc.)
 - ❌ Custos fixos/variáveis podiam mostrar dados de outros usuários
 - ❌ Inconsistência entre telas
 
 ### Depois
+
 - ✅ Chat vê TODOS os custos corretamente
 - ✅ Custos fixos/variáveis mostram APENAS dados do usuário logado
 - ✅ Consistência entre todas as telas
@@ -108,6 +120,7 @@ const { data: expensesData } = await supabase
 ## 🔐 Segurança
 
 **CRÍTICO:** As queries de custos fixos e variáveis estavam sem filtro `user_id`, o que poderia:
+
 1. Mostrar gastos de outros usuários
 2. Calcular totais incorretos
 3. Violar privacidade
