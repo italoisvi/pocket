@@ -12,7 +12,6 @@ export default {
       supportsTablet: true,
       bundleIdentifier: 'com.gladius.pocket',
       scheme: 'pocket',
-      buildNumber: '20',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSCameraUsageDescription:
