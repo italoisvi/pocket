@@ -53,8 +53,9 @@ export default function GraficosTabelasScreen() {
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, category, subcategory')
-        .gte('created_at', firstDayOfMonth.toISOString())
-        .lte('created_at', lastDayOfMonth.toISOString());
+        .eq('user_id', user.id)
+        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
+        .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
 
       if (expensesData) {
         const total = expensesData.reduce((sum, exp) => sum + exp.amount, 0);

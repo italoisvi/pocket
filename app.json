@@ -22,7 +22,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.gladius.pocket",
       "scheme": "pocket",
-      "buildNumber": "20"
+      "buildNumber": "20",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Este app precisa acessar sua câmera para escanear comprovantes de gastos.",
+        "NSPhotoLibraryUsageDescription": "Este app precisa acessar sua galeria de fotos para selecionar comprovantes de gastos."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -31,6 +35,11 @@
       },
       "package": "com.gladius.pocket",
       "scheme": "pocket",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",

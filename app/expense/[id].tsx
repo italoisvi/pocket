@@ -55,6 +55,9 @@ export default function ExpenseDetailScreen() {
 
       if (error) throw error;
 
+      console.log('[ExpenseDetail] Loaded expense:', data);
+      console.log('[ExpenseDetail] Image URL:', data.image_url);
+
       setExpense(data);
     } catch (error) {
       console.error('Erro ao carregar gasto:', error);
@@ -69,10 +72,17 @@ export default function ExpenseDetailScreen() {
     setDeleting(true);
     try {
       // Delete image from storage if it exists
-      if (expense.image_url) {
-        const imagePath = expense.image_url.split('/').pop();
-        if (imagePath) {
-          await supabase.storage.from('receipts').remove([imagePath]);
+      if (expense.image_url && expense.image_url.includes('supabase')) {
+        try {
+          // Extrair o caminho do arquivo da URL pública
+          const urlParts = expense.image_url.split('/storage/v1/object/public/receipts/');
+          if (urlParts.length > 1) {
+            const filePath = urlParts[1];
+            await supabase.storage.from('receipts').remove([filePath]);
+          }
+        } catch (storageError) {
+          console.error('Erro ao deletar imagem do storage:', storageError);
+          // Continuar com a deleção do expense mesmo se falhar ao deletar a imagem
         }
       }
 
@@ -152,7 +162,19 @@ export default function ExpenseDetailScreen() {
 
         <ScrollView style={styles.scrollContent}>
           {expense.image_url && (
-            <Image source={{ uri: expense.image_url }} style={styles.image} />
+            <Image
+              source={{ uri: expense.image_url }}
+              style={styles.image}
+              onError={(error) => {
+                console.error('[ExpenseDetail] Erro ao carregar imagem:', error.nativeEvent);
+              }}
+              onLoad={() => {
+                console.log('[ExpenseDetail] Imagem carregada com sucesso!');
+              }}
+              onLoadStart={() => {
+                console.log('[ExpenseDetail] Iniciando carregamento da imagem...');
+              }}
+            />
           )}
 
           <View style={styles.content}>
@@ -309,8 +331,9 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 200,
-    resizeMode: 'cover',
+    height: 300,
+    resizeMode: 'contain',
+    backgroundColor: '#f5f5f5',
   },
   content: {
     padding: 24,

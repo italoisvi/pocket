@@ -55,7 +55,7 @@ export default {
     ],
     extra: {
       eas: {
-        projectId: '3f8676c7-50be-4b5e-a3a0-c49dde31197d',
+        projectId: '6ba5b703-6072-4cb4-844f-f6e6b83ebcd5',
       },
       // Expor variáveis de ambiente para o runtime (funciona em builds release)
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,

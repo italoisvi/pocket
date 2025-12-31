@@ -96,6 +96,47 @@ export type Database = {
           subcategory?: string | null;
         };
       };
+      budgets: {
+        Row: {
+          id: string;
+          user_id: string;
+          category_id: string;
+          amount: string;
+          period_type: 'monthly' | 'weekly' | 'yearly';
+          start_date: string;
+          end_date: string | null;
+          rollover_enabled: boolean;
+          notifications_enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          category_id: string;
+          amount: string;
+          period_type: 'monthly' | 'weekly' | 'yearly';
+          start_date: string;
+          end_date?: string | null;
+          rollover_enabled?: boolean;
+          notifications_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          category_id?: string;
+          amount?: string;
+          period_type?: 'monthly' | 'weekly' | 'yearly';
+          start_date?: string;
+          end_date?: string | null;
+          rollover_enabled?: boolean;
+          notifications_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 };
