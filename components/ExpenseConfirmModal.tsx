@@ -8,6 +8,8 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import type { ReceiptData } from '@/lib/ocr';
 import { formatCurrency } from '@/lib/formatCurrency';
@@ -53,9 +55,15 @@ export function ExpenseConfirmModal({
       animationType="slide"
       onRequestClose={onCancel}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={styles.container}>
-          <ScrollView style={styles.scrollView}>
+          <ScrollView
+            style={styles.scrollView}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text style={styles.title}>Confirmar Informações</Text>
 
             <View style={styles.field}>
@@ -136,7 +144,7 @@ export function ExpenseConfirmModal({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

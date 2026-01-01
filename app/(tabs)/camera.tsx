@@ -211,16 +211,30 @@ export default function CameraScreen() {
 
       const categorization = categorizeExpense(editedData.establishmentName);
 
-      const { error } = await supabase.from('expenses').insert({
+      console.log('[Camera] Dados do insert:', {
         user_id: user.id,
         establishment_name: editedData.establishmentName,
         amount: editedData.amount,
         date: editedData.date,
-        image_url: publicUrl,
-        items: editedData.items,
         category: categorization.category,
         subcategory: categorization.subcategory,
       });
+
+      const { data: insertedData, error } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: user.id,
+          establishment_name: editedData.establishmentName,
+          amount: editedData.amount,
+          date: editedData.date,
+          image_url: publicUrl,
+          items: editedData.items,
+          category: categorization.category,
+          subcategory: categorization.subcategory,
+        })
+        .select();
+
+      console.log('[Camera] Insert result:', { data: insertedData, error });
 
       if (error) throw error;
 

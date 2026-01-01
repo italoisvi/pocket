@@ -142,6 +142,9 @@ export default function HomeScreen() {
         )
         .order('created_at', { ascending: false });
 
+      console.log('[Home] All expenses:', data);
+      console.log('[Home] Expenses count:', data?.length);
+
       if (error) throw error;
 
       setExpenses(data || []);

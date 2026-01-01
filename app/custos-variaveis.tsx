@@ -74,8 +74,8 @@ export default function CustosVariaveisScreen() {
         .from('expenses')
         .select('amount, category, subcategory')
         .eq('user_id', user.id)
-        .gte('created_at', firstDayOfMonth.toISOString())
-        .lte('created_at', lastDayOfMonth.toISOString());
+        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
+        .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
 
       if (expensesData) {
         // Agrupar por categoria + subcategoria

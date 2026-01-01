@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   Modal,
   Linking,
+  Switch,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,14 +27,46 @@ import { DocumentoIcon } from '@/components/DocumentoIcon';
 import { ComentarioIcon } from '@/components/ComentarioIcon';
 import { EnvelopeIcon } from '@/components/EnvelopeIcon';
 import { CoroaIcon } from '@/components/CoroaIcon';
+import { SinoIcon } from '@/components/SinoIcon';
 import { useTheme, type ThemeMode } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { usePremium } from '@/lib/usePremium';
+import * as Notifications from 'expo-notifications';
 
 export default function SettingsScreen() {
   const { theme, themeMode, setThemeMode } = useTheme();
   const { isPremium, loading: premiumLoading } = usePremium();
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  useEffect(() => {
+    checkNotificationStatus();
+  }, []);
+
+  const checkNotificationStatus = async () => {
+    const { status } = await Notifications.getPermissionsAsync();
+    setNotificationsEnabled(status === 'granted');
+  };
+
+  const handleNotificationToggle = async (value: boolean) => {
+    if (value) {
+      const { status } = await Notifications.requestPermissionsAsync();
+      setNotificationsEnabled(status === 'granted');
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permissão Negada',
+          'Por favor, habilite as notificações nas configurações do seu dispositivo.'
+        );
+      }
+    } else {
+      Alert.alert(
+        'Desabilitar Notificações',
+        'Para desabilitar as notificações, vá até as configurações do seu dispositivo.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
 
   const handleLogout = async () => {
     Alert.alert('Sair', 'Deseja realmente sair da sua conta?', [
@@ -181,6 +214,26 @@ export default function SettingsScreen() {
             >
               {getThemeName(themeMode)}
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+              getCardShadowStyle(theme.background === '#000'),
+            ]}
+            onPress={() => setShowNotificationsModal(true)}
+          >
+            <View style={styles.settingCardLeft}>
+              <SinoIcon size={24} color={theme.text} />
+              <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                Notificações
+              </Text>
+            </View>
+            <ChevronRightIcon size={20} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -346,6 +399,9 @@ export default function SettingsScreen() {
       </ScrollView>
 
       {showThemeModal && <BlurView intensity={10} style={styles.blurOverlay} />}
+      {showNotificationsModal && (
+        <BlurView intensity={10} style={styles.blurOverlay} />
+      )}
 
       <Modal
         visible={showThemeModal}
@@ -442,6 +498,61 @@ export default function SettingsScreen() {
                 <CheckIcon size={20} color={theme.primary} />
               )}
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showNotificationsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNotificationsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowNotificationsModal(false)}
+          />
+          <View
+            style={[styles.modalContent, { backgroundColor: theme.surface }]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Notificações
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.notificationOption,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+                getCardShadowStyle(theme.background === '#000'),
+              ]}
+            >
+              <View style={styles.notificationLeft}>
+                <Text style={[styles.notificationTitle, { color: theme.text }]}>
+                  Permitir notificações push
+                </Text>
+                <Text
+                  style={[
+                    styles.notificationDescription,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Receba alertas sobre orçamentos e atualizações
+                </Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={handleNotificationToggle}
+                trackColor={{ false: theme.border, true: theme.primary }}
+                thumbColor={notificationsEnabled ? '#fff' : theme.textSecondary}
+              />
+            </View>
           </View>
         </View>
       </Modal>
@@ -592,5 +703,28 @@ const styles = StyleSheet.create({
   themeOptionText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Medium',
+  },
+  notificationOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  notificationLeft: {
+    flex: 1,
+    marginRight: 16,
+  },
+  notificationTitle: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    marginBottom: 4,
+  },
+  notificationDescription: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    lineHeight: 20,
   },
 });

@@ -5,12 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import { PieChart } from 'react-native-chart-kit';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { getCardShadowStyle } from '@/lib/cardStyles';
@@ -19,26 +17,10 @@ import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
-import { BudgetCard } from '@/components/BudgetCard';
-import { checkBudgetAndNotify } from '@/lib/notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const screenWidth = Dimensions.get('window').width;
 
 type CategoryExpense = {
   category: ExpenseCategory;
   total: number;
-};
-
-type Budget = {
-  id: string;
-  category_id: string;
-  amount: string;
-  period_type: 'monthly' | 'weekly' | 'yearly';
-  start_date: string;
-  end_date: string | null;
-  rollover_enabled: boolean;
-  notifications_enabled: boolean;
 };
 
 export default function FinancialOverviewScreen() {
@@ -49,10 +31,6 @@ export default function FinancialOverviewScreen() {
   const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>(
     []
   );
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [expenses, setExpenses] = useState<
-    { category: string; amount: number; created_at: string }[]
-  >([]);
   const [loading, setLoading] = useState(true);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
@@ -126,14 +104,12 @@ export default function FinancialOverviewScreen() {
 
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category, created_at')
-        .gte('created_at', firstDayOfMonth.toISOString())
-        .lte('created_at', lastDayOfMonth.toISOString());
+        .select('amount, category, date, created_at')
+        .eq('user_id', user.id)
+        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
+        .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
 
       if (expensesData) {
-        // Salvar os expenses completos para cálculos de budget
-        setExpenses(expensesData);
-
         // Calcular total de gastos
         const total = expensesData.reduce((sum, exp) => sum + exp.amount, 0);
         setTotalExpenses(total);
@@ -155,92 +131,11 @@ export default function FinancialOverviewScreen() {
 
         setCategoryExpenses(categories.sort((a, b) => b.total - a.total));
       }
-
-      // Carregar orçamentos
-      const { data: budgetsData } = await supabase
-        .from('budgets')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (budgetsData && expensesData) {
-        setBudgets(budgetsData);
-
-        // Verificar orçamentos e enviar notificações
-        for (const budget of budgetsData) {
-          const spent = calculateBudgetSpent(budget, expensesData);
-          const limit = parseFloat(budget.amount);
-          const categoryInfo =
-            CATEGORIES[budget.category_id as ExpenseCategory];
-
-          if (budget.notifications_enabled && categoryInfo) {
-            const storageKey = `budget_notification_${budget.id}`;
-            const lastNotified = await AsyncStorage.getItem(storageKey);
-            const lastPercentage = lastNotified ? parseInt(lastNotified) : 0;
-
-            const newPercentage = await checkBudgetAndNotify(
-              categoryInfo.name,
-              spent,
-              limit,
-              budget.notifications_enabled,
-              lastPercentage
-            );
-
-            if (newPercentage > lastPercentage) {
-              await AsyncStorage.setItem(storageKey, newPercentage.toString());
-            }
-          }
-        }
-      }
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateBudgetSpent = (
-    budget: Budget,
-    expenses: { category: string; amount: number; created_at: string }[]
-  ) => {
-    const now = new Date();
-    const startDate = new Date(budget.start_date);
-
-    let periodStart: Date;
-    let periodEnd: Date;
-
-    switch (budget.period_type) {
-      case 'weekly': {
-        const dayOfWeek = now.getDay();
-        periodStart = new Date(now);
-        periodStart.setDate(now.getDate() - dayOfWeek);
-        periodStart.setHours(0, 0, 0, 0);
-        periodEnd = new Date(periodStart);
-        periodEnd.setDate(periodStart.getDate() + 7);
-        break;
-      }
-      case 'yearly': {
-        periodStart = new Date(now.getFullYear(), 0, 1);
-        periodEnd = new Date(now.getFullYear() + 1, 0, 1);
-        break;
-      }
-      default: {
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        break;
-      }
-    }
-
-    const filteredExpenses = expenses.filter((expense) => {
-      const expenseDate = new Date(expense.created_at);
-      return (
-        expense.category === budget.category_id &&
-        expenseDate >= periodStart &&
-        expenseDate < periodEnd &&
-        expenseDate >= startDate
-      );
-    });
-
-    return filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   };
 
   const remainingBalance = monthlySalary - totalExpenses;
@@ -277,17 +172,6 @@ export default function FinancialOverviewScreen() {
   const dailyBudget =
     daysUntilNextPayment > 0 ? remainingBalance / daysUntilNextPayment : 0;
 
-  // Preparar dados para o gráfico de pizza (filtrar categorias desconhecidas)
-  const chartData = categoryExpenses
-    .filter((item) => CATEGORIES[item.category]) // Ignorar categorias antigas/desconhecidas
-    .map((item) => ({
-      name: CATEGORIES[item.category].name,
-      population: item.total,
-      color: CATEGORIES[item.category].color,
-      legendFontColor: '#7F7F7F',
-      legendFontSize: 12,
-    }));
-
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView
@@ -315,28 +199,7 @@ export default function FinancialOverviewScreen() {
           </View>
         ) : (
           <>
-            {/* Cards de Orçamentos */}
-            {budgets.map((budget) => {
-              const categoryInfo =
-                CATEGORIES[budget.category_id as ExpenseCategory];
-              if (!categoryInfo) return null;
-
-              const spent = calculateBudgetSpent(budget, expenses);
-              const limit = parseFloat(budget.amount);
-
-              return (
-                <View key={budget.id} style={styles.card}>
-                  <BudgetCard
-                    title={categoryInfo.name}
-                    spent={spent}
-                    limit={limit}
-                    periodType={budget.period_type}
-                  />
-                </View>
-              );
-            })}
-
-            {/* Botão de criar orçamento */}
+            {/* Botão de orçamentos */}
             <TouchableOpacity
               style={[
                 styles.card,
@@ -346,7 +209,7 @@ export default function FinancialOverviewScreen() {
                 },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
-              onPress={() => router.push('/budget/create')}
+              onPress={() => router.push('/orcamentos')}
             >
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
@@ -491,6 +354,26 @@ export default function FinancialOverviewScreen() {
                   </Text>
                 </View>
               )}
+            </TouchableOpacity>
+
+            {/* Card Cartões de Crédito */}
+            <TouchableOpacity
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+                getCardShadowStyle(theme.background === '#000'),
+              ]}
+              onPress={() => router.push('/cartoes')}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  Cartões de Crédito
+                </Text>
+                <ChevronRightIcon size={20} color={theme.text} />
+              </View>
             </TouchableOpacity>
 
             {/* Card Custos Fixos */}

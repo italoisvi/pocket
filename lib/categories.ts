@@ -61,14 +61,9 @@ function detectSubcategory(
     for (const keyword of subcategory.keywords) {
       const keywordLower = keyword.toLowerCase();
 
-      // Usar regex para busca mais precisa com word boundaries
-      // Isso evita matches parciais incorretos
-      const regex = new RegExp(
-        `\\b${keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-        'i'
-      );
-
-      if (regex.test(establishmentName) || nameLower.includes(keywordLower)) {
+      // Usar includes para busca mais flexível
+      // Isso funciona melhor com textos complexos e espaços
+      if (nameLower.includes(keywordLower)) {
         return subcategory.name;
       }
     }
@@ -110,6 +105,11 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
           'energética',
           'eletrica',
           'elétrica',
+          'companhia energetica',
+          'companhia energética',
+          'cia energetica',
+          'cia energética',
+          'companhia',
         ],
       },
       {
@@ -118,12 +118,17 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
           'agua',
           'água',
           'saneamento',
+          'esgoto',
+          'esgto',
           'cagece',
           'sabesp',
           'embasa',
           'cedae',
           'caesb',
           'sanepar',
+          'cia ag',
+          'cia agua',
+          'cia água',
         ],
       },
       {
@@ -186,6 +191,7 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
         name: 'Supermercado',
         keywords: [
           'supermercado',
+          'supermercados',
           'carrefour',
           'pao de acucar',
           'pão de açúcar',
@@ -205,6 +211,7 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
           'super',
           'market',
           'hiper',
+          'wms',
         ],
       },
       {
@@ -935,8 +942,38 @@ export function categorizeExpense(establishmentName: string): {
 } {
   const nameLower = establishmentName.toLowerCase();
 
+  console.log('[categorizeExpense] Categorizando:', establishmentName);
+
+  // Ordem de prioridade: Dívidas > Essenciais > Investimentos > Não Essenciais > Outros
+  const priorityOrder: ExpenseCategory[] = [
+    // Dívidas primeiro (mais específico)
+    'cartao_credito',
+    'emprestimos',
+    'financiamentos',
+    // Essenciais
+    'moradia',
+    'alimentacao',
+    'transporte',
+    'saude',
+    'educacao',
+    // Investimentos
+    'poupanca',
+    'previdencia',
+    'investimentos',
+    // Não Essenciais (mais genérico)
+    'lazer',
+    'vestuario',
+    'beleza',
+    'eletronicos',
+    'delivery',
+    // Outros por último
+    'outros',
+  ];
+
   // Percorre todas as categorias em ordem de prioridade
-  for (const [category, info] of Object.entries(CATEGORIES)) {
+  for (const category of priorityOrder) {
+    const info = CATEGORIES[category];
+
     // Tenta detectar a subcategoria
     const subcategoryName = detectSubcategory(
       establishmentName,
@@ -944,13 +981,18 @@ export function categorizeExpense(establishmentName: string): {
     );
 
     if (subcategoryName) {
+      console.log('[categorizeExpense] Match encontrado:', {
+        category,
+        subcategory: subcategoryName,
+      });
       return {
-        category: category as ExpenseCategory,
+        category: category,
         subcategory: subcategoryName,
       };
     }
   }
 
+  console.log('[categorizeExpense] Nenhum match, retornando "outros"');
   return { category: 'outros', subcategory: 'Outros' };
 }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
@@ -22,8 +22,10 @@ import { supabase } from '@/lib/supabase';
 
 type PeriodType = 'monthly' | 'weekly' | 'yearly';
 
-export default function CreateBudgetScreen() {
+export default function EditBudgetScreen() {
   const { theme, isDark } = useTheme();
+  const { id } = useLocalSearchParams<{ id: string }>();
+
   const [selectedCategory, setSelectedCategory] =
     useState<ExpenseCategory | null>(null);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -31,6 +33,45 @@ export default function CreateBudgetScreen() {
   const [periodType, setPeriodType] = useState<PeriodType>('monthly');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadBudget();
+  }, [id]);
+
+  const loadBudget = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('budgets')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setSelectedCategory(data.category_id as ExpenseCategory);
+        setPeriodType(data.period_type as PeriodType);
+        setNotificationsEnabled(data.notifications_enabled);
+
+        // Formatar o valor para exibição
+        const amountNumber = parseFloat(data.amount);
+        const formatted = amountNumber.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        setAmount(formatted);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar orçamento:', error);
+      Alert.alert('Erro', 'Não foi possível carregar o orçamento');
+      router.back();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatCurrency = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -60,7 +101,7 @@ export default function CreateBudgetScreen() {
     }
   };
 
-  const handleCreate = async () => {
+  const handleUpdate = async () => {
     if (!selectedCategory) {
       Alert.alert('Erro', 'Selecione uma categoria');
       return;
@@ -77,25 +118,17 @@ export default function CreateBudgetScreen() {
     setSaving(true);
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        Alert.alert('Erro', 'Usuário não autenticado');
-        return;
-      }
-
       const amountValue = amount.replace(/\./g, '').replace(',', '.');
 
-      const { error } = await supabase.from('budgets').insert({
-        user_id: user.id,
-        category_id: selectedCategory,
-        amount: amountValue,
-        period_type: periodType,
-        start_date: new Date().toISOString().split('T')[0],
-        notifications_enabled: notificationsEnabled,
-      });
+      const { error } = await supabase
+        .from('budgets')
+        .update({
+          category_id: selectedCategory,
+          amount: amountValue,
+          period_type: periodType,
+          notifications_enabled: notificationsEnabled,
+        })
+        .eq('id', id);
 
       if (error) {
         if (error.code === '23505') {
@@ -109,15 +142,15 @@ export default function CreateBudgetScreen() {
         return;
       }
 
-      Alert.alert('Sucesso', 'Orçamento criado com sucesso!', [
+      Alert.alert('Sucesso', 'Orçamento atualizado com sucesso!', [
         {
           text: 'OK',
           onPress: () => router.back(),
         },
       ]);
     } catch (error) {
-      console.error('Erro ao criar orçamento:', error);
-      Alert.alert('Erro', 'Não foi possível criar o orçamento');
+      console.error('Erro ao atualizar orçamento:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar o orçamento');
     } finally {
       setSaving(false);
     }
@@ -130,6 +163,31 @@ export default function CreateBudgetScreen() {
       name: info.name,
       color: info.color,
     }));
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <SafeAreaView
+          edges={['top']}
+          style={[styles.header, { backgroundColor: theme.background }]}
+        >
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ChevronLeftIcon size={20} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Editar Orçamento
+          </Text>
+          <View style={styles.placeholder} />
+        </SafeAreaView>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -144,7 +202,7 @@ export default function CreateBudgetScreen() {
           <ChevronLeftIcon size={20} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]}>
-          Criar Orçamento
+          Editar Orçamento
         </Text>
         <View style={styles.placeholder} />
       </SafeAreaView>
@@ -315,22 +373,22 @@ export default function CreateBudgetScreen() {
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <TouchableOpacity
           style={[
-            styles.createButton,
+            styles.updateButton,
             {
               backgroundColor: theme.primary,
             },
             getCardShadowStyle(isDark),
           ]}
-          onPress={handleCreate}
+          onPress={handleUpdate}
           disabled={saving}
         >
           {saving ? (
             <ActivityIndicator color={theme.background} />
           ) : (
             <Text
-              style={[styles.createButtonText, { color: theme.background }]}
+              style={[styles.updateButtonText, { color: theme.background }]}
             >
-              Criar Orçamento
+              Atualizar Orçamento
             </Text>
           )}
         </TouchableOpacity>
@@ -362,6 +420,11 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -434,12 +497,12 @@ const styles = StyleSheet.create({
   footer: {
     padding: 24,
   },
-  createButton: {
+  updateButton: {
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
-  createButtonText: {
+  updateButtonText: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-Bold',
   },

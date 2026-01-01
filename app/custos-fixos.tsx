@@ -70,38 +70,52 @@ export default function CustosFixosScreen() {
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-      const { data: expensesData } = await supabase
+      const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
         .select('amount, category, subcategory')
         .eq('user_id', user.id)
         .gte('date', firstDayOfMonth.toISOString().split('T')[0])
         .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
 
+      console.log('[Custos Fixos] Query params:', {
+        firstDay: firstDayOfMonth.toISOString().split('T')[0],
+        lastDay: lastDayOfMonth.toISOString().split('T')[0],
+      });
+      console.log('[Custos Fixos] Expenses data:', expensesData);
+      console.log('[Custos Fixos] Expenses error:', expensesError);
+
       if (expensesData) {
+        console.log('[Custos Fixos] Total expenses:', expensesData.length);
         // Agrupar por categoria + subcategoria
         const subcategoryMap = new Map<string, SubcategoryExpense>();
-        expensesData
-          .filter(
-            (exp) =>
-              CATEGORIES[exp.category as ExpenseCategory] &&
-              CATEGORIES[exp.category as ExpenseCategory].type === 'essencial'
-          )
-          .forEach((exp) => {
-            const category = (exp.category as ExpenseCategory) || 'outros';
-            const subcategory = exp.subcategory || 'Outros';
-            const key = `${category}-${subcategory}`;
+        const filtered = expensesData.filter(
+          (exp) =>
+            CATEGORIES[exp.category as ExpenseCategory] &&
+            CATEGORIES[exp.category as ExpenseCategory].type === 'essencial'
+        );
 
-            if (subcategoryMap.has(key)) {
-              const existing = subcategoryMap.get(key)!;
-              existing.total += exp.amount;
-            } else {
-              subcategoryMap.set(key, {
-                category,
-                subcategory,
-                total: exp.amount,
-              });
-            }
-          });
+        console.log(
+          '[Custos Fixos] Filtered essencial expenses:',
+          filtered.length
+        );
+        console.log('[Custos Fixos] Filtered data:', filtered);
+
+        filtered.forEach((exp) => {
+          const category = (exp.category as ExpenseCategory) || 'outros';
+          const subcategory = exp.subcategory || 'Outros';
+          const key = `${category}-${subcategory}`;
+
+          if (subcategoryMap.has(key)) {
+            const existing = subcategoryMap.get(key)!;
+            existing.total += exp.amount;
+          } else {
+            subcategoryMap.set(key, {
+              category,
+              subcategory,
+              total: exp.amount,
+            });
+          }
+        });
 
         const subcategories: SubcategoryExpense[] = Array.from(
           subcategoryMap.values()

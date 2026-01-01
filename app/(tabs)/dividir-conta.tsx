@@ -20,11 +20,12 @@ import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
 import { CarregarIcon } from '@/components/CarregarIcon';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { extractReceiptAmount } from '@/lib/ocr';
+import DocumentScanner from 'react-native-document-scanner-plugin';
 
 export default function DividirContaScreen() {
   const { theme } = useTheme();
   const [totalValue, setTotalValue] = useState('');
-  const [peopleCount, setPeopleCount] = useState('2');
+  const [peopleCount, setPeopleCount] = useState('');
   const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
   const [processing, setProcessing] = useState(false);
 
@@ -50,32 +51,20 @@ export default function DividirContaScreen() {
   };
 
   const handleTakePhoto = async () => {
-    setProcessing(true);
     try {
-      const ImagePicker = await import('expo-image-picker');
+      setProcessing(true);
 
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permissão Necessária',
-          'Precisamos de permissão para acessar a câmera.'
-        );
-        setProcessing(false);
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 0.8,
+      // Usar o scanner de documentos que automaticamente detecta bordas
+      const { scannedImages } = await DocumentScanner.scanDocument({
+        croppedImageQuality: 100,
+        maxNumDocuments: 1,
       });
 
-      if (!result.canceled) {
-        const imageUri = result.assets[0].uri;
+      if (scannedImages && scannedImages.length > 0) {
+        const scannedUri = scannedImages[0];
 
         try {
-          const receiptData = await extractReceiptAmount(imageUri);
+          const receiptData = await extractReceiptAmount(scannedUri);
 
           if (receiptData && receiptData.totalAmount > 0) {
             const formattedValue = receiptData.totalAmount.toLocaleString(
@@ -102,13 +91,18 @@ export default function DividirContaScreen() {
             'Atenção',
             'Não foi possível detectar o valor automaticamente. Por favor, digite manualmente.'
           );
+        } finally {
+          setProcessing(false);
         }
+      } else {
+        setProcessing(false);
       }
     } catch (error) {
-      console.error('Erro ao tirar foto:', error);
-      Alert.alert('Erro', 'Não foi possível abrir a câmera.');
-    } finally {
+      console.error('Erro ao escanear documento:', error);
       setProcessing(false);
+      if ((error as Error).message !== 'User cancelled') {
+        Alert.alert('Erro', 'Não foi possível escanear o documento.');
+      }
     }
   };
 
