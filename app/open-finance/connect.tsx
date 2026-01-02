@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
@@ -24,7 +25,80 @@ type BankLogoProps = {
 };
 
 function BankLogo({ imageUrl, bankName, primaryColor, theme }: BankLogoProps) {
+  const [svgXml, setSvgXml] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+
+  useEffect(() => {
+    if (!imageUrl) {
+      setImageError(true);
+      return;
+    }
+
+    const isSvg = imageUrl.toLowerCase().endsWith('.svg');
+
+    if (isSvg) {
+      // Baixar SVG e renderizar com SvgXml
+      fetch(imageUrl)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Image not found');
+          }
+          return response.text();
+        })
+        .then((xml) => {
+          // Verificar se é uma página de erro HTML em vez de SVG
+          if (xml.includes('<!DOCTYPE') || xml.includes('<html')) {
+            throw new Error('Invalid SVG');
+          }
+          // Extrair cores das classes CSS e aplicar diretamente nos elementos
+          let processedXml = xml;
+
+          // Extrair mapeamento de classes para cores e outras propriedades
+          const styleMatch = xml.match(/<style>([\s\S]*?)<\/style>/);
+          const classColorMap: Record<string, string> = {};
+
+          if (styleMatch) {
+            const styleContent = styleMatch[1];
+            // Capturar todas as classes e suas cores
+            const classMatches = styleContent.matchAll(/\.cls-(\d+)\s*\{[^}]*fill:\s*([^;]+);/g);
+            for (const match of classMatches) {
+              classColorMap[`cls-${match[1]}`] = match[2].trim();
+            }
+          }
+
+          // Substituir class="cls-X" por fill="cor"
+          processedXml = processedXml.replace(/class="(cls-\d+)"/g, (match, className) => {
+            const color = classColorMap[className];
+            if (color && color !== 'none') {
+              return `fill="${color}"`;
+            }
+            return 'fill="none"';
+          });
+
+          // Remover apenas as definições de classes do <style>, preservando gradientes
+          processedXml = processedXml.replace(/<style>([\s\S]*?)<\/style>/g, (match, content) => {
+            // Manter apenas definições que não sejam de classes CSS
+            const withoutClasses = content.replace(/\.cls-\d+\s*\{[^}]*\}/g, '');
+            // Se sobrou algo (como gradientes), manter a tag style
+            if (withoutClasses.trim()) {
+              return `<style>${withoutClasses}</style>`;
+            }
+            return '';
+          });
+
+          setSvgXml(processedXml);
+          setImageLoading(false);
+        })
+        .catch(() => {
+          setImageError(true);
+          setImageLoading(false);
+        });
+    } else {
+      // Imagem PNG/JPG - usar Image normal
+      setImageLoading(false);
+    }
+  }, [imageUrl, bankName]);
 
   if (!imageUrl || imageError) {
     return (
@@ -39,13 +113,41 @@ function BankLogo({ imageUrl, bankName, primaryColor, theme }: BankLogoProps) {
     );
   }
 
+  const isSvg = imageUrl.toLowerCase().endsWith('.svg');
+
+  if (isSvg && svgXml) {
+    return (
+      <View style={styles.bankLogoContainer}>
+        <SvgXml xml={svgXml} width={48} height={48} />
+      </View>
+    );
+  }
+
+  if (isSvg && imageLoading) {
+    return (
+      <View
+        style={[
+          styles.bankLogoPlaceholder,
+          { backgroundColor: primaryColor || theme.primary },
+        ]}
+      >
+        <Text style={styles.bankLogoText}>{bankName.charAt(0)}</Text>
+      </View>
+    );
+  }
+
+  // PNG/JPG
   return (
-    <Image
-      source={{ uri: imageUrl }}
-      style={styles.bankLogo}
-      resizeMode="contain"
-      onError={() => setImageError(true)}
-    />
+    <View style={styles.bankLogoContainer}>
+      <Image
+        source={{ uri: imageUrl }}
+        style={styles.bankLogo}
+        resizeMode="contain"
+        onError={() => {
+          setImageError(true);
+        }}
+      />
+    </View>
   );
 }
 
@@ -81,7 +183,7 @@ export default function ConnectBankScreen() {
 
   useEffect(() => {
     if (search.trim() === '') {
-      setFilteredConnectors(connectors);
+      setFilteredConnectors([]);
     } else {
       const filtered = connectors.filter((c) =>
         c.name.toLowerCase().includes(search.toLowerCase())
@@ -122,6 +224,7 @@ export default function ConnectBankScreen() {
         (c: Connector) =>
           c.type === 'PERSONAL_BANK' || c.type === 'BUSINESS_BANK'
       );
+
 
       setConnectors(bankConnectors);
       setFilteredConnectors(bankConnectors);
@@ -288,6 +391,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  bankLogoContainer: {
+    width: 48,
+    height: 48,
+    position: 'relative',
+  },
   bankLogo: {
     width: 48,
     height: 48,
@@ -299,6 +407,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   bankLogoText: {
     fontSize: 24,

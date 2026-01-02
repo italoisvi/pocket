@@ -47,6 +47,7 @@
     "@babel/core": "^7.25.2",
     "@types/react": "~19.1.10",
     "prettier": "^3.4.2",
+    "react-native-svg-transformer": "^1.5.2",
     "typescript": "~5.9.2"
   },
   "overrides": {

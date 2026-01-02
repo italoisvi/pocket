@@ -13,6 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { AtualizarIcon } from '@/components/AtualizarIcon';
+import { SetaParaBaixoIcon } from '@/components/SetaParaBaixoIcon';
+import { SetaParaCimaIcon } from '@/components/SetaParaCimaIcon';
+import { BoletoIcon } from '@/components/BoletoIcon';
 import {
   getTransactionsByAccount,
   syncTransactions as syncTransactionsAPI,
@@ -123,6 +127,47 @@ export default function TransactionsScreen() {
     return theme.text;
   };
 
+  const getTransactionIcon = (transaction: PluggyTransaction) => {
+    const description = transaction.description.toLowerCase();
+
+    // Pix recebido
+    if (
+      transaction.type === 'CREDIT' &&
+      (description.includes('pix') ||
+        description.includes('transferência recebida') ||
+        description.includes('transferencia recebida'))
+    ) {
+      return <SetaParaBaixoIcon size={40} color="#4ade80" />;
+    }
+
+    // Pix enviado
+    if (
+      transaction.type === 'DEBIT' &&
+      (description.includes('pix') ||
+        description.includes('transferência') ||
+        description.includes('transferencia'))
+    ) {
+      return <SetaParaCimaIcon size={40} color="#f87171" />;
+    }
+
+    // Boleto ou Fatura de cartão
+    if (
+      transaction.type === 'DEBIT' &&
+      (description.includes('pagamento') ||
+        description.includes('fatura') ||
+        description.includes('boleto'))
+    ) {
+      return <BoletoIcon size={40} color="#f87171" />;
+    }
+
+    // Default: Débito = seta para cima, Crédito = seta para baixo
+    if (transaction.type === 'CREDIT') {
+      return <SetaParaBaixoIcon size={40} color="#4ade80" />;
+    }
+
+    return <SetaParaCimaIcon size={40} color="#f87171" />;
+  };
+
   const groupTransactionsByDate = (txs: PluggyTransaction[]) => {
     const groups: Record<string, PluggyTransaction[]> = {};
 
@@ -180,16 +225,10 @@ export default function TransactionsScreen() {
               color={theme.background === '#000' ? theme.text : '#fff'}
             />
           ) : (
-            <Text
-              style={[
-                styles.syncButtonText,
-                {
-                  color: theme.background === '#000' ? theme.text : '#fff',
-                },
-              ]}
-            >
-              Sync
-            </Text>
+            <AtualizarIcon
+              size={20}
+              color={theme.background === '#000' ? theme.text : '#fff'}
+            />
           )}
         </TouchableOpacity>
       </View>
@@ -231,21 +270,7 @@ export default function TransactionsScreen() {
                   ]}
                 >
                   <View style={styles.transactionLeft}>
-                    <View
-                      style={[
-                        styles.dateCircle,
-                        { borderColor: theme.cardBorder },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.dateText,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        {formatDate(transaction.date)}
-                      </Text>
-                    </View>
+                    {getTransactionIcon(transaction)}
                   </View>
 
                   <View style={styles.transactionMiddle}>
@@ -290,6 +315,14 @@ export default function TransactionsScreen() {
                     >
                       {transaction.type === 'CREDIT' ? '+' : '-'}
                       {formatCurrency(transaction.amount)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.transactionDate,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {formatDate(transaction.date)}
                     </Text>
                   </View>
                 </View>
@@ -402,19 +435,8 @@ const styles = StyleSheet.create({
   },
   transactionLeft: {
     marginRight: 12,
-  },
-  dateCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  dateText: {
-    fontSize: 10,
-    fontFamily: 'CormorantGaramond-SemiBold',
-    textAlign: 'center',
   },
   transactionMiddle: {
     flex: 1,
@@ -445,10 +467,16 @@ const styles = StyleSheet.create({
   },
   transactionRight: {
     marginLeft: 8,
+    alignItems: 'flex-end',
   },
   transactionAmount: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  transactionDate: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 2,
   },
   emptyState: {
     alignItems: 'center',

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,29 +8,164 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
+import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { OpenFinanceIcon } from '@/components/OpenFinanceIcon';
+import { LixoIcon } from '@/components/LixoIcon';
 import {
   getConnectedItems,
   syncItem,
   disconnectItem,
   getApiKey,
 } from '@/lib/pluggy';
-import { useCallback } from 'react';
 import { MFAModal } from '@/components/MFAModal';
 import { OAuthModal } from '@/components/OAuthModal';
 
 type PluggyItem = {
   id: string;
   pluggy_item_id: string;
+  connector_id: number;
   connector_name: string;
   status: string;
   last_updated_at: string | null;
   created_at: string;
+  imageUrl?: string;
+  primaryColor?: string;
 };
+
+type BankLogoProps = {
+  imageUrl?: string;
+  bankName: string;
+  primaryColor?: string;
+  theme: any;
+};
+
+function BankLogo({ imageUrl, bankName, primaryColor, theme }: BankLogoProps) {
+  const [svgXml, setSvgXml] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+
+  useEffect(() => {
+    if (!imageUrl) {
+      setImageError(true);
+      setImageLoading(false);
+      return;
+    }
+
+    const isSvg = imageUrl.toLowerCase().endsWith('.svg');
+
+    if (isSvg) {
+      fetch(imageUrl)
+        .then((response) => {
+          if (!response.ok) throw new Error('Image not found');
+          return response.text();
+        })
+        .then((xml) => {
+          if (xml.includes('<!DOCTYPE') || xml.includes('<html')) {
+            throw new Error('Invalid SVG');
+          }
+          let processedXml = xml;
+          const styleMatch = xml.match(/<style>([\s\S]*?)<\/style>/);
+          const classColorMap: Record<string, string> = {};
+
+          if (styleMatch) {
+            const styleContent = styleMatch[1];
+            const classMatches = styleContent.matchAll(
+              /\.cls-(\d+)\s*\{[^}]*fill:\s*([^;]+);/g
+            );
+            for (const match of classMatches) {
+              classColorMap[`cls-${match[1]}`] = match[2].trim();
+            }
+          }
+
+          processedXml = processedXml.replace(
+            /class="(cls-\d+)"/g,
+            (match, className) => {
+              const color = classColorMap[className];
+              if (color && color !== 'none') {
+                return `fill="${color}"`;
+              }
+              return 'fill="none"';
+            }
+          );
+
+          processedXml = processedXml.replace(
+            /<style>([\s\S]*?)<\/style>/g,
+            (match, content) => {
+              const withoutClasses = content.replace(
+                /\.cls-\d+\s*\{[^}]*\}/g,
+                ''
+              );
+              if (withoutClasses.trim()) {
+                return `<style>${withoutClasses}</style>`;
+              }
+              return '';
+            }
+          );
+
+          setSvgXml(processedXml);
+          setImageLoading(false);
+        })
+        .catch(() => {
+          setImageError(true);
+          setImageLoading(false);
+        });
+    } else {
+      setImageLoading(false);
+    }
+  }, [imageUrl]);
+
+  if (!imageUrl || imageError) {
+    return (
+      <View
+        style={[
+          styles.bankLogoPlaceholder,
+          { backgroundColor: primaryColor || theme.primary },
+        ]}
+      >
+        <Text style={styles.bankLogoText}>{bankName.charAt(0)}</Text>
+      </View>
+    );
+  }
+
+  const isSvg = imageUrl.toLowerCase().endsWith('.svg');
+
+  if (isSvg && svgXml) {
+    return (
+      <View style={styles.bankLogoContainer}>
+        <SvgXml xml={svgXml} width={40} height={40} />
+      </View>
+    );
+  }
+
+  if (isSvg && imageLoading) {
+    return (
+      <View
+        style={[
+          styles.bankLogoPlaceholder,
+          { backgroundColor: primaryColor || theme.primary },
+        ]}
+      >
+        <Text style={styles.bankLogoText}>{bankName.charAt(0)}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.bankLogoContainer}>
+      <Image
+        source={{ uri: imageUrl }}
+        style={styles.bankLogo}
+        resizeMode="contain"
+        onError={() => setImageError(true)}
+      />
+    </View>
+  );
+}
 
 export default function OpenFinanceScreen() {
   const { theme } = useTheme();
@@ -48,7 +183,49 @@ export default function OpenFinanceScreen() {
   const loadConnectedBanks = async () => {
     try {
       const data = await getConnectedItems();
-      setItems(data);
+
+      // Buscar informações dos connectors (logos)
+      const apiKey = await getApiKey();
+      const connectorIds = [...new Set(data.map((item) => item.connector_id))];
+
+      const connectorsInfo = await Promise.all(
+        connectorIds.map(async (connectorId) => {
+          try {
+            const response = await fetch(
+              `https://api.pluggy.ai/connectors/${connectorId}`,
+              {
+                headers: {
+                  'X-API-KEY': apiKey,
+                },
+              }
+            );
+            if (response.ok) {
+              const connector = await response.json();
+              return {
+                id: connector.id,
+                imageUrl: connector.imageUrl,
+                primaryColor: connector.primaryColor,
+              };
+            }
+          } catch (error) {
+            console.error(`Error fetching connector ${connectorId}:`, error);
+          }
+          return null;
+        })
+      );
+
+      // Mapear os logos para os items
+      const connectorsMap = new Map(
+        connectorsInfo.filter((c) => c !== null).map((c) => [c!.id, c])
+      );
+
+      const itemsWithLogos = data.map((item) => ({
+        ...item,
+        imageUrl: connectorsMap.get(item.connector_id)?.imageUrl,
+        primaryColor: connectorsMap.get(item.connector_id)?.primaryColor,
+      }));
+
+      setItems(itemsWithLogos);
     } catch (error) {
       console.error('Error loading banks:', error);
       Alert.alert('Erro', 'Não foi possível carregar bancos conectados');
@@ -347,14 +524,18 @@ export default function OpenFinanceScreen() {
                 style={styles.deleteButton}
                 onPress={() => handleDeleteItem(item.id, item.connector_name)}
               >
-                <Text style={[styles.deleteButtonText, { color: '#f87171' }]}>
-                  🗑️
-                </Text>
+                <LixoIcon size={20} color="#f87171" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardContent}
                 onPress={() => handleViewAccounts(item.id, item.connector_name)}
               >
+                <BankLogo
+                  imageUrl={item.imageUrl}
+                  bankName={item.connector_name}
+                  primaryColor={item.primaryColor}
+                  theme={theme}
+                />
                 <View style={styles.cardLeft}>
                   <Text style={[styles.cardTitle, { color: theme.text }]}>
                     {item.connector_name}
@@ -385,11 +566,6 @@ export default function OpenFinanceScreen() {
                       )}
                     </Text>
                   )}
-                </View>
-                <View style={styles.cardRight}>
-                  <Text style={[styles.viewText, { color: theme.primary }]}>
-                    Ver contas →
-                  </Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -552,13 +728,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
   },
-  cardRight: {
-    marginLeft: 12,
-  },
-  viewText: {
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -586,5 +755,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  bankLogoContainer: {
+    width: 40,
+    height: 40,
+    marginRight: 12,
+  },
+  bankLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
+  bankLogoPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bankLogoText: {
+    fontSize: 20,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    color: '#fff',
   },
 });

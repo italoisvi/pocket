@@ -91,6 +91,24 @@ export default function ChatScreen() {
     essentialExpenses?: { [key: string]: number };
     nonEssentialExpenses?: { [key: string]: number };
     recentExpenses?: Array<{ name: string; amount: number; category: string }>;
+    openFinance?: {
+      connectedBanks: Array<{ name: string; status: string }>;
+      accounts: Array<{
+        name: string;
+        type: string;
+        subtype: string | null;
+        balance: number | null;
+        creditLimit: number | null;
+        availableCredit: number | null;
+      }>;
+      recentTransactions: Array<{
+        description: string;
+        amount: number;
+        date: string;
+        type: string;
+        status: string;
+      }>;
+    };
   }>({});
 
   const loadUserContext = async () => {
@@ -137,6 +155,27 @@ export default function ChatScreen() {
         .gte('created_at', firstDayISO)
         .order('created_at', { ascending: false });
 
+      // Buscar dados do Open Finance
+      const { data: openFinanceItems } = await supabase
+        .from('pluggy_items')
+        .select('id, connector_name, status')
+        .eq('user_id', user.id);
+
+      const { data: openFinanceAccounts } = await supabase
+        .from('pluggy_accounts')
+        .select(
+          'id, name, type, subtype, balance, credit_limit, available_credit_limit'
+        )
+        .eq('user_id', user.id);
+
+      const { data: openFinanceTransactions } = await supabase
+        .from('pluggy_transactions')
+        .select('description, amount, date, type, status')
+        .eq('user_id', user.id)
+        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
+        .order('date', { ascending: false })
+        .limit(50);
+
       if (expenses && expenses.length > 0) {
         const totalExpenses = expenses.reduce(
           (sum, exp) => sum + exp.amount,
@@ -181,10 +220,58 @@ export default function ChatScreen() {
           essentialExpenses,
           nonEssentialExpenses,
           recentExpenses,
+          openFinance: {
+            connectedBanks:
+              openFinanceItems?.map((item) => ({
+                name: item.connector_name,
+                status: item.status,
+              })) || [],
+            accounts:
+              openFinanceAccounts?.map((acc) => ({
+                name: acc.name,
+                type: acc.type,
+                subtype: acc.subtype,
+                balance: acc.balance,
+                creditLimit: acc.credit_limit,
+                availableCredit: acc.available_credit_limit,
+              })) || [],
+            recentTransactions:
+              openFinanceTransactions?.map((tx) => ({
+                description: tx.description,
+                amount: tx.amount,
+                date: tx.date,
+                type: tx.type,
+                status: tx.status,
+              })) || [],
+          },
         });
       } else {
         setUserContext({
           totalIncome,
+          openFinance: {
+            connectedBanks:
+              openFinanceItems?.map((item) => ({
+                name: item.connector_name,
+                status: item.status,
+              })) || [],
+            accounts:
+              openFinanceAccounts?.map((acc) => ({
+                name: acc.name,
+                type: acc.type,
+                subtype: acc.subtype,
+                balance: acc.balance,
+                creditLimit: acc.credit_limit,
+                availableCredit: acc.available_credit_limit,
+              })) || [],
+            recentTransactions:
+              openFinanceTransactions?.map((tx) => ({
+                description: tx.description,
+                amount: tx.amount,
+                date: tx.date,
+                type: tx.type,
+                status: tx.status,
+              })) || [],
+          },
         });
       }
     } catch (error) {
@@ -328,12 +415,6 @@ export default function ChatScreen() {
         edges={['top']}
         style={[styles.header, { backgroundColor: theme.background }]}
       >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ChevronLeftIcon size={20} color={theme.text} />
-        </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]}>Walts</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity

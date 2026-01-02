@@ -13,7 +13,11 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
-import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
+import {
+  CATEGORIES,
+  type ExpenseCategory,
+  categorizeExpense,
+} from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
 
 type SubcategoryExpense = {
@@ -84,10 +88,26 @@ export default function CustosFixosScreen() {
       console.log('[Custos Fixos] Expenses data:', expensesData);
       console.log('[Custos Fixos] Expenses error:', expensesError);
 
+      // Buscar transações do Open Finance
+      const { data: openFinanceTransactions } = await supabase
+        .from('pluggy_transactions')
+        .select('description, amount, date, type')
+        .eq('user_id', user.id)
+        .eq('type', 'DEBIT')
+        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
+        .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
+
+      console.log(
+        '[Custos Fixos] Open Finance transactions:',
+        openFinanceTransactions?.length || 0
+      );
+
+      // Agrupar por categoria + subcategoria
+      const subcategoryMap = new Map<string, SubcategoryExpense>();
+
+      // Processar despesas manuais
       if (expensesData) {
         console.log('[Custos Fixos] Total expenses:', expensesData.length);
-        // Agrupar por categoria + subcategoria
-        const subcategoryMap = new Map<string, SubcategoryExpense>();
         const filtered = expensesData.filter(
           (exp) =>
             CATEGORIES[exp.category as ExpenseCategory] &&
@@ -116,13 +136,37 @@ export default function CustosFixosScreen() {
             });
           }
         });
-
-        const subcategories: SubcategoryExpense[] = Array.from(
-          subcategoryMap.values()
-        );
-
-        setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
       }
+
+      // Processar transações do Open Finance
+      if (openFinanceTransactions) {
+        openFinanceTransactions.forEach((tx) => {
+          const { category, subcategory } = categorizeExpense(tx.description);
+
+          // Filtrar apenas despesas essenciais
+          if (CATEGORIES[category].type === 'essencial') {
+            const key = `${category}-${subcategory}`;
+            const amount = Math.abs(tx.amount);
+
+            if (subcategoryMap.has(key)) {
+              const existing = subcategoryMap.get(key)!;
+              existing.total += amount;
+            } else {
+              subcategoryMap.set(key, {
+                category,
+                subcategory,
+                total: amount,
+              });
+            }
+          }
+        });
+      }
+
+      const subcategories: SubcategoryExpense[] = Array.from(
+        subcategoryMap.values()
+      );
+
+      setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
     } catch (error) {
       console.error('Erro ao carregar custos fixos:', error);
     } finally {

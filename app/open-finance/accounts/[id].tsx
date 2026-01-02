@@ -13,7 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { getAccountsByItem } from '@/lib/pluggy';
+import { getAccountsByItem, syncItem } from '@/lib/pluggy';
+import { supabase } from '@/lib/supabase';
 
 type PluggyAccount = {
   id: string;
@@ -40,6 +41,7 @@ export default function AccountsScreen() {
   const [accounts, setAccounts] = useState<PluggyAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     loadAccounts();
@@ -79,6 +81,56 @@ export default function AccountsScreen() {
       style: 'currency',
       currency: 'BRL',
     }).format(value);
+  };
+
+  const handleForceSync = async () => {
+    try {
+      setSyncing(true);
+
+      console.log('[accounts] handleForceSync - itemId:', itemId);
+
+      // Buscar pluggy_item_id do banco de dados
+      const { data: itemData, error: itemError } = await supabase
+        .from('pluggy_items')
+        .select('pluggy_item_id, status, error_message')
+        .eq('id', itemId)
+        .single();
+
+      console.log('[accounts] Query result - data:', itemData);
+      console.log('[accounts] Query result - error:', itemError);
+
+      if (itemError || !itemData) {
+        Alert.alert('Erro', `Item não encontrado no banco de dados. ItemId: ${itemId}\nError: ${JSON.stringify(itemError)}`);
+        return;
+      }
+
+      console.log('[accounts] Item status:', itemData.status);
+      console.log('[accounts] Error message:', itemData.error_message);
+
+      // Sincronizar item
+      const result = await syncItem(itemData.pluggy_item_id);
+
+      console.log('[accounts] Sync result:', result);
+
+      if (result.item.status === 'UPDATED' && result.accountsCount > 0) {
+        Alert.alert('Sucesso!', `${result.accountsCount} conta(s) sincronizada(s). Atualizando...`);
+        loadAccounts();
+      } else if (result.item.status === 'UPDATING') {
+        Alert.alert('Aguarde', 'O banco ainda está sincronizando. Tente novamente em alguns instantes.');
+      } else if (result.item.status === 'LOGIN_ERROR' || result.item.status === 'OUTDATED') {
+        Alert.alert('Erro', result.item.error?.message || 'Erro ao conectar com o banco. Tente reconectar.');
+      } else {
+        Alert.alert(
+          'Status: ' + result.item.status,
+          'O item está com status diferente do esperado. Verifique os logs para mais detalhes.'
+        );
+      }
+    } catch (error) {
+      console.error('[accounts] Error forcing sync:', error);
+      Alert.alert('Erro', error instanceof Error ? error.message : 'Não foi possível sincronizar');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const getAccountTypeLabel = (type: string, subtype: string | null) => {
@@ -255,6 +307,31 @@ export default function AccountsScreen() {
             >
               Este banco ainda não possui contas sincronizadas
             </Text>
+            <TouchableOpacity
+              style={[
+                styles.syncButton,
+                {
+                  backgroundColor: theme.background === '#000' ? theme.card : theme.primary,
+                  borderWidth: 2,
+                  borderColor: theme.background === '#000' ? theme.cardBorder : theme.primary,
+                },
+              ]}
+              onPress={handleForceSync}
+              disabled={syncing}
+            >
+              {syncing ? (
+                <ActivityIndicator color={theme.background === '#000' ? theme.text : '#fff'} />
+              ) : (
+                <Text
+                  style={[
+                    styles.syncButtonText,
+                    { color: theme.background === '#000' ? theme.text : '#fff' },
+                  ]}
+                >
+                  Forçar Sincronização
+                </Text>
+              )}
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -359,5 +436,16 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
     paddingHorizontal: 32,
+    marginBottom: 24,
+  },
+  syncButton: {
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  syncButtonText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
   },
 });

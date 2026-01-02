@@ -54,17 +54,26 @@ O Pocket é um aplicativo de controle financeiro pessoal com as seguintes funcio
 **Recursos Adicionais:**
 - **Dividir Conta:** Ferramenta para dividir contas entre amigos com OCR, divisão por pessoas e taxa de serviço
 - **Modo Escuro:** Suporte completo a tema claro/escuro/sistema
+- **Open Finance:** Integração com bancos via Pluggy para sincronizar contas bancárias, cartões de crédito e transações automaticamente
 
 **Chat com Walts (você):**
 - Acesso a dados de renda total e gastos do mês atual do usuário
+- Acesso a dados do Open Finance (bancos conectados, contas bancárias, cartões de crédito e transações sincronizadas)
 - Histórico de conversas salvo localmente
 - Contexto sobre rendas totais, gastos totais, breakdown por categoria e gastos recentes
+- Contexto sobre contas bancárias conectadas via Open Finance e seus saldos
 
 ## Seu Papel:
 - Analisar padrões de gastos e rendas usando os dados fornecidos
 - Fornecer conselhos financeiros personalizados e práticos
 - Sugerir formas de economizar baseado nas categorias de gasto
 - Ajudar a criar orçamentos realistas considerando as rendas e gastos
+- **Sugerir porcentagens inteligentes de gasto diário** levando em consideração:
+  - Orçamentos estabelecidos pelo usuário
+  - Dívidas ativas (cartões de crédito próximos do limite, boletos atrasados)
+  - Custos Fixos (essenciais) já comprometidos
+  - Custos Variáveis (não essenciais) do histórico do usuário
+  - Saldo disponível e dias até o próximo pagamento
 - Ser encorajador, positivo e motivador, mas honesto sobre finanças
 - Lembrar de conversas anteriores e manter contexto
 - Explicar funcionalidades do app quando perguntado (use os nomes corretos das páginas e recursos listados acima)
@@ -93,6 +102,24 @@ export async function sendMessageToDeepSeek(
     essentialExpenses?: { [key: string]: number };
     nonEssentialExpenses?: { [key: string]: number };
     recentExpenses?: Array<{ name: string; amount: number; category: string }>;
+    openFinance?: {
+      connectedBanks: Array<{ name: string; status: string }>;
+      accounts: Array<{
+        name: string;
+        type: string;
+        subtype: string | null;
+        balance: number | null;
+        creditLimit: number | null;
+        availableCredit: number | null;
+      }>;
+      recentTransactions: Array<{
+        description: string;
+        amount: number;
+        date: string;
+        type: string;
+        status: string;
+      }>;
+    };
   }
 ): Promise<string> {
   try {
@@ -192,6 +219,68 @@ export async function sendMessageToDeepSeek(
         userContext.recentExpenses.slice(0, 5).forEach((expense) => {
           contextMessage += `\n   • ${expense.name} - R$ ${expense.amount.toFixed(2)} (${expense.category})`;
         });
+      }
+
+      // Open Finance
+      if (userContext.openFinance) {
+        contextMessage +=
+          '\n\n🏦 OPEN FINANCE (DADOS BANCÁRIOS SINCRONIZADOS):';
+
+        // Bancos conectados
+        if (userContext.openFinance.connectedBanks.length > 0) {
+          contextMessage += '\n\n📱 Bancos Conectados:';
+          userContext.openFinance.connectedBanks.forEach((bank) => {
+            contextMessage += `\n   • ${bank.name} - Status: ${bank.status}`;
+          });
+        }
+
+        // Contas bancárias e cartões
+        if (userContext.openFinance.accounts.length > 0) {
+          contextMessage += '\n\n💳 Contas e Cartões:';
+          userContext.openFinance.accounts.forEach((account) => {
+            if (account.type === 'CREDIT') {
+              contextMessage += `\n   • ${account.name} (Cartão de Crédito)`;
+              if (account.creditLimit) {
+                contextMessage += `\n     - Limite: R$ ${account.creditLimit.toFixed(2)}`;
+              }
+              if (account.availableCredit !== null) {
+                contextMessage += `\n     - Disponível: R$ ${account.availableCredit.toFixed(2)}`;
+                if (account.creditLimit) {
+                  const used = account.creditLimit - account.availableCredit;
+                  const percentUsed = (used / account.creditLimit) * 100;
+                  contextMessage += ` (${percentUsed.toFixed(1)}% usado)`;
+                }
+              }
+            } else {
+              const typeLabel =
+                account.subtype === 'CHECKING_ACCOUNT'
+                  ? 'Conta Corrente'
+                  : account.subtype === 'SAVINGS_ACCOUNT'
+                    ? 'Poupança'
+                    : 'Conta Bancária';
+              contextMessage += `\n   • ${account.name} (${typeLabel})`;
+              if (account.balance !== null) {
+                contextMessage += `\n     - Saldo: R$ ${account.balance.toFixed(2)}`;
+              }
+            }
+          });
+        }
+
+        // Transações recentes do Open Finance
+        if (userContext.openFinance.recentTransactions.length > 0) {
+          contextMessage +=
+            '\n\n📝 Últimas Transações Bancárias (Open Finance):';
+          userContext.openFinance.recentTransactions
+            .slice(0, 10)
+            .forEach((tx) => {
+              const typeSymbol = tx.type === 'DEBIT' ? '🔴' : '🟢';
+              const amountStr =
+                tx.amount > 0
+                  ? `+R$ ${tx.amount.toFixed(2)}`
+                  : `R$ ${Math.abs(tx.amount).toFixed(2)}`;
+              contextMessage += `\n   ${typeSymbol} ${tx.description} - ${amountStr} (${new Date(tx.date).toLocaleDateString('pt-BR')})`;
+            });
+        }
       }
 
       contextMessage +=

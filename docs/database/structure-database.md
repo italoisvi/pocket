@@ -41,6 +41,60 @@ CREATE TABLE public.expenses (
   CONSTRAINT expenses_pkey PRIMARY KEY (id),
   CONSTRAINT expenses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.pluggy_accounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  item_id uuid NOT NULL,
+  pluggy_account_id text NOT NULL UNIQUE,
+  type text NOT NULL CHECK (type = ANY (ARRAY['BANK'::text, 'CREDIT'::text])),
+  subtype text,
+  name text NOT NULL,
+  number text,
+  balance numeric,
+  currency_code text DEFAULT 'BRL'::text,
+  credit_limit numeric,
+  available_credit_limit numeric,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT pluggy_accounts_pkey PRIMARY KEY (id),
+  CONSTRAINT pluggy_accounts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT pluggy_accounts_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.pluggy_items(id)
+);
+CREATE TABLE public.pluggy_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  pluggy_item_id text NOT NULL UNIQUE,
+  connector_id integer NOT NULL,
+  connector_name text NOT NULL,
+  status text NOT NULL CHECK (status = ANY (ARRAY['PENDING'::text, 'UPDATING'::text, 'UPDATED'::text, 'LOGIN_ERROR'::text, 'OUTDATED'::text, 'WAITING_USER_INPUT'::text])),
+  last_updated_at timestamp without time zone,
+  error_message text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT pluggy_items_pkey PRIMARY KEY (id),
+  CONSTRAINT pluggy_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.pluggy_transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  account_id uuid NOT NULL,
+  pluggy_transaction_id text NOT NULL UNIQUE,
+  expense_id uuid,
+  description text NOT NULL,
+  description_raw text,
+  amount numeric NOT NULL,
+  date date NOT NULL,
+  status text NOT NULL CHECK (status = ANY (ARRAY['PENDING'::text, 'POSTED'::text])),
+  type text NOT NULL CHECK (type = ANY (ARRAY['DEBIT'::text, 'CREDIT'::text])),
+  category text,
+  provider_code text,
+  synced boolean DEFAULT false,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT pluggy_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT pluggy_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT pluggy_transactions_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.pluggy_accounts(id),
+  CONSTRAINT pluggy_transactions_expense_id_fkey FOREIGN KEY (expense_id) REFERENCES public.expenses(id)
+);
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),

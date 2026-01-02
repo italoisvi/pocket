@@ -15,8 +15,11 @@ import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
+import { AlertaIcon } from '@/components/AlertaIcon';
+import { KangarooIcon } from '@/components/KangarooIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
+import { sendMessageToDeepSeek } from '@/lib/deepseek';
 
 type CategoryExpense = {
   category: ExpenseCategory;
@@ -33,6 +36,13 @@ export default function FinancialOverviewScreen() {
   );
   const [loading, setLoading] = useState(true);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [totalDebt, setTotalDebt] = useState<number>(0);
+  const [debtCount, setDebtCount] = useState<number>(0);
+  const [waltsSuggestion, setWaltsSuggestion] = useState<{
+    dailyBudget: number;
+    reasoning: string;
+  } | null>(null);
+  const [loadingWaltsSuggestion, setLoadingWaltsSuggestion] = useState(false);
 
   useEffect(() => {
     loadFinancialData();
@@ -131,6 +141,61 @@ export default function FinancialOverviewScreen() {
 
         setCategoryExpenses(categories.sort((a, b) => b.total - a.total));
       }
+
+      // Carregar dívidas do Open Finance
+      const { data: creditAccounts } = await supabase
+        .from('pluggy_accounts')
+        .select('id, name, balance, credit_limit, available_credit_limit')
+        .eq('user_id', user.id)
+        .eq('type', 'CREDIT');
+
+      const { data: pendingTransactions } = await supabase
+        .from('pluggy_transactions')
+        .select('id, description, amount, date, status')
+        .eq('user_id', user.id)
+        .eq('status', 'PENDING')
+        .eq('type', 'DEBIT')
+        .lt('date', new Date().toISOString().split('T')[0]);
+
+      let debtTotal = 0;
+      let debtCounter = 0;
+
+      // Analisar cartões de crédito
+      if (creditAccounts) {
+        creditAccounts.forEach((account) => {
+          if (
+            account.credit_limit &&
+            account.available_credit_limit !== null &&
+            account.available_credit_limit < account.credit_limit * 0.1
+          ) {
+            const usedCredit =
+              account.credit_limit - account.available_credit_limit;
+            if (usedCredit > account.credit_limit * 0.9) {
+              debtTotal += usedCredit;
+              debtCounter++;
+            }
+          }
+        });
+      }
+
+      // Analisar transações pendentes
+      if (pendingTransactions) {
+        pendingTransactions.forEach((tx) => {
+          const dueDate = new Date(tx.date);
+          const today = new Date();
+          const daysOverdue = Math.floor(
+            (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          if (daysOverdue > 0) {
+            debtTotal += Math.abs(tx.amount);
+            debtCounter++;
+          }
+        });
+      }
+
+      setTotalDebt(debtTotal);
+      setDebtCount(debtCounter);
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error);
     } finally {
@@ -171,6 +236,81 @@ export default function FinancialOverviewScreen() {
 
   const dailyBudget =
     daysUntilNextPayment > 0 ? remainingBalance / daysUntilNextPayment : 0;
+
+  const getWaltsSuggestion = async () => {
+    setLoadingWaltsSuggestion(true);
+
+    try {
+      // Preparar dados de contexto para o Walts
+      const essentialExpenses: { [key: string]: number } = {};
+      const nonEssentialExpenses: { [key: string]: number } = {};
+
+      categoryExpenses.forEach((cat) => {
+        const categoryInfo = CATEGORIES[cat.category];
+        if (categoryInfo.type === 'essencial') {
+          essentialExpenses[cat.category] = cat.total;
+        } else {
+          nonEssentialExpenses[cat.category] = cat.total;
+        }
+      });
+
+      const prompt = `Analisando minha situação financeira:
+- Renda mensal: R$ ${monthlySalary.toFixed(2)}
+- Total gasto até agora: R$ ${totalExpenses.toFixed(2)}
+- Saldo restante: R$ ${remainingBalance.toFixed(2)}
+- Dívidas ativas: R$ ${totalDebt.toFixed(2)}
+- Dias até próximo pagamento: ${daysUntilNextPayment}
+- Meta diária calculada: R$ ${dailyBudget.toFixed(2)}
+
+Com base nos meus custos fixos, custos variáveis e dívidas ativas, qual valor você sugere que eu gaste POR DIA para manter uma saúde financeira saudável?
+
+IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adicional), seguindo EXATAMENTE este formato:
+{
+  "dailyBudget": 150.50,
+  "reasoning": "Sugiro reduzir para 70% da meta calculada, priorizando o pagamento de dívidas."
+}
+
+O reasoning deve ter NO MÁXIMO 100 caracteres e ser direto ao ponto.`;
+
+      const response = await sendMessageToDeepSeek(
+        [
+          {
+            id: 'walts-suggestion',
+            role: 'user',
+            content: prompt,
+            timestamp: Date.now(),
+          },
+        ],
+        {
+          totalIncome: monthlySalary,
+          totalExpenses,
+          essentialExpenses,
+          nonEssentialExpenses,
+        }
+      );
+
+      // Parse da resposta JSON
+      const cleanResponse = response
+        .trim()
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '');
+      const suggestion = JSON.parse(cleanResponse);
+
+      setWaltsSuggestion({
+        dailyBudget: suggestion.dailyBudget,
+        reasoning: suggestion.reasoning,
+      });
+    } catch (error) {
+      console.error('Erro ao obter sugestão do Walts:', error);
+      // Fallback para meta calculada
+      setWaltsSuggestion({
+        dailyBudget: dailyBudget,
+        reasoning: 'Baseado no seu saldo restante e dias até o pagamento.',
+      });
+    } finally {
+      setLoadingWaltsSuggestion(false);
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -214,6 +354,26 @@ export default function FinancialOverviewScreen() {
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
                   Orçamentos
+                </Text>
+                <ChevronRightIcon size={20} color={theme.text} />
+              </View>
+            </TouchableOpacity>
+
+            {/* Card Dívidas */}
+            <TouchableOpacity
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+                getCardShadowStyle(theme.background === '#000'),
+              ]}
+              onPress={() => router.push('/dividas')}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  Dívidas
                 </Text>
                 <ChevronRightIcon size={20} color={theme.text} />
               </View>
@@ -271,6 +431,19 @@ export default function FinancialOverviewScreen() {
                       {formatCurrency(totalExpenses)}
                     </Text>
                   </View>
+
+                  {totalDebt > 0 && (
+                    <View style={styles.row}>
+                      <Text
+                        style={[styles.label, { color: theme.textSecondary }]}
+                      >
+                        Total Dívidas Ativas
+                      </Text>
+                      <Text style={[styles.value, { color: '#dc2626' }]}>
+                        {formatCurrency(totalDebt)}
+                      </Text>
+                    </View>
+                  )}
 
                   <View
                     style={[styles.divider, { backgroundColor: theme.border }]}
@@ -343,15 +516,44 @@ export default function FinancialOverviewScreen() {
               {expandedCard === 'daily' && (
                 <View style={styles.cardContent}>
                   <Text style={[styles.dailyAmount, { color: theme.text }]}>
-                    {formatCurrency(dailyBudget)}
+                    {formatCurrency(
+                      waltsSuggestion
+                        ? waltsSuggestion.dailyBudget
+                        : dailyBudget
+                    )}
                   </Text>
                   <Text
                     style={[styles.dailyText, { color: theme.textSecondary }]}
                   >
-                    {daysUntilNextPayment > 0
-                      ? `Você pode gastar até esse valor por dia pelos próximos ${daysUntilNextPayment} dias até o próximo pagamento`
-                      : 'Dia do pagamento'}
+                    {waltsSuggestion
+                      ? waltsSuggestion.reasoning
+                      : daysUntilNextPayment > 0
+                        ? `Você pode gastar até esse valor por dia pelos próximos ${daysUntilNextPayment} dias até o próximo pagamento`
+                        : 'Dia do pagamento'}
                   </Text>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.waltsButton,
+                      {
+                        backgroundColor: '#f7c359',
+                        borderColor: '#f7c359',
+                      },
+                    ]}
+                    onPress={getWaltsSuggestion}
+                    disabled={loadingWaltsSuggestion}
+                  >
+                    {loadingWaltsSuggestion ? (
+                      <ActivityIndicator size="small" color="#000" />
+                    ) : (
+                      <View style={styles.waltsButtonContent}>
+                        <KangarooIcon size={20} color="#000" inverted={false} />
+                        <Text style={styles.waltsButtonText}>
+                          Sugestão do Walts
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 </View>
               )}
             </TouchableOpacity>
@@ -545,5 +747,43 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  waltsButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waltsButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  waltsButtonText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    color: '#000',
+  },
+  debtBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  debtBadgeText: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    color: '#dc2626',
+  },
+  debtLabel: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginBottom: 4,
+  },
+  debtValue: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
   },
 });

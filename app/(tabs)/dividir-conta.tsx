@@ -212,14 +212,7 @@ export default function DividirContaScreen() {
         edges={['top']}
         style={[styles.header, { backgroundColor: theme.background }]}
       >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ChevronLeftIcon size={20} color={theme.text} />
-        </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]}>Dividir Conta</Text>
-        <View style={styles.placeholder} />
       </SafeAreaView>
 
       <ScrollView
@@ -413,9 +406,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingBottom: 12,
   },

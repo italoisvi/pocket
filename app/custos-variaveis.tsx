@@ -13,7 +13,11 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
-import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
+import {
+  CATEGORIES,
+  type ExpenseCategory,
+  categorizeExpense,
+} from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
 
 type SubcategoryExpense = {
@@ -77,9 +81,20 @@ export default function CustosVariaveisScreen() {
         .gte('date', firstDayOfMonth.toISOString().split('T')[0])
         .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
 
+      // Buscar transações do Open Finance
+      const { data: openFinanceTransactions } = await supabase
+        .from('pluggy_transactions')
+        .select('description, amount, date, type')
+        .eq('user_id', user.id)
+        .eq('type', 'DEBIT')
+        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
+        .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
+
+      // Agrupar por categoria + subcategoria
+      const subcategoryMap = new Map<string, SubcategoryExpense>();
+
+      // Processar despesas manuais
       if (expensesData) {
-        // Agrupar por categoria + subcategoria
-        const subcategoryMap = new Map<string, SubcategoryExpense>();
         expensesData
           .filter(
             (exp) =>
@@ -103,13 +118,37 @@ export default function CustosVariaveisScreen() {
               });
             }
           });
-
-        const subcategories: SubcategoryExpense[] = Array.from(
-          subcategoryMap.values()
-        );
-
-        setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
       }
+
+      // Processar transações do Open Finance
+      if (openFinanceTransactions) {
+        openFinanceTransactions.forEach((tx) => {
+          const { category, subcategory } = categorizeExpense(tx.description);
+
+          // Filtrar apenas despesas não essenciais
+          if (CATEGORIES[category].type === 'nao_essencial') {
+            const key = `${category}-${subcategory}`;
+            const amount = Math.abs(tx.amount);
+
+            if (subcategoryMap.has(key)) {
+              const existing = subcategoryMap.get(key)!;
+              existing.total += amount;
+            } else {
+              subcategoryMap.set(key, {
+                category,
+                subcategory,
+                total: amount,
+              });
+            }
+          }
+        });
+      }
+
+      const subcategories: SubcategoryExpense[] = Array.from(
+        subcategoryMap.values()
+      );
+
+      setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
     } catch (error) {
       console.error('Erro ao carregar custos variáveis:', error);
     } finally {
