@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -120,7 +121,9 @@ export default function CredentialsScreen() {
         cleanedFormData[key] = isCPFField ? value.replace(/\D/g, '') : value;
       }
 
-      console.log('[credentials] Sending data:', cleanedFormData);
+      console.log('[credentials] Sending credentials to Pluggy API...');
+      console.log('[credentials] Connector ID:', connectorId);
+      console.log('[credentials] Parameters:', cleanedFormData);
 
       // 2. Criar o Item via Pluggy API
       const createItemResponse = await fetch('https://api.pluggy.ai/items', {
@@ -142,19 +145,31 @@ export default function CredentialsScreen() {
       }
 
       const itemData = await createItemResponse.json();
-      console.log('[credentials] Item created:', itemData.id);
+      console.log('[credentials] ✅ Item created successfully!');
+      console.log('[credentials] Item ID:', itemData.id);
       console.log('[credentials] Item status:', itemData.status);
+      console.log('[credentials] Item executionStatus:', itemData.executionStatus);
+      
+      // 🔍 LOG CRÍTICO: Verificar se já vem com parameter
+      if (itemData.parameter) {
+        console.log('[credentials] ⚠️ Item JÁ RETORNOU com parameter!');
+        console.log('[credentials] Parameter name:', itemData.parameter.name);
+        console.log('[credentials] Parameter data:', itemData.parameter.data);
+      } else {
+        console.log('[credentials] Item não retornou parameter ainda');
+      }
 
-      // 3. Sincronizar Item e Accounts no Supabase
-      console.log('[credentials] Starting sync...');
-      const syncResult = await syncItem(itemData.id);
-      console.log('[credentials] Sync result:', syncResult);
+      // 3. 🚨 NOVA LÓGICA: Verificar OAuth ANTES de sincronizar
+      // Conectores Open Finance OAuth retornam imediatamente com parameter
+      let shouldCheckForOAuth = false;
+      let fullItem = itemData;
 
-      // Se o status for WAITING_USER_INPUT, buscar o item completo e abrir modal de MFA
-      if (syncResult.item.status === 'WAITING_USER_INPUT') {
-        console.log('[credentials] Item requires MFA');
+      // Se status é UPDATING ou WAITING_USER_INPUT, buscar item completo
+      if (itemData.status === 'UPDATING' || itemData.status === 'WAITING_USER_INPUT') {
+        console.log('[credentials] Status requer verificação de OAuth/MFA, buscando item completo...');
+        shouldCheckForOAuth = true;
 
-        // Buscar o item completo da Pluggy API para pegar o parameter
+        // Buscar item completo da API para garantir que temos o parameter
         const itemResponse = await fetch(
           `https://api.pluggy.ai/items/${itemData.id}`,
           {
@@ -162,52 +177,106 @@ export default function CredentialsScreen() {
           }
         );
 
-        if (!itemResponse.ok) {
-          throw new Error('Falha ao buscar informações de MFA');
+        if (itemResponse.ok) {
+          fullItem = await itemResponse.json();
+          console.log('[credentials] Item completo recebido');
+          console.log('[credentials] Full item status:', fullItem.status);
+          console.log('[credentials] Full item parameter:', fullItem.parameter);
+        } else {
+          console.error('[credentials] Falha ao buscar item completo');
         }
+      }
 
-        const fullItem = await itemResponse.json();
-        console.log('[credentials] Full item:', fullItem);
-        console.log('[credentials] MFA parameter:', fullItem.parameter);
+      // 4. 🔍 VERIFICAR SE É OAUTH (independente do status!)
+      if (shouldCheckForOAuth && fullItem.parameter) {
+        const isOAuth = fullItem.parameter.name === 'oauth_code';
+        console.log('[credentials] 🔍 Parameter detectado!');
+        console.log('[credentials] É OAuth?', isOAuth);
 
-        if (fullItem.parameter) {
-          // Verificar se é OAuth ou MFA tradicional
-          const isOAuth = fullItem.parameter.name === 'oauth_code';
+        if (isOAuth) {
+          // 🚀 OAUTH FLOW
+          console.log('[credentials] 🚀 Iniciando fluxo OAuth...');
+          
+          // Extrair URL do OAuth
+          const authUrl = fullItem.parameter.data?.url || fullItem.parameter.data;
 
-          if (isOAuth) {
-            // OAuth: Abrir URL de autenticação do banco
-            // A URL está em fullItem.parameter.data.url ou fullItem.parameter.data
-            const authUrl =
-              fullItem.parameter.data?.url || fullItem.parameter.data;
-
-            if (authUrl && typeof authUrl === 'string') {
-              console.log('[credentials] OAuth URL:', authUrl);
-              setOauthUrl(authUrl);
-              setOauthVisible(true);
-            } else {
-              console.error(
-                '[credentials] OAuth URL not found in parameter:',
-                fullItem.parameter
-              );
+          if (authUrl && typeof authUrl === 'string') {
+            console.log('[credentials] ✅ OAuth URL encontrada:', authUrl);
+            
+            // Sincronizar item no banco ANTES de abrir OAuth
+            console.log('[credentials] Sincronizando item no Supabase...');
+            await syncItem(itemData.id);
+            
+            // 🌐 ABRIR NAVEGADOR IMEDIATAMENTE (sem modal intermediário)
+            console.log('[credentials] 🌐 Abrindo navegador para autenticação...');
+            
+            // Verificar se pode abrir a URL
+            const canOpen = await Linking.canOpenURL(authUrl);
+            
+            if (!canOpen) {
+              console.error('[credentials] ❌ Não é possível abrir a URL:', authUrl);
               Alert.alert(
                 'Erro',
-                'Não foi possível obter o link de autenticação. Por favor, tente novamente.'
+                'Não foi possível abrir o link de autenticação. Por favor, tente novamente.'
               );
+              setLoading(false);
+              return;
             }
+            
+            // Abrir navegador/app do banco
+            await Linking.openURL(authUrl);
+            
+            // Informar ao usuário o que fazer
+            Alert.alert(
+              'Autenticação Open Finance',
+              `Você será redirecionado para o ${connectorName}.\n\nApós autorizar o compartilhamento dos seus dados, volte para este app e suas contas serão sincronizadas automaticamente.`,
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    console.log('[credentials] Usuário foi redirecionado para OAuth');
+                    router.back(); // Volta para lista de bancos
+                  },
+                },
+              ]
+            );
+            
+            setLoading(false);
+            return; // ← IMPORTANTE: Não continuar o fluxo normal
           } else {
-            // MFA tradicional: Mostrar modal para digitar código
-            setMfaItemId(syncResult.item.databaseId);
-            setMfaParameter(fullItem.parameter);
-            setMfaVisible(true);
+            console.error('[credentials] ❌ OAuth URL não encontrada em parameter.data');
+            console.error('[credentials] Parameter completo:', JSON.stringify(fullItem.parameter));
+            Alert.alert(
+              'Erro',
+              'Não foi possível obter o link de autenticação OAuth. Por favor, tente novamente.'
+            );
+            setLoading(false);
+            return;
           }
         } else {
-          Alert.alert(
-            'Erro',
-            'Banco requer autenticação adicional, mas não foi possível obter os detalhes.'
-          );
+          // 🔐 MFA TRADICIONAL
+          console.log('[credentials] 🔐 Fluxo MFA tradicional detectado');
+          
+          // Sincronizar item no banco
+          const syncResult = await syncItem(itemData.id);
+          
+          // Abrir modal MFA
+          setMfaItemId(syncResult.item.databaseId);
+          setMfaParameter(fullItem.parameter);
+          setMfaVisible(true);
+          setLoading(false);
+          return; // ← IMPORTANTE: Não continuar o fluxo normal
         }
-      } else if (syncResult.item.status === 'UPDATING') {
-        // Se o status for UPDATING, informar ao usuário que deve aguardar
+      }
+
+      // 5. ✅ FLUXO NORMAL (sem OAuth/MFA ou já finalizado)
+      console.log('[credentials] Fluxo normal, sincronizando item...');
+      const syncResult = await syncItem(itemData.id);
+      console.log('[credentials] Sync result:', syncResult);
+
+      // Verificar resultado da sincronização
+      if (syncResult.item.status === 'UPDATING') {
+        console.log('[credentials] Item em sincronização, aguardando...');
         Alert.alert(
           'Aguarde!',
           'Banco conectado com sucesso! Suas contas estão sendo sincronizadas. Isso pode levar alguns minutos. Volte e puxe para atualizar a lista.',
@@ -218,7 +287,8 @@ export default function CredentialsScreen() {
             },
           ]
         );
-      } else if (syncResult.accountsCount > 0) {
+      } else if (syncResult.item.status === 'UPDATED' && syncResult.accountsCount > 0) {
+        console.log('[credentials] ✅ Sincronização concluída com sucesso!');
         Alert.alert(
           'Sucesso',
           `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).`,
@@ -229,7 +299,14 @@ export default function CredentialsScreen() {
             },
           ]
         );
+      } else if (syncResult.item.status === 'LOGIN_ERROR' || syncResult.item.status === 'OUTDATED') {
+        console.error('[credentials] ❌ Erro de login/credenciais');
+        Alert.alert(
+          'Erro',
+          syncResult.item.error?.message || 'Credenciais inválidas. Verifique e tente novamente.'
+        );
       } else {
+        console.log('[credentials] ⚠️ Status não esperado:', syncResult.item.status);
         Alert.alert(
           'Atenção',
           'Banco conectado, mas nenhuma conta foi encontrada ainda. Aguarde alguns instantes e atualize a lista.',
@@ -242,7 +319,7 @@ export default function CredentialsScreen() {
         );
       }
     } catch (error) {
-      console.error('[credentials] Error connecting bank:', error);
+      console.error('[credentials] ❌ Error connecting bank:', error);
       Alert.alert(
         'Erro',
         error instanceof Error
