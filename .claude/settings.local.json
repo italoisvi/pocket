@@ -48,7 +48,15 @@
       "Bash(npm uninstall:*)",
       "Bash(copy /Y \"assets\\\\images\\\\kanguroocomfundo.png\" \"assets\\\\icon.png\")",
       "Bash(copy /Y \"assets\\\\images\\\\kanguroocomfundo.png\" \"assets\\\\adaptive-icon.png\")",
-      "Bash(copy /Y:*)"
+      "Bash(copy /Y:*)",
+      "Bash(scoop --version:*)",
+      "Bash(scoop update:*)",
+      "Bash(supabase --version:*)",
+      "Bash(supabase functions deploy:*)",
+      "Bash(supabase link:*)",
+      "Bash(supabase login:*)",
+      "Bash(supabase functions logs:*)",
+      "Bash(supabase functions --help:*)"
     ]
   }
 }

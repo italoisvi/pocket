@@ -3,6 +3,8 @@ import { CasaIcon } from '@/components/CasaIcon';
 import { CasaIconFilled } from '@/components/CasaIconFilled';
 import { DividirContaIcon } from '@/components/DividirContaIcon';
 import { DividirContaIconFilled } from '@/components/DividirContaIconFilled';
+import { OpenFinanceIcon } from '@/components/OpenFinanceIcon';
+import { OpenFinanceIconFilled } from '@/components/OpenFinanceIconFilled';
 import { KangarooIcon } from '@/components/KangarooIcon';
 import { CameraIcon } from '@/components/CameraIcon';
 import { CameraIconFilled } from '@/components/CameraIconFilled';
@@ -60,6 +62,18 @@ export default function TabsLayout() {
               <DividirContaIconFilled size={size} color={color} />
             ) : (
               <DividirContaIcon size={size} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="open-finance"
+        options={{
+          title: 'Open Finance',
+          tabBarIcon: ({ color, size, focused }) =>
+            focused ? (
+              <OpenFinanceIconFilled size={size + 40} color={color} />
+            ) : (
+              <OpenFinanceIcon size={size + 40} color={color} />
             ),
         }}
       />
