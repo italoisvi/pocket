@@ -23,45 +23,42 @@ export default function OAuthCallback() {
         return;
       }
 
-      if (success && itemId) {
+      // Se tem itemId, considerar como sucesso (mesmo sem flag success)
+      if (itemId) {
         // Item foi criado com sucesso via OAuth
         console.log('[OAuth Callback] Item criado via OAuth:', itemId);
+        console.log('[OAuth Callback] Success flag:', success);
 
-        // Sincronizar item para buscar dados
-        console.log('[OAuth Callback] Sincronizando item...');
-        const syncResponse = await syncItem(itemId as string);
+        // ✅ NÃO chamar syncItem() aqui!
+        // O webhook item/updated vai sincronizar automaticamente quando status = UPDATED
+        console.log('[OAuth Callback] Autenticação OAuth concluída');
+        console.log(
+          '[OAuth Callback] Aguardando webhook sincronizar contas...'
+        );
 
-        console.log('[OAuth Callback] Sync response:', syncResponse);
-
-        if (syncResponse.accountsCount > 0) {
-          Alert.alert(
-            'Conexão Concluída!',
-            `Banco conectado com sucesso! ${syncResponse.accountsCount} conta(s) sincronizada(s).`,
-            [
-              {
-                text: 'OK',
-                onPress: () => router.replace('/(tabs)/open-finance'),
-              },
-            ]
-          );
-        } else if (syncResponse.item.status === 'UPDATING') {
-          Alert.alert(
-            'Aguarde',
-            'Banco conectado! Suas contas estão sendo sincronizadas. Isso pode levar alguns minutos.',
-            [
-              {
-                text: 'OK',
-                onPress: () => router.replace('/(tabs)/open-finance'),
-              },
-            ]
-          );
-        } else {
-          // Voltar para tela de Open Finance
-          router.replace('/(tabs)/open-finance');
+        // Salvar o item no banco para garantir que existe
+        // (caso o webhook item/created ainda não tenha sido processado)
+        try {
+          await syncItem(itemId as string);
+          console.log('[OAuth Callback] Item salvo no banco');
+        } catch (error) {
+          console.error('[OAuth Callback] Erro ao salvar item:', error);
         }
+
+        // Mostrar mensagem e voltar para Open Finance
+        Alert.alert(
+          'Autenticação Concluída!',
+          'Banco conectado com sucesso! Suas contas estão sendo sincronizadas. Isso pode levar alguns minutos. Puxe para atualizar a lista.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/(tabs)/open-finance'),
+            },
+          ]
+        );
       } else {
-        // Sem itemId ou success
-        console.error('[OAuth Callback] Missing itemId or success flag');
+        // Sem itemId
+        console.error('[OAuth Callback] Missing itemId');
         Alert.alert(
           'Erro',
           'Não foi possível completar a conexão. Por favor, tente novamente.'

@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { getApiKey } from '@/lib/pluggy';
+import { getApiKey, getConnectToken } from '@/lib/pluggy';
 
 type BankLogoProps = {
   imageUrl: string;
@@ -73,6 +73,7 @@ export default function ConnectBankScreen() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [connectToken, setConnectToken] = useState<string | null>(null);
 
   useEffect(() => {
     loadConnectors();
@@ -91,16 +92,20 @@ export default function ConnectBankScreen() {
 
   const loadConnectors = async () => {
     try {
-      // Gerar API Key para buscar conectores
-      const apiKey = await getApiKey();
-      setApiKey(apiKey);
+      // Gerar API Key para buscar conectores (Connect Token não tem permissão)
+      const apiKeyValue = await getApiKey();
+      setApiKey(apiKeyValue);
+
+      // Gerar Connect Token para criar items (tem oauthRedirectUrl configurado)
+      const connectTokenValue = await getConnectToken();
+      setConnectToken(connectTokenValue);
 
       // Buscar lista de connectors (bancos disponíveis) - APENAS Open Finance
       const response = await fetch(
         'https://api.pluggy.ai/connectors?countries=BR&isOpenFinance=true',
         {
           headers: {
-            'X-API-KEY': apiKey,
+            'X-API-KEY': apiKeyValue, // ← Usa API Key aqui!
           },
         }
       );
@@ -135,7 +140,7 @@ export default function ConnectBankScreen() {
         connectorId: connector.id,
         connectorName: connector.name,
         imageUrl: connector.imageUrl,
-        apiKey: apiKey || '',
+        apiKey: connectToken || '', // ← Passa Connect Token (não API Key)!
         credentials: JSON.stringify(connector.credentials),
       },
     });

@@ -97,7 +97,7 @@ serve(async (req) => {
           clientUserId: user.id,
           webhookUrl:
             'https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook',
-          oauthRedirectUrl: 'pocket://oauth-callback',
+          oauthRedirectUri: 'pocket://oauth-callback', // Connect Token usa "Uri"
           avoidDuplicates: true,
         }),
       }

@@ -35,7 +35,9 @@ export default function CredentialsScreen() {
   const connectorId = params.connectorId as string;
   const connectorName = params.connectorName as string;
   const imageUrl = params.imageUrl as string;
-  const apiKey = params.apiKey as string;
+  // 🔑 IMPORTANTE: Este é um Connect Token (não API Key)
+  // Connect Tokens têm oauthRedirectUrl configurado, necessário para OAuth funcionar
+  const connectToken = params.apiKey as string;
   const credentialsJson = params.credentials as string;
 
   const credentials: CredentialField[] = credentialsJson
@@ -125,17 +127,25 @@ export default function CredentialsScreen() {
       console.log('[credentials] Connector ID:', connectorId);
       console.log('[credentials] Parameters:', cleanedFormData);
 
-      // 2. Criar o Item via Pluggy API
+      const requestBody = {
+        connectorId: parseInt(connectorId),
+        parameters: cleanedFormData,
+        // Testando AMBOS! Documentação é inconsistente sobre qual usar
+        oauthRedirectUri: 'pocket://oauth-callback', // OAuth Support Guide
+        oauthRedirectUrl: 'pocket://oauth-callback', // Authentication Guide
+      };
+
+      console.log('[credentials] Request body:', JSON.stringify(requestBody, null, 2));
+
+      // 2. Criar o Item via Pluggy API usando Connect Token
+      // IMPORTANTE: Mesmo usando Connect Token, precisamos passar oauthRedirectUri/Url no body!
       const createItemResponse = await fetch('https://api.pluggy.ai/items', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-KEY': apiKey,
+          'X-API-KEY': connectToken,
         },
-        body: JSON.stringify({
-          connectorId: parseInt(connectorId),
-          parameters: cleanedFormData,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!createItemResponse.ok) {
@@ -169,28 +179,62 @@ export default function CredentialsScreen() {
         console.log('[credentials] Status requer verificação de OAuth/MFA, buscando item completo...');
         shouldCheckForOAuth = true;
 
-        // Buscar item completo da API para garantir que temos o parameter
-        const itemResponse = await fetch(
-          `https://api.pluggy.ai/items/${itemData.id}`,
-          {
-            headers: { 'X-API-KEY': apiKey },
-          }
-        );
+        // 🔄 POLLING: Aguardar até parameter aparecer (máximo 30 segundos)
+        const maxAttempts = 15; // 15 tentativas x 2 segundos = 30 segundos
+        let attempts = 0;
+        
+        while (attempts < maxAttempts) {
+          console.log(`[credentials] Polling tentativa ${attempts + 1}/${maxAttempts}...`);
+          
+          const itemResponse = await fetch(
+            `https://api.pluggy.ai/items/${itemData.id}`,
+            {
+              headers: { 'X-API-KEY': connectToken },
+            }
+          );
 
-        if (itemResponse.ok) {
-          fullItem = await itemResponse.json();
-          console.log('[credentials] Item completo recebido');
-          console.log('[credentials] Full item status:', fullItem.status);
-          console.log('[credentials] Full item parameter:', fullItem.parameter);
-        } else {
-          console.error('[credentials] Falha ao buscar item completo');
+          if (itemResponse.ok) {
+            fullItem = await itemResponse.json();
+            console.log('[credentials] Item status:', fullItem.status);
+            console.log('[credentials] Item executionStatus:', fullItem.executionStatus);
+            console.log('[credentials] Item parameter:', fullItem.parameter);
+
+            // Se encontrou parameter OU status mudou para algo definitivo, parar polling
+            if (fullItem.parameter || 
+                fullItem.status === 'UPDATED' || 
+                fullItem.status === 'LOGIN_ERROR' ||
+                fullItem.status === 'OUTDATED') {
+              console.log('[credentials] ✅ Parameter encontrado ou status definitivo!');
+              break;
+            }
+          }
+
+          // Aguardar 2 segundos antes da próxima tentativa
+          attempts++;
+          if (attempts < maxAttempts) {
+            console.log('[credentials] Aguardando 2 segundos...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
+
+        if (attempts >= maxAttempts && !fullItem.parameter) {
+          console.warn('[credentials] ⚠️ Timeout: Parameter não apareceu após 30 segundos');
         }
       }
 
       // 4. 🔍 VERIFICAR SE É OAUTH (independente do status!)
       if (shouldCheckForOAuth && fullItem.parameter) {
-        const isOAuth = fullItem.parameter.name === 'oauth_code';
+        // ✅ Verificar TANTO o name quanto o type
+        // Nubank usa: name: "oauthCode", type: "oauth"
+        // Outros bancos podem usar: name: "oauth_code"
+        const isOAuth = 
+          fullItem.parameter.type === 'oauth' ||
+          fullItem.parameter.name === 'oauth_code' ||
+          fullItem.parameter.name === 'oauthCode';
+        
         console.log('[credentials] 🔍 Parameter detectado!');
+        console.log('[credentials] Parameter name:', fullItem.parameter.name);
+        console.log('[credentials] Parameter type:', fullItem.parameter.type);
         console.log('[credentials] É OAuth?', isOAuth);
 
         if (isOAuth) {
@@ -203,12 +247,8 @@ export default function CredentialsScreen() {
           if (authUrl && typeof authUrl === 'string') {
             console.log('[credentials] ✅ OAuth URL encontrada:', authUrl);
             
-            // Sincronizar item no banco ANTES de abrir OAuth
-            console.log('[credentials] Sincronizando item no Supabase...');
-            await syncItem(itemData.id);
-            
-            // 🌐 ABRIR NAVEGADOR IMEDIATAMENTE (sem modal intermediário)
-            console.log('[credentials] 🌐 Abrindo navegador para autenticação...');
+            // 🌐 ABRIR NAVEGADOR IMEDIATAMENTE
+            console.log('[credentials] 🌐 Abrindo navegador para autenticação OAuth...');
             
             // Verificar se pode abrir a URL
             const canOpen = await Linking.canOpenURL(authUrl);
@@ -224,24 +264,19 @@ export default function CredentialsScreen() {
             }
             
             // Abrir navegador/app do banco
+            console.log('[credentials] Abrindo URL:', authUrl);
             await Linking.openURL(authUrl);
             
-            // Informar ao usuário o que fazer
-            Alert.alert(
-              'Autenticação Open Finance',
-              `Você será redirecionado para o ${connectorName}.\n\nApós autorizar o compartilhamento dos seus dados, volte para este app e suas contas serão sincronizadas automaticamente.`,
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    console.log('[credentials] Usuário foi redirecionado para OAuth');
-                    router.back(); // Volta para lista de bancos
-                  },
-                },
-              ]
-            );
+            // ✅ NÃO SINCRONIZA AGORA! A sincronização acontece automaticamente
+            // quando o usuário volta do OAuth via deep link (oauth-callback.tsx)
+            
+            console.log('[credentials] ✅ Navegador aberto com sucesso!');
+            console.log('[credentials] Aguardando callback do OAuth...');
             
             setLoading(false);
+            
+            // Volta para lista de bancos (usuário vai voltar via deep link)
+            router.back();
             return; // ← IMPORTANTE: Não continuar o fluxo normal
           } else {
             console.error('[credentials] ❌ OAuth URL não encontrada em parameter.data');
