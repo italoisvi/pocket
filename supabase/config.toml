@@ -1,0 +1,2 @@
+[functions.pluggy-webhook]
+verify_jwt = false
