@@ -36,7 +36,7 @@ export default function PoliticaPrivacidadeScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <Text style={[styles.date, { color: theme.textSecondary }]}>
-          Última atualização: 27 de dezembro de 2025
+          Última atualização: 03 de janeiro de 2026
         </Text>
 
         <Text style={[styles.paragraph, { color: theme.text }]}>
@@ -64,6 +64,10 @@ export default function PoliticaPrivacidadeScreen() {
         </Text>
         <Text style={[styles.bulletPoint, { color: theme.textSecondary }]}>
           • Imagens: fotos de recibos enviadas para processamento OCR
+        </Text>
+        <Text style={[styles.bulletPoint, { color: theme.textSecondary }]}>
+          • Dados bancários via Open Finance: transações, saldos e extratos
+          (mediante sua autorização explícita através da Pluggy)
         </Text>
 
         <Text style={[styles.subparagraph, { color: theme.text }]}>
@@ -111,7 +115,13 @@ export default function PoliticaPrivacidadeScreen() {
         </Text>
         <Text style={[styles.bulletPoint, { color: theme.textSecondary }]}>
           • Provedores de serviço: Supabase (banco de dados), Google Cloud
-          Vision (OCR), Anthropic (IA), Sentry (monitoramento)
+          Vision (OCR), Anthropic (IA), Sentry (monitoramento), Pluggy (Open
+          Finance)
+        </Text>
+        <Text style={[styles.bulletPoint, { color: theme.textSecondary }]}>
+          • Plug gy: ao conectar sua conta bancária via Open Finance, seus dados
+          são processados pela Pluggy conforme sua própria política de
+          privacidade
         </Text>
         <Text style={[styles.bulletPoint, { color: theme.textSecondary }]}>
           • Autoridades legais: quando exigido por lei

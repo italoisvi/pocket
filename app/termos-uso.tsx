@@ -34,7 +34,7 @@ export default function TermosUsoScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <Text style={[styles.date, { color: theme.textSecondary }]}>
-          Última atualização: 27 de dezembro de 2025
+          Última atualização: 03 de janeiro de 2026
         </Text>
 
         <Text style={[styles.paragraph, { color: theme.text }]}>
@@ -64,6 +64,10 @@ export default function TermosUsoScreen() {
         </Text>
         <Text style={[styles.bulletPoint, { color: theme.textSecondary }]}>
           • Categorização e análise de despesas
+        </Text>
+        <Text style={[styles.bulletPoint, { color: theme.textSecondary }]}>
+          • Integração com instituições financeiras via Open Finance (através da
+          Pluggy)
         </Text>
 
         <Text style={[styles.paragraph, { color: theme.text }]}>
@@ -163,7 +167,18 @@ export default function TermosUsoScreen() {
           financeiro profissional.
         </Text>
         <Text style={[styles.subparagraph, { color: theme.text }]}>
-          7.3. Disponibilidade:
+          7.3. Open Finance e Pluggy:
+        </Text>
+        <Text style={[styles.body, { color: theme.textSecondary }]}>
+          A integração com instituições financeiras é realizada através da
+          Pluggy, um provedor terceirizado de serviços de Open Finance. Ao
+          conectar suas contas bancárias, você está sujeito aos termos e
+          políticas da Pluggy. Não nos responsabilizamos por eventuais
+          inconsistências, atrasos ou indisponibilidade dos dados fornecidos
+          pelas instituições financeiras ou pela Pluggy.
+        </Text>
+        <Text style={[styles.subparagraph, { color: theme.text }]}>
+          7.4. Disponibilidade:
         </Text>
         <Text style={[styles.body, { color: theme.textSecondary }]}>
           Não garantimos que o serviço estará disponível ininterruptamente ou
@@ -171,7 +186,7 @@ export default function TermosUsoScreen() {
           aspecto do serviço a qualquer momento.
         </Text>
         <Text style={[styles.subparagraph, { color: theme.text }]}>
-          7.4. Exclusão de Garantias:
+          7.5. Exclusão de Garantias:
         </Text>
         <Text style={[styles.body, { color: theme.textSecondary }]}>
           O serviço é fornecido "como está" e "conforme disponível", sem

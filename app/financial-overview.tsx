@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { getCardShadowStyle } from '@/lib/cardStyles';
@@ -46,7 +47,24 @@ export default function FinancialOverviewScreen() {
 
   useEffect(() => {
     loadFinancialData();
+    loadWaltsSuggestion();
   }, []);
+
+  const loadWaltsSuggestion = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const stored = await AsyncStorage.getItem(`walts_suggestion_${user.id}`);
+      if (stored) {
+        setWaltsSuggestion(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar sugestão do Walts:', error);
+    }
+  };
 
   // Colapsar todos os cards quando a tela ganhar foco (usuário retornar de outra página)
   useFocusEffect(
@@ -296,10 +314,22 @@ O reasoning deve ter NO MÁXIMO 100 caracteres e ser direto ao ponto.`;
         .replace(/```\n?/g, '');
       const suggestion = JSON.parse(cleanResponse);
 
-      setWaltsSuggestion({
+      const suggestionData = {
         dailyBudget: suggestion.dailyBudget,
         reasoning: suggestion.reasoning,
-      });
+      };
+      setWaltsSuggestion(suggestionData);
+
+      // Persistir no AsyncStorage
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await AsyncStorage.setItem(
+          `walts_suggestion_${user.id}`,
+          JSON.stringify(suggestionData)
+        );
+      }
     } catch (error) {
       console.error('Erro ao obter sugestão do Walts:', error);
       // Fallback para meta calculada

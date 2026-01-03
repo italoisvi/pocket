@@ -26,6 +26,8 @@ type SubcategoryExpense = {
   total: number;
 };
 
+type PeriodFilter = 'last7days' | 'last15days' | 'month';
+
 export default function GraficosTabelasScreen() {
   const { theme } = useTheme();
   const [categoryExpenses, setCategoryExpenses] = useState<
@@ -33,10 +35,12 @@ export default function GraficosTabelasScreen() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month');
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
 
   useEffect(() => {
     loadExpenses();
-  }, []);
+  }, [periodFilter, selectedMonth]);
 
   const loadExpenses = async () => {
     try {
@@ -46,16 +50,41 @@ export default function GraficosTabelasScreen() {
 
       if (!user) return;
 
+      let startDate: Date;
+      let endDate: Date;
       const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      switch (periodFilter) {
+        case 'last7days':
+          endDate = now;
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 6); // Últimos 7 dias incluindo hoje
+          break;
+        case 'last15days':
+          endDate = now;
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 14); // Últimos 15 dias incluindo hoje
+          break;
+        case 'month':
+          startDate = new Date(
+            selectedMonth.getFullYear(),
+            selectedMonth.getMonth(),
+            1
+          );
+          endDate = new Date(
+            selectedMonth.getFullYear(),
+            selectedMonth.getMonth() + 1,
+            0
+          );
+          break;
+      }
 
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, category, subcategory')
         .eq('user_id', user.id)
-        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
-        .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
+        .gte('date', startDate.toISOString().split('T')[0])
+        .lte('date', endDate.toISOString().split('T')[0]);
 
       if (expensesData) {
         const total = expensesData.reduce((sum, exp) => sum + exp.amount, 0);
@@ -122,6 +151,123 @@ export default function GraficosTabelasScreen() {
       </SafeAreaView>
 
       <ScrollView style={styles.content}>
+        {/* Filtros de Período */}
+        <View style={styles.filtersContainer}>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor:
+                  periodFilter === 'last7days' ? theme.primary : theme.card,
+                borderColor: theme.cardBorder,
+              },
+            ]}
+            onPress={() => setPeriodFilter('last7days')}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                {
+                  color:
+                    periodFilter === 'last7days'
+                      ? theme.background
+                      : theme.text,
+                },
+              ]}
+            >
+              Últimos 7 dias
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor:
+                  periodFilter === 'last15days' ? theme.primary : theme.card,
+                borderColor: theme.cardBorder,
+              },
+            ]}
+            onPress={() => setPeriodFilter('last15days')}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                {
+                  color:
+                    periodFilter === 'last15days'
+                      ? theme.background
+                      : theme.text,
+                },
+              ]}
+            >
+              Últimos 15 dias
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor:
+                  periodFilter === 'month' ? theme.primary : theme.card,
+                borderColor: theme.cardBorder,
+              },
+            ]}
+            onPress={() => setPeriodFilter('month')}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                {
+                  color:
+                    periodFilter === 'month' ? theme.background : theme.text,
+                },
+              ]}
+            >
+              Mês
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Seletor de Mês (só aparece quando filtro "Mês" está ativo) */}
+        {periodFilter === 'month' && (
+          <View style={styles.monthSelectorContainer}>
+            <TouchableOpacity
+              style={styles.monthArrow}
+              onPress={() => {
+                const newDate = new Date(selectedMonth);
+                newDate.setMonth(newDate.getMonth() - 1);
+                setSelectedMonth(newDate);
+              }}
+            >
+              <Text style={[styles.monthArrowText, { color: theme.text }]}>
+                ‹
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={[styles.monthText, { color: theme.text }]}>
+              {selectedMonth.toLocaleDateString('pt-BR', {
+                month: 'long',
+                year: 'numeric',
+              })}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.monthArrow}
+              onPress={() => {
+                const newDate = new Date(selectedMonth);
+                newDate.setMonth(newDate.getMonth() + 1);
+                setSelectedMonth(newDate);
+              }}
+            >
+              <Text style={[styles.monthArrowText, { color: theme.text }]}>
+                ›
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {loading ? (
           <View
             style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
@@ -410,6 +556,45 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 24,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+  },
+  filterButtonText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  monthSelectorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
+  monthArrow: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  monthArrowText: {
+    fontSize: 32,
+    fontFamily: 'CormorantGaramond-Bold',
+  },
+  monthText: {
+    fontSize: 20,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    textTransform: 'capitalize',
   },
   loadingContainer: {
     padding: 40,

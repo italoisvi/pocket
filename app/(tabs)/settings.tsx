@@ -301,6 +301,26 @@ export default function SettingsScreen() {
             </View>
             <ChevronRightIcon size={20} color={theme.textSecondary} />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+              getCardShadowStyle(theme.background === '#000'),
+            ]}
+            onPress={() => router.push('/sobre-pluggy')}
+          >
+            <View style={styles.settingCardLeft}>
+              <InformacoesIcon size={24} color={theme.text} />
+              <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                Sobre a Pluggy
+              </Text>
+            </View>
+            <ChevronRightIcon size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         <Text style={[styles.sectionTitle, { color: theme.text }]}>

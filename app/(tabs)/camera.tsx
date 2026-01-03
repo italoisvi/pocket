@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -17,17 +18,36 @@ import { useTheme } from '@/lib/theme';
 import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
 import { CarregarIcon } from '@/components/CarregarIcon';
 import { ExpenseConfirmModal } from '@/components/ExpenseConfirmModal';
+import { CameraInstructionsModal } from '@/components/CameraInstructionsModal';
 import { extractReceiptData, type ReceiptData } from '@/lib/ocr';
 import { supabase } from '@/lib/supabase';
 import { categorizeExpense } from '@/lib/categories';
+
+const INSTRUCTIONS_SHOWN_KEY = 'camera_instructions_shown';
 
 export default function CameraScreen() {
   const { theme } = useTheme();
   const [processingImage, setProcessingImage] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showInstructionsModal, setShowInstructionsModal] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [currentImageUri, setCurrentImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [instructionsShown, setInstructionsShown] = useState(false);
+
+  useEffect(() => {
+    checkInstructionsShown();
+  }, []);
+
+  const checkInstructionsShown = async () => {
+    const shown = await AsyncStorage.getItem(INSTRUCTIONS_SHOWN_KEY);
+    setInstructionsShown(shown === 'true');
+  };
+
+  const markInstructionsAsShown = async () => {
+    await AsyncStorage.setItem(INSTRUCTIONS_SHOWN_KEY, 'true');
+    setInstructionsShown(true);
+  };
 
   const processImageToScan = async (imageUri: string): Promise<string> => {
     try {
@@ -54,6 +74,12 @@ export default function CameraScreen() {
   };
 
   const handleTakePhoto = async () => {
+    // Mostrar instruções na primeira vez
+    if (!instructionsShown) {
+      setShowInstructionsModal(true);
+      return;
+    }
+
     try {
       setProcessingImage(true);
 
@@ -260,6 +286,13 @@ export default function CameraScreen() {
     setCurrentImageUri(null);
   };
 
+  const handleCloseInstructions = async () => {
+    setShowInstructionsModal(false);
+    await markInstructionsAsShown();
+    // Abrir a câmera automaticamente após fechar as instruções
+    handleTakePhoto();
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView
@@ -321,6 +354,11 @@ export default function CameraScreen() {
           </>
         )}
       </View>
+
+      <CameraInstructionsModal
+        visible={showInstructionsModal}
+        onClose={handleCloseInstructions}
+      />
 
       <ExpenseConfirmModal
         visible={showConfirmModal}
