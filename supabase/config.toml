@@ -1,2 +1,5 @@
 [functions.pluggy-webhook]
 verify_jwt = false
+
+[functions.reset-password-redirect]
+verify_jwt = false

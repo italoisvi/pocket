@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pocket - Redefinir Senha</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Georgia, 'Times New Roman', serif;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 56px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 16px;
+        }
+
+        h2 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 24px;
+        }
+
+        p {
+            font-size: 18px;
+            color: #4a4a4a;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 16px 48px;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 2px solid #1a1a1a;
+            transition: all 0.2s;
+        }
+
+        .button:hover {
+            background-color: #333333;
+            border-color: #333333;
+        }
+
+        .info {
+            margin-top: 32px;
+            padding: 24px;
+            background-color: #f9f9f9;
+            border-radius: 12px;
+            border: 2px solid #e5e5e5;
+        }
+
+        .info p {
+            font-size: 16px;
+            color: #6a6a6a;
+            margin: 0;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1a1a1a;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #status {
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pocket</h1>
+        <h2>Redefinir Senha</h2>
+
+        <div id="status">
+            <div class="spinner"></div>
+            <p>Abrindo o app Pocket...</p>
+        </div>
+
+        <p id="message" style="display: none;">
+            Toque no botão abaixo para abrir o app Pocket.
+        </p>
+
+        <a href="#" id="openApp" class="button" style="display: none;">Abrir no App</a>
+
+        <div class="info">
+            <p><strong>O app não abriu?</strong></p>
+            <p>Certifique-se de que o app Pocket está instalado no seu dispositivo.</p>
+        </div>
+    </div>
+
+    <script>
+        // Extrair tokens do HASH da URL (Supabase envia os tokens no hash)
+        const hash = window.location.hash.substring(1); // Remove o #
+        const params = new URLSearchParams(hash);
+
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const type = params.get('type');
+
+        console.log('Hash completo:', window.location.hash);
+        console.log('Access Token:', accessToken ? 'presente' : 'ausente');
+        console.log('Refresh Token:', refreshToken ? 'presente' : 'ausente');
+        console.log('Type:', type);
+
+        // Construir deep link
+        const deepLink = `pocket://reset-password?tokens=${encodeURIComponent(`access_token=${accessToken}&refresh_token=${refreshToken}&type=${type}`)}`;
+
+        console.log('Deep link:', deepLink);
+
+        // Configurar botão
+        const openAppButton = document.getElementById('openApp');
+        const statusDiv = document.getElementById('status');
+        const messageP = document.getElementById('message');
+
+        openAppButton.href = deepLink;
+
+        openAppButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = deepLink;
+        });
+
+        // Tentar abrir automaticamente
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                console.log('Tentando abrir app automaticamente...');
+                window.location.href = deepLink;
+
+                // Após 2 segundos, mostrar botão manual
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                    messageP.style.display = 'block';
+                    openAppButton.style.display = 'inline-block';
+                }, 2000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

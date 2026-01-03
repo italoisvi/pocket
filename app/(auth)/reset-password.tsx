@@ -13,42 +13,47 @@ import {
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
-import { markOnboardingPaywallShown } from '@/lib/onboarding';
 
-export default function SignupScreen() {
+export default function ResetPasswordScreen() {
   const { theme } = useTheme();
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async () => {
-    if (!email || !password || !confirmPassword) {
+  const handleUpdatePassword = async () => {
+    if (!password || !confirmPassword) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas não correspondem');
+      Alert.alert('Erro', 'As senhas não coincidem');
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Erro', 'A senha deve ter pelo menos 8 caracteres');
+      Alert.alert('Erro', 'A senha deve ter no mínimo 8 caracteres');
       return;
     }
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+    const { error } = await supabase.auth.updateUser({
+      password: password,
     });
     setLoading(false);
 
     if (error) {
-      Alert.alert('Erro ao cadastrar', error.message);
+      Alert.alert('Erro', error.message);
     } else {
-      router.replace('/onboarding-paywall');
+      // Fazer logout para invalidar sessões antigas
+      await supabase.auth.signOut();
+
+      Alert.alert('Sucesso', 'Sua senha foi redefinida com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => router.replace('/(auth)/login'),
+        },
+      ]);
     }
   };
 
@@ -67,7 +72,11 @@ export default function SignupScreen() {
         </View>
         <Text style={[styles.title, { color: theme.text }]}>Pocket</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Crie sua conta
+          Nova senha
+        </Text>
+
+        <Text style={[styles.description, { color: theme.textSecondary }]}>
+          Digite sua nova senha abaixo.
         </Text>
 
         <TextInput
@@ -79,27 +88,7 @@ export default function SignupScreen() {
               color: theme.text,
             },
           ]}
-          placeholder="Email"
-          placeholderTextColor={theme.textSecondary}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          autoCorrect={false}
-          spellCheck={false}
-          keyboardType="email-address"
-          editable={!loading}
-        />
-
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.card,
-              borderColor: theme.cardBorder,
-              color: theme.text,
-            },
-          ]}
-          placeholder="Senha"
+          placeholder="Nova senha"
           placeholderTextColor={theme.textSecondary}
           value={password}
           onChangeText={setPassword}
@@ -130,18 +119,11 @@ export default function SignupScreen() {
             { backgroundColor: theme.primary },
             loading && styles.buttonDisabled,
           ]}
-          onPress={handleSignup}
+          onPress={handleUpdatePassword}
           disabled={loading}
         >
           <Text style={[styles.buttonText, { color: theme.background }]}>
-            {loading ? 'Cadastrando...' : 'Cadastrar'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.back()} disabled={loading}>
-          <Text style={[styles.linkText, { color: theme.textSecondary }]}>
-            Já tem uma conta?{' '}
-            <Text style={[styles.linkBold, { color: theme.text }]}>Entre</Text>
+            {loading ? 'Salvando...' : 'Redefinir senha'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -175,8 +157,15 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 40,
+    marginBottom: 16,
     textAlign: 'center',
+  },
+  description: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginBottom: 32,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   input: {
     height: 56,
@@ -200,14 +189,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
-  linkText: {
-    textAlign: 'center',
-    fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
-  linkBold: {
     fontFamily: 'CormorantGaramond-SemiBold',
   },
 });

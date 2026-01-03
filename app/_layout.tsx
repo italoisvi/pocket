@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Redirect, Stack, useSegments } from 'expo-router';
+import { Redirect, Stack, useSegments, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   StatusBar,
   useColorScheme,
+  Linking,
 } from 'react-native';
 import * as Font from 'expo-font';
 import { ThemeProvider, useTheme } from '@/lib/theme';
@@ -46,6 +47,71 @@ try {
 function ThemedStack() {
   const { isDark } = useTheme();
   const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
+  const router = useRouter();
+
+  // Handle deep linking for password reset
+  useEffect(() => {
+    const handleDeepLink = async (event: { url: string }) => {
+      const url = event.url;
+      console.log('[DeepLink] Received URL:', url);
+
+      // Verifica se é um link de reset de senha
+      if (url.includes('reset-password')) {
+        try {
+          // Formato: pocket://reset-password?tokens=access_token=...&refresh_token=...&type=recovery
+          const urlObj = new URL(url);
+          const tokensParam = urlObj.searchParams.get('tokens');
+
+          if (tokensParam) {
+            // Decodificar e parsear os tokens
+            const decodedTokens = decodeURIComponent(tokensParam);
+            const tokenParams = new URLSearchParams(decodedTokens);
+
+            const accessToken = tokenParams.get('access_token');
+            const refreshToken = tokenParams.get('refresh_token');
+            const type = tokenParams.get('type');
+
+            console.log('[DeepLink] Access Token:', accessToken ? 'presente' : 'ausente');
+            console.log('[DeepLink] Refresh Token:', refreshToken ? 'presente' : 'ausente');
+            console.log('[DeepLink] Type:', type);
+
+            if (accessToken && refreshToken && type === 'recovery') {
+              // Definir sessão com os tokens de recuperação
+              const { error } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+
+              if (!error) {
+                console.log('[DeepLink] Session set successfully');
+                // Aguardar um pouco para garantir que a sessão foi definida
+                setTimeout(() => {
+                  router.replace('/(auth)/reset-password');
+                }, 100);
+              } else {
+                console.error('[DeepLink] Error setting session:', error);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[DeepLink] Error parsing deep link:', error);
+        }
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Verificar se o app foi aberto com um deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
 
   // Update status bar whenever theme changes
   useEffect(() => {

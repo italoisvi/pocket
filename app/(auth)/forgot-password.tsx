@@ -13,42 +13,41 @@ import {
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
-import { markOnboardingPaywallShown } from '@/lib/onboarding';
 
-export default function SignupScreen() {
+export default function ForgotPasswordScreen() {
   const { theme } = useTheme();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas não correspondem');
-      return;
-    }
-
-    if (password.length < 8) {
-      Alert.alert('Erro', 'A senha deve ter pelo menos 8 caracteres');
+  const handleResetPassword = async () => {
+    if (!email) {
+      Alert.alert('Erro', 'Por favor, digite seu email');
       return;
     }
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+    // TODO: Substituir pela URL do Vercel após deploy
+    const redirectUrl =
+      'https://pocket-redirect.vercel.app/'; // Substituir pela URL real após deploy
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
     });
     setLoading(false);
 
     if (error) {
-      Alert.alert('Erro ao cadastrar', error.message);
+      Alert.alert('Erro', error.message);
     } else {
-      router.replace('/onboarding-paywall');
+      Alert.alert(
+        'Solicitação enviada',
+        'Se o email estiver cadastrado, você receberá as instruções de recuperação.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
     }
   };
 
@@ -67,7 +66,11 @@ export default function SignupScreen() {
         </View>
         <Text style={[styles.title, { color: theme.text }]}>Pocket</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Crie sua conta
+          Recuperar senha
+        </Text>
+
+        <Text style={[styles.description, { color: theme.textSecondary }]}>
+          Digite seu email para receber as instruções de recuperação de senha.
         </Text>
 
         <TextInput
@@ -90,58 +93,24 @@ export default function SignupScreen() {
           editable={!loading}
         />
 
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.card,
-              borderColor: theme.cardBorder,
-              color: theme.text,
-            },
-          ]}
-          placeholder="Senha"
-          placeholderTextColor={theme.textSecondary}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          editable={!loading}
-        />
-
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.card,
-              borderColor: theme.cardBorder,
-              color: theme.text,
-            },
-          ]}
-          placeholder="Confirmar senha"
-          placeholderTextColor={theme.textSecondary}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          editable={!loading}
-        />
-
         <TouchableOpacity
           style={[
             styles.button,
             { backgroundColor: theme.primary },
             loading && styles.buttonDisabled,
           ]}
-          onPress={handleSignup}
+          onPress={handleResetPassword}
           disabled={loading}
         >
           <Text style={[styles.buttonText, { color: theme.background }]}>
-            {loading ? 'Cadastrando...' : 'Cadastrar'}
+            {loading ? 'Enviando...' : 'Enviar email'}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.back()} disabled={loading}>
           <Text style={[styles.linkText, { color: theme.textSecondary }]}>
-            Já tem uma conta?{' '}
-            <Text style={[styles.linkBold, { color: theme.text }]}>Entre</Text>
+            Voltar para{' '}
+            <Text style={[styles.linkBold, { color: theme.text }]}>login</Text>
           </Text>
         </TouchableOpacity>
       </View>
@@ -175,8 +144,15 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 40,
+    marginBottom: 16,
     textAlign: 'center',
+  },
+  description: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginBottom: 32,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   input: {
     height: 56,
