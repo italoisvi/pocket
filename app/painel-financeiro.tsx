@@ -49,7 +49,7 @@ export default function PainelFinanceiroScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [incomeCards, setIncomeCards] = useState<IncomeCard[]>([]);
-  const [showValues, setShowValues] = useState(true);
+  const [showValues, setShowValues] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
 
@@ -127,9 +127,23 @@ export default function PainelFinanceiroScreen() {
               );
               setIncomeCards(updatedCards);
 
+              // Se não sobrou nenhum card, limpar também os campos antigos
+              const updateData: {
+                income_cards: IncomeCard[];
+                monthly_salary?: null;
+                salary_payment_day?: null;
+              } = {
+                income_cards: updatedCards,
+              };
+
+              if (updatedCards.length === 0) {
+                updateData.monthly_salary = null;
+                updateData.salary_payment_day = null;
+              }
+
               const { error } = await supabase
                 .from('profiles')
-                .update({ income_cards: updatedCards })
+                .update(updateData)
                 .eq('id', user.id);
 
               if (error) throw error;
@@ -265,7 +279,7 @@ export default function PainelFinanceiroScreen() {
           <ChevronLeftIcon size={20} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]}>
-          Painel Financeiro
+          Fonte de Renda
         </Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity

@@ -15,6 +15,7 @@ import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { getAccountsByItem, syncItem } from '@/lib/pluggy';
 import { supabase } from '@/lib/supabase';
+import { CardBrandIcon } from '@/lib/cardBrand';
 
 type PluggyAccount = {
   id: string;
@@ -100,7 +101,10 @@ export default function AccountsScreen() {
       console.log('[accounts] Query result - error:', itemError);
 
       if (itemError || !itemData) {
-        Alert.alert('Erro', `Item não encontrado no banco de dados. ItemId: ${itemId}\nError: ${JSON.stringify(itemError)}`);
+        Alert.alert(
+          'Erro',
+          `Item não encontrado no banco de dados. ItemId: ${itemId}\nError: ${JSON.stringify(itemError)}`
+        );
         return;
       }
 
@@ -113,12 +117,25 @@ export default function AccountsScreen() {
       console.log('[accounts] Sync result:', result);
 
       if (result.item.status === 'UPDATED' && result.accountsCount > 0) {
-        Alert.alert('Sucesso!', `${result.accountsCount} conta(s) sincronizada(s). Atualizando...`);
+        Alert.alert(
+          'Sucesso!',
+          `${result.accountsCount} conta(s) sincronizada(s). Atualizando...`
+        );
         loadAccounts();
       } else if (result.item.status === 'UPDATING') {
-        Alert.alert('Aguarde', 'O banco ainda está sincronizando. Tente novamente em alguns instantes.');
-      } else if (result.item.status === 'LOGIN_ERROR' || result.item.status === 'OUTDATED') {
-        Alert.alert('Erro', result.item.error?.message || 'Erro ao conectar com o banco. Tente reconectar.');
+        Alert.alert(
+          'Aguarde',
+          'O banco ainda está sincronizando. Tente novamente em alguns instantes.'
+        );
+      } else if (
+        result.item.status === 'LOGIN_ERROR' ||
+        result.item.status === 'OUTDATED'
+      ) {
+        Alert.alert(
+          'Erro',
+          result.item.error?.message ||
+            'Erro ao conectar com o banco. Tente reconectar.'
+        );
       } else {
         Alert.alert(
           'Status: ' + result.item.status,
@@ -127,7 +144,10 @@ export default function AccountsScreen() {
       }
     } catch (error) {
       console.error('[accounts] Error forcing sync:', error);
-      Alert.alert('Erro', error instanceof Error ? error.message : 'Não foi possível sincronizar');
+      Alert.alert(
+        'Erro',
+        error instanceof Error ? error.message : 'Não foi possível sincronizar'
+      );
     } finally {
       setSyncing(false);
     }
@@ -201,9 +221,12 @@ export default function AccountsScreen() {
       onPress={() => handleViewTransactions(account.id, account.name)}
     >
       <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>
-          {account.name}
-        </Text>
+        <View style={styles.cardTitleRow}>
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            {account.name}
+          </Text>
+          <CardBrandIcon cardName={account.name} size={32} />
+        </View>
         <Text style={[styles.cardSubtitle, { color: theme.textSecondary }]}>
           Cartão de Crédito
         </Text>
@@ -311,21 +334,29 @@ export default function AccountsScreen() {
               style={[
                 styles.syncButton,
                 {
-                  backgroundColor: theme.background === '#000' ? theme.card : theme.primary,
+                  backgroundColor:
+                    theme.background === '#000' ? theme.card : theme.primary,
                   borderWidth: 2,
-                  borderColor: theme.background === '#000' ? theme.cardBorder : theme.primary,
+                  borderColor:
+                    theme.background === '#000'
+                      ? theme.cardBorder
+                      : theme.primary,
                 },
               ]}
               onPress={handleForceSync}
               disabled={syncing}
             >
               {syncing ? (
-                <ActivityIndicator color={theme.background === '#000' ? theme.text : '#fff'} />
+                <ActivityIndicator
+                  color={theme.background === '#000' ? theme.text : '#fff'}
+                />
               ) : (
                 <Text
                   style={[
                     styles.syncButtonText,
-                    { color: theme.background === '#000' ? theme.text : '#fff' },
+                    {
+                      color: theme.background === '#000' ? theme.text : '#fff',
+                    },
                   ]}
                 >
                   Forçar Sincronização
@@ -373,10 +404,16 @@ const styles = StyleSheet.create({
   cardHeader: {
     marginBottom: 16,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   cardTitle: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 4,
+    flex: 1,
   },
   cardSubtitle: {
     fontSize: 14,

@@ -93,17 +93,13 @@ export default function HomeScreen() {
           );
           return sum + (isNaN(salary) ? 0 : salary);
         }, 0);
-      }
-
-      // Se não há income_cards mas tem monthly_salary (compatibilidade com sistema antigo)
-      if (totalIncome === 0 && data?.monthly_salary) {
+      } else if (data?.monthly_salary) {
+        // Só usar monthly_salary se income_cards não existir (sistema antigo)
         totalIncome = data.monthly_salary;
       }
 
-      // Se tem alguma renda, definir
-      if (totalIncome > 0) {
-        setMonthlySalary(totalIncome);
-      }
+      // Sempre definir a renda (mesmo que seja 0)
+      setMonthlySalary(totalIncome);
 
       // Carregar avatar
       console.log('[Home] Avatar URL from database:', data?.avatar_url);
@@ -200,6 +196,31 @@ export default function HomeScreen() {
     }
   };
 
+  const handleSkipSetup = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        // Marcar como já mostrado para não aparecer novamente
+        await AsyncStorage.setItem(`salary_setup_shown_${user.id}`, 'true');
+      }
+
+      setShowSalarySetup(false);
+    } catch (error) {
+      console.error('Erro ao pular setup:', error);
+      setShowSalarySetup(false);
+    }
+  };
+
+  const maskValue = (value: number) => {
+    // Formatar o valor para obter a string formatada
+    const formatted = formatCurrency(value);
+    // Substituir todos os dígitos por asteriscos, mantendo pontos e vírgulas
+    return formatted.replace(/\d/g, '*');
+  };
+
   const handleExpensePress = (id: string) => {
     router.push(`/expense/${id}`);
   };
@@ -224,7 +245,8 @@ export default function HomeScreen() {
     const grouped: { [key: string]: Expense[] } = {};
 
     expenses.forEach((expense) => {
-      const date = new Date(expense.created_at);
+      // Usar a data do comprovante (date), não a data de criação (created_at)
+      const date = new Date(expense.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       if (!grouped[monthKey]) {
         grouped[monthKey] = [];
@@ -247,33 +269,34 @@ export default function HomeScreen() {
         edges={['top']}
         style={[styles.topBar, { backgroundColor: theme.background }]}
       >
-        {monthlySalary !== null && (
-          <View style={styles.salaryContainer}>
-            <TouchableOpacity
-              style={styles.salaryTouchable}
-              onPress={() => router.push('/financial-overview')}
-            >
-              <Text style={[styles.salaryText, { color: theme.text }]}>
-                {salaryVisible
-                  ? formatCurrency(
-                      monthlySalary -
-                        expenses.reduce((sum, exp) => sum + exp.amount, 0)
-                    )
-                  : 'R$ *.***,**'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.eyeButton}
-              onPress={() => setSalaryVisible(!salaryVisible)}
-            >
-              {salaryVisible ? (
-                <EyeIcon size={20} color={theme.textSecondary} />
-              ) : (
-                <EyeOffIcon size={20} color={theme.textSecondary} />
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+        <View style={styles.salaryContainer}>
+          <TouchableOpacity
+            style={styles.salaryTouchable}
+            onPress={() => router.push('/financial-overview')}
+          >
+            <Text style={[styles.salaryText, { color: theme.text }]}>
+              {salaryVisible
+                ? formatCurrency(
+                    (monthlySalary || 0) -
+                      expenses.reduce((sum, exp) => sum + exp.amount, 0)
+                  )
+                : maskValue(
+                    (monthlySalary || 0) -
+                      expenses.reduce((sum, exp) => sum + exp.amount, 0)
+                  )}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setSalaryVisible(!salaryVisible)}
+          >
+            {salaryVisible ? (
+              <EyeIcon size={20} color={theme.textSecondary} />
+            ) : (
+              <EyeOffIcon size={20} color={theme.textSecondary} />
+            )}
+          </TouchableOpacity>
+        </View>
         <View style={styles.spacer} />
         <TouchableOpacity
           style={[
@@ -367,6 +390,7 @@ export default function HomeScreen() {
       <SalarySetupModal
         visible={showSalarySetup}
         onConfirm={handleSalarySetup}
+        onSkip={handleSkipSetup}
         loading={savingSalary}
       />
     </View>

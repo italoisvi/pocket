@@ -1,6 +1,7 @@
 import { VisaIcon } from '@/components/VisaIcon';
 import { MastercardIcon } from '@/components/MastercardIcon';
 import { EloIcon } from '@/components/EloIcon';
+import { AmexIcon } from '@/components/AmexIcon';
 import { CreditCardIcon } from '@/components/CreditCardIcon';
 
 export type CardBrand =
@@ -16,12 +17,68 @@ export function detectCardBrand(cardName: string): CardBrand {
 
   // Ordem de prioridade: palavras-chave mais específicas primeiro
   if (nameLower.includes('visa')) return 'visa';
-  if (nameLower.includes('master') || nameLower.includes('platinum'))
-    return 'mastercard';
-  if (nameLower.includes('elo') || nameLower.includes('gold')) return 'elo';
   if (nameLower.includes('amex') || nameLower.includes('american'))
     return 'amex';
+  if (
+    nameLower.includes('master') ||
+    nameLower.includes('platinum') ||
+    nameLower.includes('black')
+  )
+    return 'mastercard';
   if (nameLower.includes('hiper')) return 'hipercard';
+
+  // Elo é usado principalmente no Brasil, então verificamos por palavras-chave brasileiras
+  if (
+    nameLower.includes('elo') ||
+    nameLower.includes('gold') ||
+    nameLower.includes('grafite')
+  )
+    return 'elo';
+
+  // Mapeamento de bancos brasileiros para bandeiras mais comuns
+  // Nubank, Inter, Next, C6: Mastercard
+  if (
+    nameLower.includes('nubank') ||
+    nameLower.includes('roxinho') ||
+    nameLower.includes('inter') ||
+    nameLower.includes('next') ||
+    nameLower.includes('c6')
+  ) {
+    return 'mastercard';
+  }
+
+  // Santander: pode ser Visa ou Mastercard (default Mastercard para SX)
+  if (nameLower.includes('santander')) {
+    if (nameLower.includes('sx')) return 'mastercard';
+    return 'visa';
+  }
+
+  // Bradesco: geralmente Elo ou Visa
+  if (nameLower.includes('bradesco')) {
+    if (
+      nameLower.includes('prime') ||
+      nameLower.includes('infinite') ||
+      nameLower.includes('gold')
+    )
+      return 'elo';
+    return 'visa';
+  }
+
+  // Itaú: geralmente Visa ou Mastercard
+  if (nameLower.includes('itau') || nameLower.includes('itaú')) {
+    return 'visa';
+  }
+
+  // Caixa: geralmente Mastercard ou Elo
+  if (nameLower.includes('caixa')) {
+    return 'elo';
+  }
+
+  // Banco do Brasil: geralmente Visa ou Ourocard (Mastercard)
+  if (nameLower.includes('bb ') || nameLower.includes('ourocard')) {
+    if (nameLower.includes('ourocard')) return 'mastercard';
+    return 'visa';
+  }
 
   return 'generic';
 }
@@ -42,7 +99,7 @@ export function CardBrandIcon({ cardName, size = 40 }: CardBrandIconProps) {
     case 'elo':
       return <EloIcon size={size} />;
     case 'amex':
-      return <CreditCardIcon size={size} color="#006FCF" />;
+      return <AmexIcon size={size} />;
     case 'hipercard':
       return <CreditCardIcon size={size} color="#EC1C24" />;
     default:

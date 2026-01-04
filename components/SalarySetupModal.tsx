@@ -10,18 +10,22 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
+import { useTheme } from '@/lib/theme';
 
 type SalarySetupModalProps = {
   visible: boolean;
   onConfirm: (salary: number, paymentDay: number) => void;
+  onSkip?: () => void;
   loading?: boolean;
 };
 
 export function SalarySetupModal({
   visible,
   onConfirm,
+  onSkip,
   loading = false,
 }: SalarySetupModalProps) {
+  const { theme } = useTheme();
   const [salary, setSalary] = useState('');
   const [paymentDay, setPaymentDay] = useState('');
 
@@ -61,33 +65,57 @@ export function SalarySetupModal({
     <Modal visible={visible} transparent animationType="fade">
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.overlay}>
-          <View style={styles.container}>
-            <Text style={styles.title}>Bem-vindo ao Pocket!</Text>
-            <Text style={styles.subtitle}>
+          <View style={[styles.container, { backgroundColor: theme.card }]}>
+            {onSkip && (
+              <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
+                <Text
+                  style={[
+                    styles.skipButtonText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Pular
+                </Text>
+              </TouchableOpacity>
+            )}
+            <Text style={[styles.title, { color: theme.text }]}>
+              Bem-vindo ao Pocket!
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
               Para começar, informe sua renda mensal para que possamos ajudar
               você a gerenciar melhor seus gastos.
             </Text>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Renda Mensal</Text>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.currency}>R$</Text>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>
+                Renda Mensal
+              </Text>
+              <View
+                style={[styles.inputWrapper, { borderColor: theme.border }]}
+              >
+                <Text style={[styles.currency, { color: theme.textSecondary }]}>
+                  R$
+                </Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: theme.text }]}
                   value={salary}
                   onChangeText={handleSalaryChange}
                   keyboardType="number-pad"
                   placeholder="0,00"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={theme.textSecondary}
                 />
               </View>
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Dia do Pagamento</Text>
-              <View style={styles.inputWrapper}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>
+                Dia do Pagamento
+              </Text>
+              <View
+                style={[styles.inputWrapper, { borderColor: theme.border }]}
+              >
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: theme.text }]}
                   value={paymentDay}
                   onChangeText={(text) => {
                     // Permite apenas números de 1 a 31
@@ -101,24 +129,37 @@ export function SalarySetupModal({
                   }}
                   keyboardType="number-pad"
                   placeholder="1-31"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={theme.textSecondary}
                   maxLength={2}
                 />
               </View>
-              <Text style={styles.hint}>
+              <Text style={[styles.hint, { color: theme.textSecondary }]}>
                 Informe o dia do mês em que você recebe seu salário
               </Text>
             </View>
 
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
+              style={[
+                styles.button,
+                { backgroundColor: theme.primary },
+                loading && styles.buttonDisabled,
+              ]}
               onPress={handleConfirm}
               disabled={loading || !salary || !paymentDay}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator
+                  color={theme.background === '#000' ? '#000' : '#fff'}
+                />
               ) : (
-                <Text style={styles.buttonText}>Continuar</Text>
+                <Text
+                  style={[
+                    styles.buttonText,
+                    { color: theme.background === '#000' ? '#000' : '#fff' },
+                  ]}
+                >
+                  Continuar
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -136,12 +177,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   container: {
-    backgroundColor: '#fff',
     borderRadius: 20,
     padding: 32,
     marginHorizontal: 24,
     width: '100%',
     maxWidth: 400,
+    position: 'relative',
+  },
+  skipButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 8,
+    zIndex: 10,
+  },
+  skipButtonText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
   },
   title: {
     fontSize: 32,
@@ -152,7 +204,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
-    color: '#666',
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 26,
@@ -164,20 +215,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
     marginBottom: 8,
-    color: '#666',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#e0e0e0',
     borderRadius: 12,
     paddingHorizontal: 16,
   },
   currency: {
     fontSize: 24,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#666',
     marginRight: 8,
   },
   input: {
@@ -185,10 +233,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'CormorantGaramond-SemiBold',
     paddingVertical: 16,
-    color: '#000',
   },
   button: {
-    backgroundColor: '#000',
     borderRadius: 12,
     padding: 18,
     alignItems: 'center',
@@ -197,14 +243,12 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
   },
   hint: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    color: '#999',
     marginTop: 6,
   },
 });

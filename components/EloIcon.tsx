@@ -1,25 +1,18 @@
-import Svg, { Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 type EloIconProps = {
   size?: number;
 };
 
 export function EloIcon({ size = 40 }: EloIconProps) {
-  const height = size * 0.625;
+  const height = (size * 595.3) / 935.2;
   return (
-    <Svg width={size} height={height} viewBox="0 0 64 40">
-      <Rect width="64" height="40" rx="4" fill="#000" />
-      <SvgText
-        x="32"
-        y="25"
-        fill="#FFCB05"
-        fontSize="18"
-        fontWeight="bold"
-        textAnchor="middle"
-        fontFamily="Arial"
-      >
-        ELO
-      </SvgText>
+    <Svg width={size} height={height} viewBox="0 0 935.2 595.3">
+      <Path
+        d="M66,275.1h59.3c10.6-56.5,59.7-101.9,122.3-101.9s121.1,50.7,121.1,127.2-.8,14.7-1.6,20.5h-191.5c9,34.8,37.6,55.2,72,55.2s51.5-11.5,69.1-31.5l35.2,32.3c-23.3,26.6-58.1,45-104.3,45s-111.7-44.6-122.3-101.1h-59.3v-45.8ZM318,275.1c-2.5-14.3-9-27.4-18.4-36.8-12.3-12.3-30.3-20.1-52-20.1s-39.3,7.4-52.4,20.5c-9,9-16.4,21.3-20.1,36.4h142.8ZM404.4,174.9h51.5v196.4h93.3v49.1h-92.5c-34,0-52.4-18.4-52.4-52.4v-193.1h0ZM559,297.6c0-66.7,54.4-124.4,126.4-124.4s113.7,45,124.4,101.9h59.3v45.8h-59.3c-11,56.5-61,101.1-124.4,101.1-72.4,0-126.4-57.3-126.4-124.4ZM685.5,373.7c43,0,74.9-32.7,74.9-75.7s-32.7-76.5-74.9-76.5-74.9,32.7-74.9,76.1c0,42.1,32.7,76.1,74.9,76.1Z"
+        fill="#003933"
+        strokeWidth={0}
+      />
     </Svg>
   );
 }

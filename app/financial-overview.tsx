@@ -44,11 +44,12 @@ export default function FinancialOverviewScreen() {
     reasoning: string;
   } | null>(null);
   const [loadingWaltsSuggestion, setLoadingWaltsSuggestion] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
 
   useEffect(() => {
     loadFinancialData();
     loadWaltsSuggestion();
-  }, []);
+  }, [selectedMonth]);
 
   const loadWaltsSuggestion = async () => {
     try {
@@ -113,10 +114,8 @@ export default function FinancialOverviewScreen() {
           );
           return sum + (isNaN(salary) ? 0 : salary);
         }, 0);
-      }
-
-      // Se não há income_cards mas tem monthly_salary (compatibilidade)
-      if (totalIncome === 0 && profileData?.monthly_salary) {
+      } else if (profileData?.monthly_salary) {
+        // Só usar monthly_salary se income_cards não existir (sistema antigo)
         totalIncome = profileData.monthly_salary;
       }
 
@@ -125,10 +124,17 @@ export default function FinancialOverviewScreen() {
         setSalaryPaymentDay(profileData?.salary_payment_day || 1);
       }
 
-      // Carregar gastos do mês atual
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      // Carregar gastos do mês selecionado
+      const firstDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
+        1
+      );
+      const lastDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth() + 1,
+        0
+      );
 
       const { data: expensesData } = await supabase
         .from('expenses')
@@ -369,6 +375,38 @@ O reasoning deve ter NO MÁXIMO 100 caracteres e ser direto ao ponto.`;
           </View>
         ) : (
           <>
+            {/* Navegação de Mês */}
+            <View style={styles.monthSelector}>
+              <TouchableOpacity
+                style={styles.monthArrow}
+                onPress={() => {
+                  const newDate = new Date(selectedMonth);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  setSelectedMonth(newDate);
+                }}
+              >
+                <ChevronLeftIcon size={20} color={theme.text} />
+              </TouchableOpacity>
+
+              <Text style={[styles.monthText, { color: theme.text }]}>
+                {selectedMonth.toLocaleDateString('pt-BR', {
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </Text>
+
+              <TouchableOpacity
+                style={styles.monthArrow}
+                onPress={() => {
+                  const newDate = new Date(selectedMonth);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  setSelectedMonth(newDate);
+                }}
+              >
+                <ChevronRightIcon size={20} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
             {/* Botão de orçamentos */}
             <TouchableOpacity
               style={[
@@ -576,12 +614,9 @@ O reasoning deve ter NO MÁXIMO 100 caracteres e ser direto ao ponto.`;
                     {loadingWaltsSuggestion ? (
                       <ActivityIndicator size="small" color="#000" />
                     ) : (
-                      <View style={styles.waltsButtonContent}>
-                        <KangarooIcon size={20} color="#000" inverted={false} />
-                        <Text style={styles.waltsButtonText}>
-                          Sugestão do Walts
-                        </Text>
-                      </View>
+                      <Text style={styles.waltsButtonText}>
+                        O Walts sugere...
+                      </Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -702,6 +737,21 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
   },
+  monthSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingVertical: 8,
+  },
+  monthArrow: {
+    padding: 8,
+  },
+  monthText: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    textTransform: 'capitalize',
+  },
   loadingContainer: {
     padding: 40,
     alignItems: 'center',
@@ -786,11 +836,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  waltsButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   waltsButtonText: {
     fontSize: 16,

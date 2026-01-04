@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import type { ReceiptData } from '@/lib/ocr';
 import { formatCurrency } from '@/lib/formatCurrency';
+import { useTheme } from '@/lib/theme';
 
 type ExpenseConfirmModalProps = {
   visible: boolean;
@@ -29,6 +30,7 @@ export function ExpenseConfirmModal({
   onCancel,
   loading = false,
 }: ExpenseConfirmModalProps) {
+  const { theme } = useTheme();
   const [editedData, setEditedData] = useState<ReceiptData | null>(receiptData);
 
   // Update editedData when receiptData changes
@@ -59,29 +61,42 @@ export function ExpenseConfirmModal({
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.card }]}>
           <ScrollView
             style={styles.scrollView}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.title}>Confirmar Informações</Text>
+            <Text style={[styles.title, { color: theme.text }]}>
+              Confirmar Informações
+            </Text>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Estabelecimento</Text>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>
+                Estabelecimento
+              </Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  { borderColor: theme.border, color: theme.text },
+                ]}
                 value={editedData.establishmentName}
                 onChangeText={(text) =>
                   setEditedData({ ...editedData, establishmentName: text })
                 }
                 placeholder="Nome do estabelecimento"
+                placeholderTextColor={theme.textSecondary}
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Valor Total</Text>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>
+                Valor Total
+              </Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  { borderColor: theme.border, color: theme.text },
+                ]}
                 value={editedData.amount.toString()}
                 onChangeText={(text) =>
                   setEditedData({
@@ -91,30 +106,42 @@ export function ExpenseConfirmModal({
                 }
                 keyboardType="decimal-pad"
                 placeholder="0.00"
+                placeholderTextColor={theme.textSecondary}
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Data</Text>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>
+                Data
+              </Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  { borderColor: theme.border, color: theme.text },
+                ]}
                 value={editedData.date}
                 onChangeText={(text) =>
                   setEditedData({ ...editedData, date: text })
                 }
                 placeholder="YYYY-MM-DD"
+                placeholderTextColor={theme.textSecondary}
               />
             </View>
 
             {editedData.items.length > 0 && (
               <View style={styles.itemsSection}>
-                <Text style={styles.label}>Itens</Text>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>
+                  Itens
+                </Text>
                 {editedData.items.map((item, index) => (
-                  <View key={index} style={styles.item}>
-                    <Text style={styles.itemText}>
+                  <View
+                    key={index}
+                    style={[styles.item, { borderBottomColor: theme.border }]}
+                  >
+                    <Text style={[styles.itemText, { color: theme.text }]}>
                       {item.quantity}x {item.name}
                     </Text>
-                    <Text style={styles.itemPrice}>
+                    <Text style={[styles.itemPrice, { color: theme.text }]}>
                       {formatCurrency(item.price)}
                     </Text>
                   </View>
@@ -123,23 +150,42 @@ export function ExpenseConfirmModal({
             )}
           </ScrollView>
 
-          <View style={styles.actions}>
+          <View style={[styles.actions, { borderTopColor: theme.border }]}>
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={[
+                styles.cancelButton,
+                { backgroundColor: theme.background },
+              ]}
               onPress={onCancel}
               disabled={loading}
             >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
+              <Text
+                style={[
+                  styles.cancelButtonText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Cancelar
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.confirmButton}
+              style={[styles.confirmButton, { backgroundColor: theme.primary }]}
               onPress={handleConfirm}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator
+                  color={theme.background === '#000' ? '#000' : '#fff'}
+                />
               ) : (
-                <Text style={styles.confirmButtonText}>Confirmar</Text>
+                <Text
+                  style={[
+                    styles.confirmButtonText,
+                    { color: theme.background === '#000' ? '#000' : '#fff' },
+                  ]}
+                >
+                  Confirmar
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -156,7 +202,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
@@ -176,11 +221,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'CormorantGaramond-SemiBold',
     marginBottom: 8,
-    color: '#666',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
@@ -194,17 +237,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   itemText: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    color: '#333',
   },
   itemPrice: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#000',
   },
   actions: {
     flexDirection: 'row',
@@ -212,30 +252,25 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
   },
   cancelButton: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#f0f0f0',
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#666',
   },
   confirmButton: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#000',
     alignItems: 'center',
   },
   confirmButtonText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#fff',
   },
 });

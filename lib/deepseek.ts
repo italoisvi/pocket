@@ -34,9 +34,9 @@ O Pocket é um aplicativo de controle financeiro pessoal com as seguintes funcio
 - Detalhes completos de cada gasto (imagem, itens, observações)
 
 **Gestão de Rendas:**
-- Painel Financeiro: Permite cadastrar múltiplas fontes de renda
+- Fonte de Renda: Permite cadastrar múltiplas fontes de renda
 - Para cada fonte de renda: valor mensal, dia de recebimento, origem (CLT, PJ, Autônomo, Freelancer, Empresário, Aposentado, Pensionista, Investimentos, Outros)
-- Acesso via página Meu Perfil → Card "Painel Financeiro"
+- Acesso via página Meu Perfil → Card "Fonte de Renda"
 - Saldo na Home = Soma de todas as rendas - Total de gastos
 
 **Análise Financeira:**
@@ -48,7 +48,7 @@ O Pocket é um aplicativo de controle financeiro pessoal com as seguintes funcio
 
 **Perfil do Usuário:**
 - Editar nome e foto de perfil
-- Painel Financeiro com múltiplas rendas
+- Fonte de Renda com múltiplas rendas
 - Indique um amigo
 
 **Recursos Adicionais:**

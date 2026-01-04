@@ -190,7 +190,7 @@ export default function PerfilScreen() {
             </View>
           </View>
 
-          {/* Card de Painel Financeiro */}
+          {/* Card de Fonte de Renda */}
           <View
             style={[
               styles.card,
@@ -205,7 +205,7 @@ export default function PerfilScreen() {
               <View style={styles.inviteLeft}>
                 <AlinhamentoGraficoIcon size={28} color={theme.text} />
                 <Text style={[styles.inviteTitle, { color: theme.text }]}>
-                  Painel Financeiro
+                  Fonte de Renda
                 </Text>
               </View>
               <TouchableOpacity

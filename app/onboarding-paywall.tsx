@@ -148,6 +148,16 @@ export default function OnboardingPaywallScreen() {
     'Exportação de dados',
   ];
 
+  const handleSkip = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user?.id) {
+      await markOnboardingPaywallShown(user.id);
+    }
+    router.replace('/(tabs)/home');
+  };
+
   const handleContinue = async () => {
     setPurchasing(true);
     try {
@@ -216,7 +226,15 @@ export default function OnboardingPaywallScreen() {
       <SafeAreaView
         edges={['top']}
         style={{ backgroundColor: theme.background }}
-      />
+      >
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+            <Text style={[styles.skipButtonText, { color: theme.text }]}>
+              Pular
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -513,5 +531,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  skipButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  skipButtonText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
   },
 });

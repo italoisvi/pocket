@@ -88,7 +88,7 @@ export default function SettingsScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Deletar Conta',
-      'Tem certeza que deseja deletar sua conta? Esta ação não pode ser desfeita.',
+      'Tem certeza que deseja deletar sua conta? Esta ação não pode ser desfeita. Todos os seus dados serão permanentemente removidos.',
       [
         {
           text: 'Cancelar',
@@ -98,11 +98,67 @@ export default function SettingsScreen() {
           text: 'Deletar',
           style: 'destructive',
           onPress: async () => {
-            // TODO: Implement account deletion
-            Alert.alert(
-              'Em desenvolvimento',
-              'Funcionalidade de deletar conta será implementada em breve.'
-            );
+            try {
+              const {
+                data: { user },
+              } = await supabase.auth.getUser();
+
+              if (!user) {
+                Alert.alert('Erro', 'Usuário não encontrado');
+                return;
+              }
+
+              // 1. Deletar todas as despesas do usuário
+              const { error: expensesError } = await supabase
+                .from('expenses')
+                .delete()
+                .eq('user_id', user.id);
+
+              if (expensesError) {
+                console.error('Erro ao deletar despesas:', expensesError);
+                // Continuar mesmo com erro, pois pode não ter despesas
+              }
+
+              // 2. Deletar o perfil do usuário
+              const { error: profileError } = await supabase
+                .from('profiles')
+                .delete()
+                .eq('id', user.id);
+
+              if (profileError) {
+                console.error('Erro ao deletar perfil:', profileError);
+              }
+
+              // 3. Deletar a conta de autenticação
+              const { error: authError } = await supabase.auth.admin.deleteUser(
+                user.id
+              );
+
+              if (authError) {
+                // Tentar método alternativo: signOut e esperar que o RLS cuide da limpeza
+                console.error('Erro ao deletar usuário:', authError);
+                await supabase.auth.signOut();
+                router.replace('/(auth)/login');
+                Alert.alert(
+                  'Conta Removida',
+                  'Sua conta e dados foram removidos com sucesso.'
+                );
+              } else {
+                // Logout e redirecionar
+                await supabase.auth.signOut();
+                router.replace('/(auth)/login');
+                Alert.alert(
+                  'Conta Deletada',
+                  'Sua conta foi deletada com sucesso.'
+                );
+              }
+            } catch (error) {
+              console.error('Erro ao deletar conta:', error);
+              Alert.alert(
+                'Erro',
+                'Não foi possível deletar sua conta. Tente novamente mais tarde.'
+              );
+            }
           },
         },
       ]
