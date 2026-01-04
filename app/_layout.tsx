@@ -17,6 +17,7 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { AnimatedSplashScreen } from '@/components/AnimatedSplashScreen';
 import { initializeRevenueCat } from '@/lib/revenuecat';
+import { BiometricLock } from '@/components/BiometricLock';
 
 // Initialize Sentry
 const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
@@ -71,8 +72,14 @@ function ThemedStack() {
             const refreshToken = tokenParams.get('refresh_token');
             const type = tokenParams.get('type');
 
-            console.log('[DeepLink] Access Token:', accessToken ? 'presente' : 'ausente');
-            console.log('[DeepLink] Refresh Token:', refreshToken ? 'presente' : 'ausente');
+            console.log(
+              '[DeepLink] Access Token:',
+              accessToken ? 'presente' : 'ausente'
+            );
+            console.log(
+              '[DeepLink] Refresh Token:',
+              refreshToken ? 'presente' : 'ausente'
+            );
             console.log('[DeepLink] Type:', type);
 
             if (accessToken && refreshToken && type === 'recovery') {
@@ -193,6 +200,7 @@ function RootLayout() {
   const [loading, setLoading] = useState(true);
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const segments = useSegments();
+  const router = useRouter();
 
   useEffect(() => {
     async function loadFonts() {
@@ -246,6 +254,21 @@ function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Redirect logic: logged in users should not be in (auth) group
+  useEffect(() => {
+    if (loading || !fontsLoaded) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (session && inAuthGroup) {
+      console.log('[RootLayout] Redirecting logged-in user from auth to home');
+      router.replace('/(tabs)/home');
+    } else if (!session && !inAuthGroup && segments.length > 0) {
+      console.log('[RootLayout] Redirecting logged-out user to login');
+      router.replace('/(auth)/login');
+    }
+  }, [session, segments, loading, fontsLoaded, router]);
+
   if (loading || !fontsLoaded) {
     console.log(
       '[RootLayout] Showing loading screen. loading:',
@@ -275,7 +298,9 @@ function RootLayout() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <ThemedStack />
+        <BiometricLock>
+          <ThemedStack />
+        </BiometricLock>
       </ThemeProvider>
     </ErrorBoundary>
   );

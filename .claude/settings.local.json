@@ -59,7 +59,8 @@
       "Bash(supabase functions --help:*)",
       "Bash(if not exist \"supabase\\\\functions\\\\pluggy-webhook\\\\.well-known\\\\supabase\" mkdir \"supabase\\\\functions\\\\pluggy-webhook\\\\.well-known\\\\supabase\")",
       "Bash(curl:*)",
-      "Bash(supabase db push:*)"
+      "Bash(supabase db push:*)",
+      "Bash(supabase status:*)"
     ]
   }
 }

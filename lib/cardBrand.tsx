@@ -27,13 +27,8 @@ export function detectCardBrand(cardName: string): CardBrand {
     return 'mastercard';
   if (nameLower.includes('hiper')) return 'hipercard';
 
-  // Elo é usado principalmente no Brasil, então verificamos por palavras-chave brasileiras
-  if (
-    nameLower.includes('elo') ||
-    nameLower.includes('gold') ||
-    nameLower.includes('grafite')
-  )
-    return 'elo';
+  // Elo é usado principalmente no Brasil
+  if (nameLower.includes('elo')) return 'elo';
 
   // Mapeamento de bancos brasileiros para bandeiras mais comuns
   // Nubank, Inter, Next, C6: Mastercard

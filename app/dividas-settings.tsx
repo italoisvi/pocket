@@ -125,7 +125,13 @@ export default function DividasSettingsScreen() {
               value={notificationsEnabled}
               onValueChange={handleToggleNotifications}
               trackColor={{ false: theme.border, true: theme.primary }}
-              thumbColor={notificationsEnabled ? '#fff' : '#f4f3f4'}
+              thumbColor={
+                notificationsEnabled
+                  ? theme.background === '#000'
+                    ? '#000'
+                    : '#fff'
+                  : '#f4f3f4'
+              }
               disabled={loading}
             />
           </View>

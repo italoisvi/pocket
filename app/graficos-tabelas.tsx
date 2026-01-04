@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
 import Svg, { Rect, Text as SvgText, Line, G } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
@@ -42,6 +42,60 @@ export default function GraficosTabelasScreen() {
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month');
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [chartType, setChartType] = useState<ChartType>('pie');
+  const [availableMonths, setAvailableMonths] = useState<Date[]>([]);
+  const monthScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    // Gerar últimos 12 meses
+    const months: Date[] = [];
+    const today = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      months.push(date);
+    }
+    setAvailableMonths(months);
+  }, []);
+
+  // Scroll para o mês atual quando a tela ganhar foco ou quando availableMonths mudar
+  useFocusEffect(
+    useCallback(() => {
+      if (periodFilter === 'month' && availableMonths.length > 0) {
+        const currentMonthIndex = availableMonths.findIndex(
+          (month) =>
+            month.getMonth() === new Date().getMonth() &&
+            month.getFullYear() === new Date().getFullYear()
+        );
+        if (currentMonthIndex !== -1 && monthScrollRef.current) {
+          // Delay maior para garantir que o layout está pronto
+          setTimeout(() => {
+            monthScrollRef.current?.scrollTo({
+              x: currentMonthIndex * 88,
+              animated: false, // Changed to false for immediate scroll
+            });
+          }, 300);
+        }
+      }
+    }, [availableMonths, periodFilter])
+  );
+
+  // Adicional: scroll quando o periodFilter mudar para 'month'
+  useEffect(() => {
+    if (periodFilter === 'month' && availableMonths.length > 0) {
+      const currentMonthIndex = availableMonths.findIndex(
+        (month) =>
+          month.getMonth() === new Date().getMonth() &&
+          month.getFullYear() === new Date().getFullYear()
+      );
+      if (currentMonthIndex !== -1) {
+        setTimeout(() => {
+          monthScrollRef.current?.scrollTo({
+            x: currentMonthIndex * 88,
+            animated: true,
+          });
+        }, 100);
+      }
+    }
+  }, [periodFilter, availableMonths]);
 
   useEffect(() => {
     loadExpenses();
@@ -290,40 +344,51 @@ export default function GraficosTabelasScreen() {
 
         {/* Seletor de Mês (só aparece quando filtro "Mês" está ativo) */}
         {periodFilter === 'month' && (
-          <View style={styles.monthSelectorContainer}>
-            <TouchableOpacity
-              style={styles.monthArrow}
-              onPress={() => {
-                const newDate = new Date(selectedMonth);
-                newDate.setMonth(newDate.getMonth() - 1);
-                setSelectedMonth(newDate);
-              }}
-            >
-              <Text style={[styles.monthArrowText, { color: theme.text }]}>
-                ‹
-              </Text>
-            </TouchableOpacity>
+          <ScrollView
+            ref={monthScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.monthsScroll}
+            contentContainerStyle={styles.monthsScrollContent}
+          >
+            {availableMonths.map((month) => {
+              const isSelected =
+                month.getMonth() === selectedMonth.getMonth() &&
+                month.getFullYear() === selectedMonth.getFullYear();
+              const monthLabel = month.toLocaleDateString('pt-BR', {
+                month: 'short',
+                year: '2-digit',
+              });
+              const formattedLabel =
+                monthLabel.charAt(0).toUpperCase() +
+                monthLabel.slice(1).replace('.', '');
 
-            <Text style={[styles.monthText, { color: theme.text }]}>
-              {selectedMonth.toLocaleDateString('pt-BR', {
-                month: 'long',
-                year: 'numeric',
-              })}
-            </Text>
-
-            <TouchableOpacity
-              style={styles.monthArrow}
-              onPress={() => {
-                const newDate = new Date(selectedMonth);
-                newDate.setMonth(newDate.getMonth() + 1);
-                setSelectedMonth(newDate);
-              }}
-            >
-              <Text style={[styles.monthArrowText, { color: theme.text }]}>
-                ›
-              </Text>
-            </TouchableOpacity>
-          </View>
+              return (
+                <TouchableOpacity
+                  key={month.toISOString()}
+                  style={[
+                    styles.monthButton,
+                    {
+                      backgroundColor: isSelected ? theme.primary : theme.card,
+                      borderColor: theme.cardBorder,
+                    },
+                  ]}
+                  onPress={() => setSelectedMonth(month)}
+                >
+                  <Text
+                    style={[
+                      styles.monthButtonText,
+                      {
+                        color: isSelected ? theme.background : theme.text,
+                      },
+                    ]}
+                  >
+                    {formattedLabel}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         )}
 
         {loading ? (
@@ -797,6 +862,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
     textTransform: 'capitalize',
+  },
+  monthsScroll: {
+    marginBottom: 24,
+  },
+  monthsScrollContent: {
+    paddingHorizontal: 0,
+    gap: 8,
+  },
+  monthButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 2,
+    marginRight: 8,
+  },
+  monthButtonText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
   },
   loadingContainer: {
     padding: 40,

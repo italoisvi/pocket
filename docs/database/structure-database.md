@@ -105,6 +105,7 @@ CREATE TABLE public.profiles (
   income_source text,
   payment_day integer,
   income_cards jsonb DEFAULT '[]'::jsonb,
+  debt_notifications_enabled boolean DEFAULT false,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );

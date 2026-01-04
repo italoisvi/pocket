@@ -176,13 +176,7 @@ export default function PerfilScreen() {
                 </Text>
               </View>
               <TouchableOpacity
-                style={[
-                  styles.editButton,
-                  {
-                    backgroundColor: theme.background,
-                    borderColor: theme.cardBorder,
-                  },
-                ]}
+                style={styles.editButton}
                 onPress={() => router.push('/editar-perfil')}
               >
                 <LapisIcon size={20} color={theme.text} />
@@ -338,10 +332,8 @@ const styles = StyleSheet.create({
   editButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
   },
   inviteCard: {
     flexDirection: 'row',

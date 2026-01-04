@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,60 @@ export default function FinancialOverviewScreen() {
   } | null>(null);
   const [loadingWaltsSuggestion, setLoadingWaltsSuggestion] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [availableMonths, setAvailableMonths] = useState<Date[]>([]);
+  const monthScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    // Gerar últimos 12 meses
+    const months: Date[] = [];
+    const today = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      months.push(date);
+    }
+    setAvailableMonths(months);
+  }, []);
+
+  // Scroll para o mês atual quando a tela ganhar foco ou quando availableMonths mudar
+  useFocusEffect(
+    useCallback(() => {
+      if (availableMonths.length > 0) {
+        const currentMonthIndex = availableMonths.findIndex(
+          (month) =>
+            month.getMonth() === new Date().getMonth() &&
+            month.getFullYear() === new Date().getFullYear()
+        );
+        if (currentMonthIndex !== -1 && monthScrollRef.current) {
+          // Delay maior para garantir que o layout está pronto
+          setTimeout(() => {
+            monthScrollRef.current?.scrollTo({
+              x: currentMonthIndex * 88,
+              animated: false, // Changed to false for immediate scroll
+            });
+          }, 300);
+        }
+      }
+    }, [availableMonths])
+  );
+
+  // Adicional: scroll quando availableMonths mudar (primeiro load)
+  useEffect(() => {
+    if (availableMonths.length > 0) {
+      const currentMonthIndex = availableMonths.findIndex(
+        (month) =>
+          month.getMonth() === new Date().getMonth() &&
+          month.getFullYear() === new Date().getFullYear()
+      );
+      if (currentMonthIndex !== -1) {
+        setTimeout(() => {
+          monthScrollRef.current?.scrollTo({
+            x: currentMonthIndex * 88,
+            animated: true,
+          });
+        }, 100);
+      }
+    }
+  }, [availableMonths]);
 
   useEffect(() => {
     loadFinancialData();
@@ -375,37 +429,54 @@ O reasoning deve ter NO MÁXIMO 100 caracteres e ser direto ao ponto.`;
           </View>
         ) : (
           <>
-            {/* Navegação de Mês */}
-            <View style={styles.monthSelector}>
-              <TouchableOpacity
-                style={styles.monthArrow}
-                onPress={() => {
-                  const newDate = new Date(selectedMonth);
-                  newDate.setMonth(newDate.getMonth() - 1);
-                  setSelectedMonth(newDate);
-                }}
-              >
-                <ChevronLeftIcon size={20} color={theme.text} />
-              </TouchableOpacity>
+            {/* Navegação de Mês - Botões Horizontais */}
+            <ScrollView
+              ref={monthScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.monthsScroll}
+              contentContainerStyle={styles.monthsScrollContent}
+            >
+              {availableMonths.map((month) => {
+                const isSelected =
+                  month.getMonth() === selectedMonth.getMonth() &&
+                  month.getFullYear() === selectedMonth.getFullYear();
+                const monthLabel = month.toLocaleDateString('pt-BR', {
+                  month: 'short',
+                  year: '2-digit',
+                });
+                const formattedLabel =
+                  monthLabel.charAt(0).toUpperCase() +
+                  monthLabel.slice(1).replace('.', '');
 
-              <Text style={[styles.monthText, { color: theme.text }]}>
-                {selectedMonth.toLocaleDateString('pt-BR', {
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </Text>
-
-              <TouchableOpacity
-                style={styles.monthArrow}
-                onPress={() => {
-                  const newDate = new Date(selectedMonth);
-                  newDate.setMonth(newDate.getMonth() + 1);
-                  setSelectedMonth(newDate);
-                }}
-              >
-                <ChevronRightIcon size={20} color={theme.text} />
-              </TouchableOpacity>
-            </View>
+                return (
+                  <TouchableOpacity
+                    key={month.toISOString()}
+                    style={[
+                      styles.monthButton,
+                      {
+                        backgroundColor: isSelected
+                          ? theme.primary
+                          : theme.card,
+                        borderColor: theme.cardBorder,
+                      },
+                    ]}
+                    onPress={() => setSelectedMonth(month)}
+                  >
+                    <Text
+                      style={[
+                        styles.monthButtonText,
+                        {
+                          color: isSelected ? theme.background : theme.text,
+                        },
+                      ]}
+                    >
+                      {formattedLabel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
 
             {/* Botão de orçamentos */}
             <TouchableOpacity
@@ -751,6 +822,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
     textTransform: 'capitalize',
+  },
+  monthsScroll: {
+    marginBottom: 24,
+  },
+  monthsScrollContent: {
+    paddingHorizontal: 0,
+    gap: 8,
+  },
+  monthButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 2,
+    marginRight: 8,
+  },
+  monthButtonText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
   },
   loadingContainer: {
     padding: 40,

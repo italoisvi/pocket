@@ -32,21 +32,66 @@ import { useTheme, type ThemeMode } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { usePremium } from '@/lib/usePremium';
 import * as Notifications from 'expo-notifications';
+import * as LocalAuthentication from 'expo-local-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { exportData, importData, importFromCSV } from '@/lib/dataExport';
+import * as DocumentPicker from 'expo-document-picker';
+// @ts-ignore
+import * as FileSystem from 'expo-file-system/legacy';
 
 export default function SettingsScreen() {
   const { theme, themeMode, setThemeMode } = useTheme();
   const { isPremium, loading: premiumLoading } = usePremium();
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
+  const [showDataModal, setShowDataModal] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricType, setBiometricType] = useState<string>('');
+  const [exportingData, setExportingData] = useState(false);
+  const [importingData, setImportingData] = useState(false);
 
   useEffect(() => {
     checkNotificationStatus();
+    checkBiometricStatus();
   }, []);
 
   const checkNotificationStatus = async () => {
     const { status } = await Notifications.getPermissionsAsync();
     setNotificationsEnabled(status === 'granted');
+  };
+
+  const checkBiometricStatus = async () => {
+    const compatible = await LocalAuthentication.hasHardwareAsync();
+    if (compatible) {
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (enrolled) {
+        const types =
+          await LocalAuthentication.supportedAuthenticationTypesAsync();
+        if (
+          types.includes(
+            LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION
+          )
+        ) {
+          setBiometricType('Face ID');
+        } else if (
+          types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+        ) {
+          setBiometricType('Touch ID');
+        } else if (
+          types.includes(LocalAuthentication.AuthenticationType.IRIS)
+        ) {
+          setBiometricType('Íris');
+        } else {
+          setBiometricType('Biometria');
+        }
+
+        // Verificar se biometria está habilitada
+        const enabled = await AsyncStorage.getItem('@pocket_biometric_enabled');
+        setBiometricEnabled(enabled === 'true');
+      }
+    }
   };
 
   const handleNotificationToggle = async (value: boolean) => {
@@ -65,6 +110,95 @@ export default function SettingsScreen() {
         'Para desabilitar as notificações, vá até as configurações do seu dispositivo.',
         [{ text: 'OK' }]
       );
+    }
+  };
+
+  const handleImportJSON = async () => {
+    try {
+      setImportingData(true);
+
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        setImportingData(false);
+        return;
+      }
+
+      // Ler o arquivo
+      // @ts-ignore
+      const fileContent = await FileSystem.readAsStringAsync(
+        result.assets[0].uri
+      );
+
+      // Importar os dados
+      const success = await importData(fileContent);
+
+      if (success) {
+        setShowDataModal(false);
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Erro', 'Não foi possível selecionar o arquivo');
+    } finally {
+      setImportingData(false);
+    }
+  };
+
+  const handleImportCSV = async () => {
+    try {
+      setImportingData(true);
+
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'text/csv',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        setImportingData(false);
+        return;
+      }
+
+      // Ler o arquivo
+      // @ts-ignore
+      const fileContent = await FileSystem.readAsStringAsync(
+        result.assets[0].uri
+      );
+
+      // Importar os dados
+      const success = await importFromCSV(fileContent);
+
+      if (success) {
+        setShowDataModal(false);
+      }
+    } catch (error) {
+      console.error('Error picking CSV:', error);
+      Alert.alert('Erro', 'Não foi possível selecionar o arquivo CSV');
+    } finally {
+      setImportingData(false);
+    }
+  };
+
+  const handleBiometricToggle = async (value: boolean) => {
+    if (value) {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Autentique-se para ativar a biometria',
+        fallbackLabel: 'Usar senha',
+      });
+
+      if (result.success) {
+        await AsyncStorage.setItem('@pocket_biometric_enabled', 'true');
+        setBiometricEnabled(true);
+        Alert.alert('Sucesso', 'Biometria ativada com sucesso!');
+      } else {
+        Alert.alert('Erro', 'Não foi possível ativar a biometria.');
+      }
+    } else {
+      await AsyncStorage.setItem('@pocket_biometric_enabled', 'false');
+      setBiometricEnabled(false);
+      Alert.alert('Biometria desativada', 'A biometria foi desativada.');
     }
   };
 
@@ -100,58 +234,44 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               const {
-                data: { user },
-              } = await supabase.auth.getUser();
+                data: { session },
+              } = await supabase.auth.getSession();
 
-              if (!user) {
-                Alert.alert('Erro', 'Usuário não encontrado');
+              if (!session) {
+                Alert.alert('Erro', 'Sessão não encontrada');
                 return;
               }
 
-              // 1. Deletar todas as despesas do usuário
-              const { error: expensesError } = await supabase
-                .from('expenses')
-                .delete()
-                .eq('user_id', user.id);
-
-              if (expensesError) {
-                console.error('Erro ao deletar despesas:', expensesError);
-                // Continuar mesmo com erro, pois pode não ter despesas
-              }
-
-              // 2. Deletar o perfil do usuário
-              const { error: profileError } = await supabase
-                .from('profiles')
-                .delete()
-                .eq('id', user.id);
-
-              if (profileError) {
-                console.error('Erro ao deletar perfil:', profileError);
-              }
-
-              // 3. Deletar a conta de autenticação
-              const { error: authError } = await supabase.auth.admin.deleteUser(
-                user.id
+              // Chamar a Edge Function para deletar o usuário completamente
+              const { data, error } = await supabase.functions.invoke(
+                'delete-user',
+                {
+                  headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                  },
+                }
               );
 
-              if (authError) {
-                // Tentar método alternativo: signOut e esperar que o RLS cuide da limpeza
-                console.error('Erro ao deletar usuário:', authError);
-                await supabase.auth.signOut();
-                router.replace('/(auth)/login');
+              if (error) {
+                console.error('Erro ao deletar conta:', error);
+                console.error('Detalhes do erro:', JSON.stringify(error));
                 Alert.alert(
-                  'Conta Removida',
-                  'Sua conta e dados foram removidos com sucesso.'
+                  'Erro',
+                  'Não foi possível deletar sua conta. Tente novamente mais tarde.'
                 );
-              } else {
-                // Logout e redirecionar
-                await supabase.auth.signOut();
-                router.replace('/(auth)/login');
-                Alert.alert(
-                  'Conta Deletada',
-                  'Sua conta foi deletada com sucesso.'
-                );
+                return;
               }
+
+              console.log('Resposta da função:', data);
+
+              // Fazer logout
+              await supabase.auth.signOut();
+              router.replace('/(auth)/login');
+
+              Alert.alert(
+                'Conta Deletada',
+                'Sua conta e todos os dados foram removidos permanentemente.'
+              );
             } catch (error) {
               console.error('Erro ao deletar conta:', error);
               Alert.alert(
@@ -287,6 +407,52 @@ export default function SettingsScreen() {
               <SinoIcon size={24} color={theme.text} />
               <Text style={[styles.settingCardTitle, { color: theme.text }]}>
                 Notificações
+              </Text>
+            </View>
+            <ChevronRightIcon size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          {biometricType && (
+            <TouchableOpacity
+              style={[
+                styles.settingCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+                getCardShadowStyle(theme.background === '#000'),
+              ]}
+              onPress={() => setShowBiometricModal(true)}
+            >
+              <View style={styles.settingCardLeft}>
+                <EscudoIcon size={24} color={theme.text} />
+                <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                  Biometria
+                </Text>
+              </View>
+              <ChevronRightIcon size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Dados</Text>
+
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[
+              styles.settingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+              },
+              getCardShadowStyle(theme.background === '#000'),
+            ]}
+            onPress={() => setShowDataModal(true)}
+          >
+            <View style={styles.settingCardLeft}>
+              <DocumentoIcon size={24} color={theme.text} />
+              <Text style={[styles.settingCardTitle, { color: theme.text }]}>
+                Exportar/Importar
               </Text>
             </View>
             <ChevronRightIcon size={20} color={theme.textSecondary} />
@@ -478,6 +644,10 @@ export default function SettingsScreen() {
       {showNotificationsModal && (
         <BlurView intensity={10} style={styles.blurOverlay} />
       )}
+      {showBiometricModal && (
+        <BlurView intensity={10} style={styles.blurOverlay} />
+      )}
+      {showDataModal && <BlurView intensity={10} style={styles.blurOverlay} />}
 
       <Modal
         visible={showThemeModal}
@@ -626,8 +796,226 @@ export default function SettingsScreen() {
                 value={notificationsEnabled}
                 onValueChange={handleNotificationToggle}
                 trackColor={{ false: theme.border, true: theme.primary }}
-                thumbColor={notificationsEnabled ? '#fff' : theme.textSecondary}
+                thumbColor={
+                  notificationsEnabled
+                    ? theme.background === '#000'
+                      ? '#000'
+                      : '#fff'
+                    : theme.textSecondary
+                }
               />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showBiometricModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowBiometricModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowBiometricModal(false)}
+          />
+          <View
+            style={[styles.modalContent, { backgroundColor: theme.surface }]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Biometria
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.notificationOption,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+                getCardShadowStyle(theme.background === '#000'),
+              ]}
+            >
+              <View style={styles.notificationLeft}>
+                <Text style={[styles.notificationTitle, { color: theme.text }]}>
+                  Autenticação {biometricType}
+                </Text>
+                <Text
+                  style={[
+                    styles.notificationDescription,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Use {biometricType} para acessar o app com mais segurança
+                </Text>
+              </View>
+              <Switch
+                value={biometricEnabled}
+                onValueChange={handleBiometricToggle}
+                trackColor={{ false: theme.border, true: theme.primary }}
+                thumbColor={biometricEnabled ? '#000' : theme.textSecondary}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showDataModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDataModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowDataModal(false)}
+          />
+          <View
+            style={[styles.modalContent, { backgroundColor: theme.surface }]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Exportar/Importar Dados
+              </Text>
+            </View>
+
+            <View style={styles.dataModalContent}>
+              <Text
+                style={[styles.dataDescription, { color: theme.textSecondary }]}
+              >
+                Exporte seus dados para backup ou importe dados de outro
+                dispositivo
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.dataButton,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.cardBorder,
+                  },
+                  getCardShadowStyle(theme.background === '#000'),
+                ]}
+                onPress={async () => {
+                  setExportingData(true);
+                  await exportData('json');
+                  setExportingData(false);
+                }}
+                disabled={exportingData}
+              >
+                <DocumentoIcon size={20} color={theme.text} />
+                <View style={styles.dataButtonTextContainer}>
+                  <Text style={[styles.dataButtonTitle, { color: theme.text }]}>
+                    Exportar JSON
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dataButtonDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Backup completo de todos os dados
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.dataButton,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.cardBorder,
+                  },
+                  getCardShadowStyle(theme.background === '#000'),
+                ]}
+                onPress={async () => {
+                  setExportingData(true);
+                  await exportData('csv');
+                  setExportingData(false);
+                }}
+                disabled={exportingData}
+              >
+                <DocumentoIcon size={20} color={theme.text} />
+                <View style={styles.dataButtonTextContainer}>
+                  <Text style={[styles.dataButtonTitle, { color: theme.text }]}>
+                    Exportar CSV
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dataButtonDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Para Excel, Google Sheets, etc
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <View
+                style={[styles.divider, { backgroundColor: theme.border }]}
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.dataButton,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.cardBorder,
+                  },
+                  getCardShadowStyle(theme.background === '#000'),
+                ]}
+                onPress={handleImportJSON}
+                disabled={importingData}
+              >
+                <DocumentoIcon size={20} color={theme.text} />
+                <View style={styles.dataButtonTextContainer}>
+                  <Text style={[styles.dataButtonTitle, { color: theme.text }]}>
+                    {importingData ? 'Importando...' : 'Importar JSON'}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dataButtonDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Restaurar backup de arquivo JSON
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.dataButton,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.cardBorder,
+                  },
+                  getCardShadowStyle(theme.background === '#000'),
+                ]}
+                onPress={handleImportCSV}
+                disabled={importingData}
+              >
+                <DocumentoIcon size={20} color={theme.text} />
+                <View style={styles.dataButtonTextContainer}>
+                  <Text style={[styles.dataButtonTitle, { color: theme.text }]}>
+                    {importingData ? 'Importando...' : 'Importar CSV'}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dataButtonDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Importar de Excel, Google Sheets, etc
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -802,5 +1190,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     lineHeight: 20,
+  },
+  dataModalContent: {
+    gap: 12,
+  },
+  dataDescription: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  dataButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    gap: 12,
+  },
+  dataButtonTextContainer: {
+    flex: 1,
+  },
+  dataButtonTitle: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    marginBottom: 4,
+  },
+  dataButtonDescription: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    lineHeight: 18,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 8,
   },
 });
