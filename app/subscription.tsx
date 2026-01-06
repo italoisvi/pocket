@@ -24,6 +24,7 @@ import {
 } from '@/lib/revenuecat';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import type { PurchasesPackage } from 'react-native-purchases';
+import { diagnoseRevenueCat } from '@/lib/diagnostics';
 
 interface PlanData {
   id: string;
@@ -49,6 +50,10 @@ export default function SubscriptionScreen() {
   const handleShowPaywall = async () => {
     try {
       setLoadingPlans(true);
+
+      // Run diagnostics
+      await diagnoseRevenueCat();
+
       const offering = await getOfferings();
 
       if (!offering || offering.availablePackages.length === 0) {
