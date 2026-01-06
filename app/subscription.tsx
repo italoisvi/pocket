@@ -24,7 +24,6 @@ import {
 } from '@/lib/revenuecat';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import type { PurchasesPackage } from 'react-native-purchases';
-import { diagnoseRevenueCat } from '@/lib/diagnostics';
 
 interface PlanData {
   id: string;
@@ -51,15 +50,12 @@ export default function SubscriptionScreen() {
     try {
       setLoadingPlans(true);
 
-      // Run diagnostics
-      await diagnoseRevenueCat();
-
       const offering = await getOfferings();
 
       if (!offering || offering.availablePackages.length === 0) {
         Alert.alert(
-          'Erro',
-          'Não há planos disponíveis no momento. Tente novamente mais tarde.'
+          'Planos em Breve',
+          'Os planos de assinatura estão sendo configurados e estarão disponíveis em breve. Por favor, tente novamente mais tarde.'
         );
         return;
       }
@@ -497,6 +493,40 @@ export default function SubscriptionScreen() {
               >
                 Cancele a qualquer momento. Sem compromisso.
               </Text>
+              <View style={styles.modalLinks}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowingPaywall(false);
+                    router.push('/termos-uso');
+                  }}
+                >
+                  <Text
+                    style={[styles.modalLinkText, { color: theme.primary }]}
+                  >
+                    Termos de Uso
+                  </Text>
+                </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.modalLinkSeparator,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {' • '}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowingPaywall(false);
+                    router.push('/politica-privacidade');
+                  }}
+                >
+                  <Text
+                    style={[styles.modalLinkText, { color: theme.primary }]}
+                  >
+                    Política de Privacidade
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
 
@@ -785,6 +815,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalLinkText: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    textDecorationLine: 'underline',
+  },
+  modalLinkSeparator: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
   },
   modalFooter: {
     paddingHorizontal: 24,
