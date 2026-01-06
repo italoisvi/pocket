@@ -10,6 +10,9 @@
       "node": "22.11.0"
     },
     "preview": {
+      "ios": {
+        "simulator": true
+      },
       "distribution": "internal",
       "node": "22.11.0"
     },
