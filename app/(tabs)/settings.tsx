@@ -342,7 +342,7 @@ export default function SettingsScreen() {
             style={[
               styles.settingCard,
               {
-                backgroundColor: isPremium ? theme.primary : theme.card,
+                backgroundColor: isPremium ? theme.card : theme.card,
                 borderColor: isPremium ? theme.primary : theme.cardBorder,
               },
               getCardShadowStyle(theme.background === '#000'),
@@ -350,11 +350,14 @@ export default function SettingsScreen() {
             onPress={() => router.push('/subscription')}
           >
             <View style={styles.settingCardLeft}>
-              <CoroaIcon size={24} color={isPremium ? '#fff' : theme.text} />
+              <CoroaIcon
+                size={24}
+                color={isPremium ? theme.primary : theme.text}
+              />
               <Text
                 style={[
                   styles.settingCardTitle,
-                  { color: isPremium ? '#fff' : theme.text },
+                  { color: isPremium ? theme.primary : theme.text },
                 ]}
               >
                 {isPremium ? 'Premium Ativo' : 'Assinar Pocket'}
@@ -362,7 +365,7 @@ export default function SettingsScreen() {
             </View>
             <ChevronRightIcon
               size={20}
-              color={isPremium ? '#fff' : theme.textSecondary}
+              color={isPremium ? theme.primary : theme.textSecondary}
             />
           </TouchableOpacity>
         </View>
