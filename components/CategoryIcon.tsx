@@ -15,6 +15,7 @@ import { InvestimentosIcon } from './InvestimentosIcon';
 import { CartaoIcon } from './CartaoIcon';
 import { EmprestimosIcon } from './EmprestimosIcon';
 import { FinanciamentosIcon } from './FinanciamentosIcon';
+import { DividasPessoaisIcon } from './DividasPessoaisIcon';
 import { OutrosIcon } from './OutrosIcon';
 import type { CategoryInfo } from '@/lib/categories';
 
@@ -67,6 +68,8 @@ export function CategoryIcon({
         return <EmprestimosIcon size={size} color={iconColor} />;
       case 'financiamentos':
         return <FinanciamentosIcon size={size} color={iconColor} />;
+      case 'dividas_pessoais':
+        return <DividasPessoaisIcon size={size} color={iconColor} />;
       case 'outros':
         return <OutrosIcon size={size} color={iconColor} />;
       default:

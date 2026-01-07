@@ -41,6 +41,8 @@ export async function getApiKey(): Promise<string> {
 
 /**
  * Sincroniza um Item (banco conectado) e suas contas
+ * IMPORTANTE: Esta função apenas BUSCA os dados atuais.
+ * Para DISPARAR uma nova sincronização, use updateItem()
  */
 export async function syncItem(itemId: string): Promise<{
   success: boolean;
@@ -61,6 +63,49 @@ export async function syncItem(itemId: string): Promise<{
   if (error) {
     console.error('[pluggy] Error syncing item:', error);
     throw new Error(error.message || 'Falha ao sincronizar banco');
+  }
+
+  return data;
+}
+
+/**
+ * Dispara uma atualização manual de um Item (banco conectado)
+ * Isso faz a Pluggy se conectar ao banco novamente e buscar dados atualizados
+ * Os dados serão sincronizados automaticamente via webhook
+ */
+export async function updateItem(itemId: string): Promise<{
+  success: boolean;
+  item: {
+    id: string;
+    status: string;
+    executionStatus: string | null;
+    message: string;
+  };
+}> {
+  const { data, error } = await supabase.functions.invoke(
+    'pluggy-update-item',
+    {
+      body: { itemId },
+    }
+  );
+
+  if (error) {
+    console.error('[pluggy] Error updating item:', error);
+    console.error('[pluggy] Error details:', JSON.stringify(error, null, 2));
+
+    // Se a função retornou dados apesar do erro, mostrar também
+    if (data) {
+      console.error('[pluggy] Response data:', JSON.stringify(data, null, 2));
+
+      // Se temos detalhes do erro no response, incluir na mensagem
+      const errorMessage = data.error || error.message || 'Falha ao atualizar banco';
+      const errorDetails = data.details ? `\nDetalhes: ${data.details}` : '';
+      const statusCode = data.statusCode ? `\nStatus: ${data.statusCode}` : '';
+
+      throw new Error(`${errorMessage}${errorDetails}${statusCode}`);
+    }
+
+    throw new Error(error.message || 'Falha ao atualizar banco');
   }
 
   return data;

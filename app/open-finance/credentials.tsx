@@ -17,6 +17,7 @@ import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { syncItem } from '@/lib/pluggy';
 import { MFAModal } from '@/components/MFAModal';
 import { OAuthModal } from '@/components/OAuthModal';
+import * as Sentry from '@sentry/react-native';
 
 type CredentialField = {
   name: string;
@@ -109,6 +110,17 @@ export default function CredentialsScreen() {
 
     setLoading(true);
 
+    // 📊 Sentry: Iniciar rastreamento do fluxo Open Finance
+    Sentry.addBreadcrumb({
+      category: 'open-finance',
+      message: 'Starting connection flow',
+      data: {
+        connectorId,
+        connectorName,
+      },
+      level: 'info',
+    });
+
     try {
       // 1. Remover formatação do CPF antes de enviar
       const cleanedFormData: Record<string, string> = {};
@@ -135,7 +147,10 @@ export default function CredentialsScreen() {
         oauthRedirectUrl: 'pocket://oauth-callback', // Authentication Guide
       };
 
-      console.log('[credentials] Request body:', JSON.stringify(requestBody, null, 2));
+      console.log(
+        '[credentials] Request body:',
+        JSON.stringify(requestBody, null, 2)
+      );
 
       // 2. Criar o Item via Pluggy API usando Connect Token
       // IMPORTANTE: Mesmo usando Connect Token, precisamos passar oauthRedirectUri/Url no body!
@@ -158,8 +173,23 @@ export default function CredentialsScreen() {
       console.log('[credentials] ✅ Item created successfully!');
       console.log('[credentials] Item ID:', itemData.id);
       console.log('[credentials] Item status:', itemData.status);
-      console.log('[credentials] Item executionStatus:', itemData.executionStatus);
-      
+      console.log(
+        '[credentials] Item executionStatus:',
+        itemData.executionStatus
+      );
+
+      // 📊 Sentry: Item criado com sucesso
+      Sentry.addBreadcrumb({
+        category: 'open-finance',
+        message: 'Item created successfully',
+        data: {
+          itemId: itemData.id,
+          status: itemData.status,
+          executionStatus: itemData.executionStatus,
+        },
+        level: 'info',
+      });
+
       // 🔍 LOG CRÍTICO: Verificar se já vem com parameter
       if (itemData.parameter) {
         console.log('[credentials] ⚠️ Item JÁ RETORNOU com parameter!');
@@ -175,17 +205,24 @@ export default function CredentialsScreen() {
       let fullItem = itemData;
 
       // Se status é UPDATING ou WAITING_USER_INPUT, buscar item completo
-      if (itemData.status === 'UPDATING' || itemData.status === 'WAITING_USER_INPUT') {
-        console.log('[credentials] Status requer verificação de OAuth/MFA, buscando item completo...');
+      if (
+        itemData.status === 'UPDATING' ||
+        itemData.status === 'WAITING_USER_INPUT'
+      ) {
+        console.log(
+          '[credentials] Status requer verificação de OAuth/MFA, buscando item completo...'
+        );
         shouldCheckForOAuth = true;
 
         // 🔄 POLLING: Aguardar até parameter aparecer (máximo 30 segundos)
         const maxAttempts = 15; // 15 tentativas x 2 segundos = 30 segundos
         let attempts = 0;
-        
+
         while (attempts < maxAttempts) {
-          console.log(`[credentials] Polling tentativa ${attempts + 1}/${maxAttempts}...`);
-          
+          console.log(
+            `[credentials] Polling tentativa ${attempts + 1}/${maxAttempts}...`
+          );
+
           const itemResponse = await fetch(
             `https://api.pluggy.ai/items/${itemData.id}`,
             {
@@ -196,15 +233,22 @@ export default function CredentialsScreen() {
           if (itemResponse.ok) {
             fullItem = await itemResponse.json();
             console.log('[credentials] Item status:', fullItem.status);
-            console.log('[credentials] Item executionStatus:', fullItem.executionStatus);
+            console.log(
+              '[credentials] Item executionStatus:',
+              fullItem.executionStatus
+            );
             console.log('[credentials] Item parameter:', fullItem.parameter);
 
             // Se encontrou parameter OU status mudou para algo definitivo, parar polling
-            if (fullItem.parameter || 
-                fullItem.status === 'UPDATED' || 
-                fullItem.status === 'LOGIN_ERROR' ||
-                fullItem.status === 'OUTDATED') {
-              console.log('[credentials] ✅ Parameter encontrado ou status definitivo!');
+            if (
+              fullItem.parameter ||
+              fullItem.status === 'UPDATED' ||
+              fullItem.status === 'LOGIN_ERROR' ||
+              fullItem.status === 'OUTDATED'
+            ) {
+              console.log(
+                '[credentials] ✅ Parameter encontrado ou status definitivo!'
+              );
               break;
             }
           }
@@ -213,12 +257,14 @@ export default function CredentialsScreen() {
           attempts++;
           if (attempts < maxAttempts) {
             console.log('[credentials] Aguardando 2 segundos...');
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise((resolve) => setTimeout(resolve, 2000));
           }
         }
 
         if (attempts >= maxAttempts && !fullItem.parameter) {
-          console.warn('[credentials] ⚠️ Timeout: Parameter não apareceu após 30 segundos');
+          console.warn(
+            '[credentials] ⚠️ Timeout: Parameter não apareceu após 30 segundos'
+          );
         }
       }
 
@@ -227,11 +273,11 @@ export default function CredentialsScreen() {
         // ✅ Verificar TANTO o name quanto o type
         // Nubank usa: name: "oauthCode", type: "oauth"
         // Outros bancos podem usar: name: "oauth_code"
-        const isOAuth = 
+        const isOAuth =
           fullItem.parameter.type === 'oauth' ||
           fullItem.parameter.name === 'oauth_code' ||
           fullItem.parameter.name === 'oauthCode';
-        
+
         console.log('[credentials] 🔍 Parameter detectado!');
         console.log('[credentials] Parameter name:', fullItem.parameter.name);
         console.log('[credentials] Parameter type:', fullItem.parameter.type);
@@ -240,21 +286,39 @@ export default function CredentialsScreen() {
         if (isOAuth) {
           // 🚀 OAUTH FLOW
           console.log('[credentials] 🚀 Iniciando fluxo OAuth...');
-          
+
+          // 📊 Sentry: OAuth detectado
+          Sentry.addBreadcrumb({
+            category: 'open-finance',
+            message: 'OAuth flow detected',
+            data: {
+              itemId: itemData.id,
+              parameterName: fullItem.parameter.name,
+              parameterType: fullItem.parameter.type,
+            },
+            level: 'info',
+          });
+
           // Extrair URL do OAuth
-          const authUrl = fullItem.parameter.data?.url || fullItem.parameter.data;
+          const authUrl =
+            fullItem.parameter.data?.url || fullItem.parameter.data;
 
           if (authUrl && typeof authUrl === 'string') {
             console.log('[credentials] ✅ OAuth URL encontrada:', authUrl);
-            
+
             // 🌐 ABRIR NAVEGADOR IMEDIATAMENTE
-            console.log('[credentials] 🌐 Abrindo navegador para autenticação OAuth...');
-            
+            console.log(
+              '[credentials] 🌐 Abrindo navegador para autenticação OAuth...'
+            );
+
             // Verificar se pode abrir a URL
             const canOpen = await Linking.canOpenURL(authUrl);
-            
+
             if (!canOpen) {
-              console.error('[credentials] ❌ Não é possível abrir a URL:', authUrl);
+              console.error(
+                '[credentials] ❌ Não é possível abrir a URL:',
+                authUrl
+              );
               Alert.alert(
                 'Erro',
                 'Não foi possível abrir o link de autenticação. Por favor, tente novamente.'
@@ -262,25 +326,41 @@ export default function CredentialsScreen() {
               setLoading(false);
               return;
             }
-            
+
             // Abrir navegador/app do banco
             console.log('[credentials] Abrindo URL:', authUrl);
             await Linking.openURL(authUrl);
-            
+
+            // 📊 Sentry: Navegador OAuth aberto
+            Sentry.addBreadcrumb({
+              category: 'open-finance',
+              message: 'OAuth browser opened',
+              data: {
+                itemId: itemData.id,
+                connectorName,
+              },
+              level: 'info',
+            });
+
             // ✅ NÃO SINCRONIZA AGORA! A sincronização acontece automaticamente
             // quando o usuário volta do OAuth via deep link (oauth-callback.tsx)
-            
+
             console.log('[credentials] ✅ Navegador aberto com sucesso!');
             console.log('[credentials] Aguardando callback do OAuth...');
-            
+
             setLoading(false);
-            
+
             // Volta para lista de bancos (usuário vai voltar via deep link)
             router.back();
             return; // ← IMPORTANTE: Não continuar o fluxo normal
           } else {
-            console.error('[credentials] ❌ OAuth URL não encontrada em parameter.data');
-            console.error('[credentials] Parameter completo:', JSON.stringify(fullItem.parameter));
+            console.error(
+              '[credentials] ❌ OAuth URL não encontrada em parameter.data'
+            );
+            console.error(
+              '[credentials] Parameter completo:',
+              JSON.stringify(fullItem.parameter)
+            );
             Alert.alert(
               'Erro',
               'Não foi possível obter o link de autenticação OAuth. Por favor, tente novamente.'
@@ -291,10 +371,10 @@ export default function CredentialsScreen() {
         } else {
           // 🔐 MFA TRADICIONAL
           console.log('[credentials] 🔐 Fluxo MFA tradicional detectado');
-          
+
           // Sincronizar item no banco
           const syncResult = await syncItem(itemData.id);
-          
+
           // Abrir modal MFA
           setMfaItemId(syncResult.item.databaseId);
           setMfaParameter(fullItem.parameter);
@@ -322,26 +402,63 @@ export default function CredentialsScreen() {
             },
           ]
         );
-      } else if (syncResult.item.status === 'UPDATED' && syncResult.accountsCount > 0) {
-        console.log('[credentials] ✅ Sincronização concluída com sucesso!');
-        Alert.alert(
-          'Sucesso',
-          `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).`,
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ]
-        );
-      } else if (syncResult.item.status === 'LOGIN_ERROR' || syncResult.item.status === 'OUTDATED') {
+      } else if (syncResult.item.status === 'UPDATED') {
+        // 🎯 Verificar executionStatus para PARTIAL_SUCCESS
+        if (syncResult.item.executionStatus === 'PARTIAL_SUCCESS') {
+          console.log(
+            '[credentials] ⚠️ Sincronização parcial (alguns produtos falharam)'
+          );
+          Alert.alert(
+            'Parcialmente Sincronizado',
+            `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).\n\nAlguns dados podem não ter sido sincronizados completamente. Você pode tentar sincronizar novamente mais tarde.`,
+            [
+              {
+                text: 'OK',
+                onPress: () => router.back(),
+              },
+            ]
+          );
+        } else if (syncResult.accountsCount > 0) {
+          console.log('[credentials] ✅ Sincronização concluída com sucesso!');
+          Alert.alert(
+            'Sucesso',
+            `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).`,
+            [
+              {
+                text: 'OK',
+                onPress: () => router.back(),
+              },
+            ]
+          );
+        } else {
+          // UPDATED mas sem contas
+          console.log('[credentials] ⚠️ UPDATED mas sem contas');
+          Alert.alert(
+            'Atenção',
+            'Banco conectado, mas nenhuma conta foi encontrada ainda. Aguarde alguns instantes e atualize a lista.',
+            [
+              {
+                text: 'OK',
+                onPress: () => router.back(),
+              },
+            ]
+          );
+        }
+      } else if (
+        syncResult.item.status === 'LOGIN_ERROR' ||
+        syncResult.item.status === 'OUTDATED'
+      ) {
         console.error('[credentials] ❌ Erro de login/credenciais');
         Alert.alert(
           'Erro',
-          syncResult.item.error?.message || 'Credenciais inválidas. Verifique e tente novamente.'
+          syncResult.item.error?.message ||
+            'Credenciais inválidas. Verifique e tente novamente.'
         );
       } else {
-        console.log('[credentials] ⚠️ Status não esperado:', syncResult.item.status);
+        console.log(
+          '[credentials] ⚠️ Status não esperado:',
+          syncResult.item.status
+        );
         Alert.alert(
           'Atenção',
           'Banco conectado, mas nenhuma conta foi encontrada ainda. Aguarde alguns instantes e atualize a lista.',

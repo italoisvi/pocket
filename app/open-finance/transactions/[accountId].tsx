@@ -20,7 +20,9 @@ import { BoletoIcon } from '@/components/BoletoIcon';
 import {
   getTransactionsByAccount,
   syncTransactions as syncTransactionsAPI,
+  syncItem,
 } from '@/lib/pluggy';
+import { supabase } from '@/lib/supabase';
 
 type PluggyTransaction = {
   id: string;
@@ -76,7 +78,31 @@ export default function TransactionsScreen() {
     setSyncing(true);
 
     try {
-      // Sincronizar últimos 90 dias
+      // Primeiro: buscar o item_id da conta
+      const { data: accountData, error: accountError } = await supabase
+        .from('pluggy_accounts')
+        .select('item_id, pluggy_items(pluggy_item_id)')
+        .eq('id', accountId)
+        .single();
+
+      if (accountError || !accountData) {
+        throw new Error('Conta não encontrada');
+      }
+
+      const pluggyItemId = (accountData.pluggy_items as any)?.pluggy_item_id;
+
+      if (!pluggyItemId) {
+        throw new Error('Item do banco não encontrado');
+      }
+
+      console.log('[Transactions] Syncing item:', pluggyItemId);
+
+      // Sincronizar dados do Item (buscar dados atuais da Pluggy)
+      const syncResult = await syncItem(pluggyItemId);
+
+      console.log('[Transactions] Sync result:', syncResult);
+
+      // Sincronizar transações dos últimos 90 dias
       const to = new Date().toISOString().split('T')[0];
       const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
         .toISOString()
@@ -91,7 +117,12 @@ export default function TransactionsScreen() {
         );
         await loadTransactions();
       } else {
-        Alert.alert('Info', 'Nenhuma transação nova encontrada');
+        Alert.alert(
+          'Atualização Iniciada',
+          'A sincronização foi disparada. Novas transações aparecerão em alguns instantes.'
+        );
+        // Recarregar de qualquer forma
+        await loadTransactions();
       }
     } catch (error) {
       console.error('Error syncing transactions:', error);

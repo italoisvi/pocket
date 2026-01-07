@@ -22,6 +22,7 @@ export type ExpenseCategory =
   | 'cartao_credito' // Fatura do cartão de crédito
   | 'emprestimos' // Empréstimos pessoais
   | 'financiamentos' // Financiamento de veículo, imóvel
+  | 'dividas_pessoais' // Transferências/PIX para pessoas físicas
   // OUTROS
   | 'outros'; // Gastos não categorizados
 
@@ -45,6 +46,81 @@ export interface CategoryInfo {
   color: string;
   description: string;
   subcategories: SubcategoryInfo[];
+}
+
+// Função auxiliar para detectar se é um nome de pessoa física
+// Detecta padrões comuns: nome próprio + sobrenome(s)
+function isPessoaFisica(text: string): boolean {
+  const textLower = text.toLowerCase();
+
+  // Indicadores que NÃO é pessoa física (empresas/estabelecimentos)
+  const empresaIndicators = [
+    'ltda',
+    'me',
+    'epp',
+    'eireli',
+    's.a',
+    's/a',
+    'sa ',
+    'sociedade',
+    'comercio',
+    'comércio',
+    'servicos',
+    'serviços',
+    'supermercado',
+    'loja',
+    'restaurante',
+    'farmacia',
+    'farmácia',
+    'hospital',
+    'clinica',
+    'clínica',
+    'posto',
+    'shopping',
+    'mercado',
+    'bar',
+    'padaria',
+    'magazine',
+    'distribuidora',
+    'atacado',
+    'varejo',
+    'delivery',
+    'ifood',
+    'uber',
+  ];
+
+  for (const indicator of empresaIndicators) {
+    if (textLower.includes(indicator)) {
+      return false;
+    }
+  }
+
+  // Remover palavras comuns de transação para análise
+  const cleanText = text
+    .replace(/pix/gi, '')
+    .replace(/transferencia|transferência/gi, '')
+    .replace(/enviado|recebido|para|de/gi, '')
+    .trim();
+
+  // Verificar se tem formato de nome de pessoa (2-4 palavras)
+  const words = cleanText.split(/\s+/).filter((w) => w.length > 1);
+
+  // Nome de pessoa geralmente tem entre 2 e 4 palavras
+  // e cada palavra tem entre 2 e 15 caracteres
+  // Também verifica se começa com letra maiúscula (padrão de nome próprio)
+  if (words.length >= 2 && words.length <= 4) {
+    const allWordsValidLength = words.every(
+      (w) => w.length >= 2 && w.length <= 15
+    );
+
+    // Verificar se a maioria das palavras começa com maiúscula (nome próprio)
+    const capitalizedWords = words.filter((w) => /^[A-Z]/.test(w));
+    const mostlyCapitalized = capitalizedWords.length >= words.length * 0.5;
+
+    return allWordsValidLength && mostlyCapitalized;
+  }
+
+  return false;
 }
 
 // Função auxiliar para detectar subcategoria baseada no nome do estabelecimento
@@ -387,11 +463,55 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     subcategories: [
       {
         name: 'Escola',
-        keywords: ['escola', 'colegio', 'colégio'],
+        keywords: [
+          'escola',
+          'colegio',
+          'colégio',
+          'ensino',
+          'educandario',
+          'educandário',
+        ],
       },
       {
         name: 'Faculdade',
-        keywords: ['faculdade', 'universidade'],
+        keywords: [
+          'faculdade',
+          'Faculdade',
+          'FACULDADE',
+          'universidade',
+          'Universidade',
+          'UNIVERSIDADE',
+          'centro universitario',
+          'centro universitário',
+          'Centro Universitario',
+          'Centro Universitário',
+          'CENTRO UNIVERSITARIO',
+          'CENTRO UNIVERSITÁRIO',
+          'instituicao de ensino',
+          'instituição de ensino',
+          'Instituicao de Ensino',
+          'Instituição de Ensino',
+          'INSTITUICAO DE ENSINO',
+          'INSTITUIÇÃO DE ENSINO',
+          'instituicao educacional',
+          'instituição educacional',
+          'Instituicao Educacional',
+          'Instituição Educacional',
+          'INSTITUICAO EDUCACIONAL',
+          'INSTITUIÇÃO EDUCACIONAL',
+          'educacional',
+          'Educacional',
+          'EDUCACIONAL',
+          'educacionais',
+          'Educacionais',
+          'EDUCACIONAIS',
+          'uni ',
+          'Uni ',
+          'UNI ',
+          'fac ',
+          'Fac ',
+          'FAC ',
+        ],
       },
       {
         name: 'Curso',
@@ -918,6 +1038,25 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     ],
   },
 
+  dividas_pessoais: {
+    name: 'Dívidas Pessoais',
+    type: 'divida',
+    description: 'Transferências e PIX para pessoas físicas',
+    icon: 'dividas_pessoais',
+    iconType: 'component',
+    color: '#FF6F61',
+    subcategories: [
+      {
+        name: 'PIX Pessoa Física',
+        keywords: [], // Detectado via lógica especial
+      },
+      {
+        name: 'Transferência Pessoa Física',
+        keywords: [], // Detectado via lógica especial
+      },
+    ],
+  },
+
   // ===== OUTROS =====
   outros: {
     name: 'Outros',
@@ -936,13 +1075,74 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
 };
 
 // Função para categorizar automaticamente um gasto e retornar a SUBCATEGORIA
-export function categorizeExpense(establishmentName: string): {
+export function categorizeExpense(
+  establishmentName: string,
+  options?: {
+    pluggyCategory?: string | null; // Categoria da Pluggy (ex: "Pix", "Transfer")
+    receiverName?: string | null; // Nome do recebedor (para PIX enviado)
+    payerName?: string | null; // Nome do pagador (para PIX recebido)
+  }
+): {
   category: ExpenseCategory;
   subcategory: string;
 } {
   const nameLower = establishmentName.toLowerCase();
 
-  console.log('[categorizeExpense] Categorizando:', establishmentName);
+  console.log('[categorizeExpense] Categorizando:', {
+    establishmentName,
+    pluggyCategory: options?.pluggyCategory,
+    receiverName: options?.receiverName,
+    payerName: options?.payerName,
+  });
+
+  // PRIORIDADE MÁXIMA: Detectar PIX/Transferência para pessoa física
+  // Caso 1: Dados da Pluggy (PIX com payment data)
+  if (options?.pluggyCategory?.toLowerCase() === 'pix') {
+    // PIX enviado: verifica se o receiver é pessoa física
+    if (options.receiverName && isPessoaFisica(options.receiverName)) {
+      console.log('[categorizeExpense] PIX enviado para pessoa física:', {
+        category: 'dividas_pessoais',
+        subcategory: 'PIX Pessoa Física',
+        receiverName: options.receiverName,
+      });
+
+      return {
+        category: 'dividas_pessoais',
+        subcategory: 'PIX Pessoa Física',
+      };
+    }
+
+    // PIX recebido: verifica se o payer é pessoa física (dívida paga)
+    if (options.payerName && isPessoaFisica(options.payerName)) {
+      console.log('[categorizeExpense] PIX recebido de pessoa física:', {
+        category: 'dividas_pessoais',
+        subcategory: 'PIX Pessoa Física',
+        payerName: options.payerName,
+      });
+
+      return {
+        category: 'dividas_pessoais',
+        subcategory: 'PIX Pessoa Física',
+      };
+    }
+  }
+
+  // Caso 2: Detecção pelo nome do estabelecimento (fallback para quando não há dados da Pluggy)
+  if (isPessoaFisica(establishmentName)) {
+    const subcategory = nameLower.includes('pix')
+      ? 'PIX Pessoa Física'
+      : 'Transferência Pessoa Física';
+
+    console.log('[categorizeExpense] Detectado como pessoa física pelo nome:', {
+      category: 'dividas_pessoais',
+      subcategory,
+    });
+
+    return {
+      category: 'dividas_pessoais',
+      subcategory,
+    };
+  }
 
   // Ordem de prioridade: Dívidas > Essenciais > Investimentos > Não Essenciais > Outros
   const priorityOrder: ExpenseCategory[] = [

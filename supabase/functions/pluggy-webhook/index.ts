@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { categorizePluggyTransaction } from '../_shared/categorize.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -228,13 +229,21 @@ async function handleTransactionsCreated(supabase: any, data: any) {
 
   const { apiKey } = await apiKeyResponse.json();
 
+  // 🚀 OTIMIZAÇÃO: Usar createdTransactionsLink se disponível
+  let transactionsUrl = `https://api.pluggy.ai/transactions?accountId=${data.account.id}&pageSize=500`;
+
+  // Se o webhook forneceu o link das transações criadas, usar ele (mais eficiente)
+  if (data.createdTransactionsLink) {
+    console.log(
+      '[pluggy-webhook] Using createdTransactionsLink for efficiency'
+    );
+    transactionsUrl = data.createdTransactionsLink;
+  }
+
   // Buscar as novas transações
-  const transactionsResponse = await fetch(
-    `https://api.pluggy.ai/transactions?accountId=${data.account.id}&pageSize=500`,
-    {
-      headers: { 'X-API-KEY': apiKey },
-    }
-  );
+  const transactionsResponse = await fetch(transactionsUrl, {
+    headers: { 'X-API-KEY': apiKey },
+  });
 
   if (!transactionsResponse.ok) {
     console.error('[pluggy-webhook] Failed to fetch transactions');
@@ -246,28 +255,115 @@ async function handleTransactionsCreated(supabase: any, data: any) {
     `[pluggy-webhook] Found ${transactions.length} transactions to sync`
   );
 
-  // Salvar transações
+  // 🚀 OTIMIZAÇÃO: Separar transações para processar em lote
+  const transactionsToInsert: any[] = [];
+  const expensesToCreate: any[] = [];
+  const categorizationMap = new Map();
+
+  // Categorizar todas as transações primeiro (em memória, rápido)
   for (const transaction of transactions) {
-    await supabase.from('pluggy_transactions').upsert(
-      {
-        pluggy_transaction_id: transaction.id,
-        user_id: accountData.user_id,
-        account_id: accountData.id,
-        description: transaction.description,
-        description_raw: transaction.descriptionRaw,
-        amount: transaction.amount,
-        date: transaction.date,
-        category: transaction.category,
-        currency_code: transaction.currencyCode || 'BRL',
-        payment_data_payer_name: transaction.paymentData?.payer?.name,
-        payment_data_payer_document_number:
-          transaction.paymentData?.payer?.documentNumber?.value,
-        payment_data_receiver_name: transaction.paymentData?.receiver?.name,
-        payment_data_receiver_document_number:
-          transaction.paymentData?.receiver?.documentNumber?.value,
-      },
-      { onConflict: 'pluggy_transaction_id' }
+    const categorization = categorizePluggyTransaction({
+      description: transaction.description,
+      category: transaction.category,
+      paymentData: transaction.paymentData,
+    });
+
+    if (categorization && transaction.amount < 0) {
+      categorizationMap.set(transaction.id, categorization);
+    }
+
+    // Preparar objeto de transação
+    const txData = {
+      pluggy_transaction_id: transaction.id,
+      user_id: accountData.user_id,
+      account_id: accountData.id,
+      description: transaction.description,
+      description_raw: transaction.descriptionRaw,
+      amount: transaction.amount,
+      date: transaction.date,
+      category: transaction.category,
+      currency_code: transaction.currencyCode || 'BRL',
+      payment_data_payer_name: transaction.paymentData?.payer?.name,
+      payment_data_payer_document_number:
+        transaction.paymentData?.payer?.documentNumber?.value,
+      payment_data_receiver_name: transaction.paymentData?.receiver?.name,
+      payment_data_receiver_document_number:
+        transaction.paymentData?.receiver?.documentNumber?.value,
+      synced: categorization && transaction.amount < 0 ? false : null,
+    };
+
+    transactionsToInsert.push(txData);
+  }
+
+  // 🚀 INSERÇÃO EM LOTE (muito mais rápido!)
+  console.log(
+    `[pluggy-webhook] Inserting ${transactionsToInsert.length} transactions in batch`
+  );
+  const { data: savedTransactions, error: txError } = await supabase
+    .from('pluggy_transactions')
+    .upsert(transactionsToInsert, {
+      onConflict: 'pluggy_transaction_id',
+      returning: 'representation',
+    })
+    .select();
+
+  if (txError) {
+    console.error('[pluggy-webhook] Error inserting transactions:', txError);
+    return;
+  }
+
+  // Criar expenses automaticamente para PIX pessoa física (apenas transações novas)
+  const transactionsNeedingExpenses = (savedTransactions || []).filter(
+    (tx) => !tx.expense_id && categorizationMap.has(tx.pluggy_transaction_id)
+  );
+
+  if (transactionsNeedingExpenses.length > 0) {
+    console.log(
+      `[pluggy-webhook] Creating ${transactionsNeedingExpenses.length} automatic expenses for PIX`
     );
+
+    // Preparar expenses para inserção em lote
+    const expensesData = transactionsNeedingExpenses.map((tx) => {
+      const categorization = categorizationMap.get(tx.pluggy_transaction_id);
+      return {
+        user_id: accountData.user_id,
+        establishment_name: tx.description,
+        amount: Math.abs(tx.amount),
+        date: tx.date,
+        category: categorization.category,
+        subcategory: categorization.subcategory,
+        receipt_image_url: null,
+      };
+    });
+
+    // 🚀 INSERÇÃO EM LOTE de expenses
+    const { data: createdExpenses } = await supabase
+      .from('expenses')
+      .insert(expensesData)
+      .select();
+
+    // Vincular expenses às transações (em lote também!)
+    if (createdExpenses && createdExpenses.length > 0) {
+      const updates = transactionsNeedingExpenses.map((tx, index) => ({
+        id: tx.id,
+        expense_id: createdExpenses[index].id,
+        synced: true,
+      }));
+
+      // 🚀 ATUALIZAÇÃO EM LOTE usando Promise.all
+      await Promise.all(
+        updates.map((update) =>
+          supabase
+            .from('pluggy_transactions')
+            .update({ expense_id: update.expense_id, synced: true })
+            .eq('id', update.id)
+        )
+      );
+
+      console.log(
+        `[pluggy-webhook] ${createdExpenses.length} expenses created and linked`
+      );
+    }
   }
 
   console.log('[pluggy-webhook] Transactions created processed');
@@ -331,25 +427,28 @@ async function syncItemAccounts(supabase: any, pluggyItemId: string) {
     return;
   }
 
-  // Salvar contas
-  for (const account of accounts) {
-    await supabase.from('pluggy_accounts').upsert(
-      {
-        pluggy_account_id: account.id,
-        user_id: itemData.user_id,
-        item_id: itemData.id,
-        type: account.type,
-        subtype: account.subtype,
-        name: account.name,
-        number: account.number,
-        balance: account.balance,
-        currency_code: account.currencyCode || 'BRL',
-        credit_limit: account.creditData?.creditLimit,
-        available_credit_limit: account.creditData?.availableCreditLimit,
-      },
-      { onConflict: 'pluggy_account_id' }
-    );
-  }
+  // 🚀 OTIMIZAÇÃO: Preparar todas as contas para inserção em lote
+  const accountsData = accounts.map((account) => ({
+    pluggy_account_id: account.id,
+    user_id: itemData.user_id,
+    item_id: itemData.id,
+    type: account.type,
+    subtype: account.subtype,
+    name: account.name,
+    number: account.number,
+    balance: account.balance,
+    currency_code: account.currencyCode || 'BRL',
+    credit_limit: account.creditData?.creditLimit,
+    available_credit_limit: account.creditData?.availableCreditLimit,
+  }));
+
+  // 🚀 INSERÇÃO EM LOTE (muito mais rápido!)
+  console.log(
+    `[pluggy-webhook] Inserting ${accountsData.length} accounts in batch`
+  );
+  await supabase
+    .from('pluggy_accounts')
+    .upsert(accountsData, { onConflict: 'pluggy_account_id' });
 
   console.log('[pluggy-webhook] Accounts synced successfully');
 }

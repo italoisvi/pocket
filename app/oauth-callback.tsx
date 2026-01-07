@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { syncItem } from '@/lib/pluggy';
+import * as Sentry from '@sentry/react-native';
 
 export default function OAuthCallback() {
   const params = useLocalSearchParams();
@@ -14,10 +15,25 @@ export default function OAuthCallback() {
     try {
       console.log('[OAuth Callback] Params recebidos:', params);
 
+      // 📊 Sentry: Deep link callback recebido
+      Sentry.addBreadcrumb({
+        category: 'open-finance',
+        message: 'OAuth callback received',
+        data: {
+          itemId: params.itemId as string,
+          success: params.success as string,
+          error: params.error as string,
+        },
+        level: 'info',
+      });
+
       // Pluggy redireciona com esses parâmetros após OAuth bem-sucedido
       const { itemId, success, error } = params;
 
       if (error) {
+        // 📊 Sentry: Erro no OAuth
+        Sentry.captureMessage(`OAuth error: ${error}`, 'error');
+
         Alert.alert('Erro na Autenticação', error as string);
         router.replace('/(tabs)/open-finance');
         return;
@@ -29,6 +45,16 @@ export default function OAuthCallback() {
         console.log('[OAuth Callback] Item criado via OAuth:', itemId);
         console.log('[OAuth Callback] Success flag:', success);
 
+        // 📊 Sentry: OAuth bem-sucedido
+        Sentry.addBreadcrumb({
+          category: 'open-finance',
+          message: 'OAuth completed successfully',
+          data: {
+            itemId: itemId as string,
+          },
+          level: 'info',
+        });
+
         // ✅ NÃO chamar syncItem() aqui!
         // O webhook item/updated vai sincronizar automaticamente quando status = UPDATED
         console.log('[OAuth Callback] Autenticação OAuth concluída');
@@ -39,8 +65,24 @@ export default function OAuthCallback() {
         // Salvar o item no banco para garantir que existe
         // (caso o webhook item/created ainda não tenha sido processado)
         try {
-          await syncItem(itemId as string);
+          const syncResult = await syncItem(itemId as string);
           console.log('[OAuth Callback] Item salvo no banco');
+
+          // 🎯 Verificar se houve PARTIAL_SUCCESS
+          if (syncResult.item.executionStatus === 'PARTIAL_SUCCESS') {
+            console.log('[OAuth Callback] ⚠️ Sincronização parcial detectada');
+            Alert.alert(
+              'Autenticação Concluída!',
+              `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).\n\nAlguns dados podem não ter sido sincronizados completamente. Puxe para atualizar a lista.`,
+              [
+                {
+                  text: 'OK',
+                  onPress: () => router.replace('/(tabs)/open-finance'),
+                },
+              ]
+            );
+            return;
+          }
         } catch (error) {
           console.error('[OAuth Callback] Erro ao salvar item:', error);
         }

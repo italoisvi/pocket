@@ -518,6 +518,26 @@ O reasoning deve ter NO MÁXIMO 100 caracteres e ser direto ao ponto.`;
               </View>
             </TouchableOpacity>
 
+            {/* Card Dívidas Pessoais */}
+            <TouchableOpacity
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+                getCardShadowStyle(theme.background === '#000'),
+              ]}
+              onPress={() => router.push('/dividas-pessoais')}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  Dívidas Pessoais
+                </Text>
+                <ChevronRightIcon size={20} color={theme.text} />
+              </View>
+            </TouchableOpacity>
+
             {/* Card Resumo do Mês */}
             <TouchableOpacity
               style={[

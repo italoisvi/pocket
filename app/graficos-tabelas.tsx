@@ -18,7 +18,11 @@ import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { GraficoCircularIcon } from '@/components/GraficoCircularIcon';
 import { GraficoBarrasIcon } from '@/components/GraficoBarrasIcon';
-import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
+import {
+  CATEGORIES,
+  type ExpenseCategory,
+  categorizeExpense,
+} from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
 
 const screenWidth = Dimensions.get('window').width;
@@ -145,12 +149,20 @@ export default function GraficosTabelasScreen() {
         .gte('date', startDate.toISOString().split('T')[0])
         .lte('date', endDate.toISOString().split('T')[0]);
 
-      if (expensesData) {
-        const total = expensesData.reduce((sum, exp) => sum + exp.amount, 0);
-        setTotalExpenses(total);
+      // Buscar transações do Open Finance
+      const { data: openFinanceTransactions } = await supabase
+        .from('pluggy_transactions')
+        .select('description, amount, date, type')
+        .eq('user_id', user.id)
+        .eq('type', 'DEBIT')
+        .gte('date', startDate.toISOString().split('T')[0])
+        .lte('date', endDate.toISOString().split('T')[0]);
 
-        // Agrupar por categoria + subcategoria
-        const subcategoryMap = new Map<string, SubcategoryExpense>();
+      // Agrupar por categoria + subcategoria
+      const subcategoryMap = new Map<string, SubcategoryExpense>();
+
+      // Processar despesas manuais
+      if (expensesData) {
         expensesData.forEach((exp) => {
           const category = (exp.category as ExpenseCategory) || 'outros';
           const subcategory = exp.subcategory || 'Outros';
@@ -167,13 +179,54 @@ export default function GraficosTabelasScreen() {
             });
           }
         });
-
-        const subcategories: SubcategoryExpense[] = Array.from(
-          subcategoryMap.values()
-        );
-
-        setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
       }
+
+      // Processar transações do Open Finance
+      if (openFinanceTransactions) {
+        openFinanceTransactions.forEach((tx) => {
+          const { category, subcategory } = categorizeExpense(tx.description);
+          const key = `${category}-${subcategory}`;
+          const amount = Math.abs(tx.amount);
+
+          if (subcategoryMap.has(key)) {
+            const existing = subcategoryMap.get(key)!;
+            existing.total += amount;
+          } else {
+            subcategoryMap.set(key, {
+              category,
+              subcategory,
+              total: amount,
+            });
+          }
+        });
+      }
+
+      // Calcular total combinado
+      const total = Array.from(subcategoryMap.values()).reduce(
+        (sum, item) => sum + item.total,
+        0
+      );
+      setTotalExpenses(total);
+
+      const subcategories: SubcategoryExpense[] = Array.from(
+        subcategoryMap.values()
+      );
+
+      console.log(
+        '[GraficosTabel as] Total de subcategorias:',
+        subcategories.length
+      );
+      console.log(
+        '[GraficosTabel as] Subcategorias:',
+        subcategories.map((s) => ({
+          category: s.category,
+          subcategory: s.subcategory,
+          total: s.total,
+          exists: !!CATEGORIES[s.category],
+        }))
+      );
+
+      setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
     } catch (error) {
       console.error('Erro ao carregar gastos:', error);
     } finally {
@@ -182,19 +235,23 @@ export default function GraficosTabelasScreen() {
   };
 
   // Preparar dados para os gráficos
-  const pieChartData = categoryExpenses
-    .filter((item) => CATEGORIES[item.category])
-    .map((item) => ({
+  const pieChartData = categoryExpenses.map((item) => {
+    const categoryInfo = CATEGORIES[item.category] || {
+      name: item.category,
+      color: '#B0BEC5', // Cor cinza padrão para categorias desconhecidas
+      icon: 'outros',
+    };
+
+    return {
       name: item.subcategory,
       population: item.total,
-      color: CATEGORIES[item.category].color,
+      color: categoryInfo.color,
       legendFontColor: '#666',
       legendFontSize: 0,
-    }));
+    };
+  });
 
-  const barChartData = categoryExpenses
-    .filter((item) => CATEGORIES[item.category])
-    .slice(0, 6);
+  const barChartData = categoryExpenses.slice(0, 6);
 
   const maxValue = Math.max(...barChartData.map((item) => item.total), 0);
   const chartWidth = screenWidth - 88;
@@ -207,26 +264,26 @@ export default function GraficosTabelasScreen() {
   const calculatePieData = () => {
     const total = pieChartData.reduce((sum, item) => sum + item.population, 0);
     let currentAngle = -90; // Começar do topo
+    const centerX = (screenWidth - 48) / 2;
+    const centerY = 110;
+    const radius = 80;
+    const labelRadius = radius + 30;
+    const minLabelDistance = 25;
 
-    return pieChartData.map((item) => {
+    const positions = pieChartData.map((item, index) => {
       const percentage = (item.population / total) * 100;
       const angle = (item.population / total) * 360;
       const middleAngle = currentAngle + angle / 2;
       const radians = (middleAngle * Math.PI) / 180;
 
-      // Centro do gráfico
-      const centerX = (screenWidth - 48) / 2;
-      const centerY = 110;
-      const radius = 80;
-      const labelRadius = radius + 25; // Distância do label reduzida de 35 para 25
-
       // Posição do ponto na borda do círculo
       const pointX = centerX + Math.cos(radians) * radius;
       const pointY = centerY + Math.sin(radians) * radius;
 
-      // Posição do label
+      // Posição inicial da label
       const labelX = centerX + Math.cos(radians) * labelRadius;
       const labelY = centerY + Math.sin(radians) * labelRadius;
+      const isRightSide = labelX > centerX;
 
       currentAngle += angle;
 
@@ -237,9 +294,44 @@ export default function GraficosTabelasScreen() {
         pointY,
         labelX,
         labelY,
-        isRightSide: labelX > centerX,
+        isRightSide,
+        index,
       };
     });
+
+    // Separar por lado e ordenar por Y
+    const leftSide = positions
+      .filter((p) => !p.isRightSide)
+      .sort((a, b) => a.labelY - b.labelY);
+    const rightSide = positions
+      .filter((p) => p.isRightSide)
+      .sort((a, b) => a.labelY - b.labelY);
+
+    // Distribuir labels igualmente no espaço disponível
+    const distributeLabels = (labels: any[], side: 'left' | 'right') => {
+      if (labels.length === 0) return;
+
+      const minY = 30;
+      const maxY = 190;
+      const availableSpace = maxY - minY;
+      const spacing =
+        labels.length > 1 ? availableSpace / (labels.length - 1) : 0;
+
+      labels.forEach((label, i) => {
+        // Distribuir igualmente no espaço vertical
+        label.labelY = minY + i * spacing;
+
+        // Manter X fixo para cada lado
+        label.labelX =
+          side === 'right' ? centerX + labelRadius : centerX - labelRadius;
+      });
+    };
+
+    distributeLabels(leftSide, 'left');
+    distributeLabels(rightSide, 'right');
+
+    // Recombinar mantendo a ordem original
+    return [...leftSide, ...rightSide].sort((a, b) => a.index - b.index);
   };
 
   const pieDataWithPositions = calculatePieData();
@@ -519,7 +611,11 @@ export default function GraficosTabelasScreen() {
 
                         {/* Barras */}
                         {barChartData.map((item, index) => {
-                          const categoryInfo = CATEGORIES[item.category];
+                          const categoryInfo = CATEGORIES[item.category] || {
+                            name: item.category,
+                            color: '#B0BEC5',
+                            icon: 'outros',
+                          };
                           const barHeight =
                             maxValue > 0
                               ? (item.total / maxValue) * (chartHeight - 20)
@@ -585,12 +681,9 @@ export default function GraficosTabelasScreen() {
                     style={styles.legendScrollView}
                   >
                     {(() => {
-                      const filteredItems = categoryExpenses.filter(
-                        (item) => CATEGORIES[item.category]
-                      );
                       const columns = [];
-                      for (let i = 0; i < filteredItems.length; i += 3) {
-                        columns.push(filteredItems.slice(i, i + 3));
+                      for (let i = 0; i < categoryExpenses.length; i += 3) {
+                        columns.push(categoryExpenses.slice(i, i + 3));
                       }
 
                       return columns.map((column, colIndex) => (
@@ -599,7 +692,11 @@ export default function GraficosTabelasScreen() {
                           style={styles.legendColumn}
                         >
                           {column.map((item) => {
-                            const categoryInfo = CATEGORIES[item.category];
+                            const categoryInfo = CATEGORIES[item.category] || {
+                              name: item.category,
+                              color: '#B0BEC5',
+                              icon: 'outros',
+                            };
                             const percentage =
                               totalExpenses > 0
                                 ? (item.total / totalExpenses) * 100
@@ -699,60 +796,55 @@ export default function GraficosTabelasScreen() {
                     </Text>
                   </View>
 
-                  {categoryExpenses
-                    .filter((item) => CATEGORIES[item.category])
-                    .map((item) => {
-                      const categoryInfo = CATEGORIES[item.category];
-                      const percentage =
-                        totalExpenses > 0
-                          ? (item.total / totalExpenses) * 100
-                          : 0;
+                  {categoryExpenses.map((item) => {
+                    const categoryInfo = CATEGORIES[item.category] || {
+                      name: item.category,
+                      color: '#B0BEC5',
+                      icon: 'outros',
+                    };
+                    const percentage =
+                      totalExpenses > 0
+                        ? (item.total / totalExpenses) * 100
+                        : 0;
 
-                      return (
-                        <View
-                          key={`${item.category}-${item.subcategory}`}
-                          style={[
-                            styles.tableRow,
-                            { borderBottomColor: theme.border },
-                          ]}
-                        >
-                          <View style={styles.tableCategoryCell}>
-                            <CategoryIcon
-                              categoryInfo={categoryInfo}
-                              size={20}
-                            />
-                            <View>
-                              <Text
-                                style={[
-                                  styles.subcategoryName,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {item.subcategory}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.categoryLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                {categoryInfo.name}
-                              </Text>
-                            </View>
+                    return (
+                      <View
+                        key={`${item.category}-${item.subcategory}`}
+                        style={[
+                          styles.tableRow,
+                          { borderBottomColor: theme.border },
+                        ]}
+                      >
+                        <View style={styles.tableCategoryCell}>
+                          <CategoryIcon categoryInfo={categoryInfo} size={20} />
+                          <View>
+                            <Text
+                              style={[
+                                styles.subcategoryName,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {item.subcategory}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.categoryLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {categoryInfo.name}
+                            </Text>
                           </View>
-                          <Text
-                            style={[styles.tableCell, { color: theme.text }]}
-                          >
-                            {formatCurrency(item.total)}
-                          </Text>
-                          <Text
-                            style={[styles.tableCell, { color: theme.text }]}
-                          >
-                            {percentage.toFixed(1)}%
-                          </Text>
                         </View>
-                      );
-                    })}
+                        <Text style={[styles.tableCell, { color: theme.text }]}>
+                          {formatCurrency(item.total)}
+                        </Text>
+                        <Text style={[styles.tableCell, { color: theme.text }]}>
+                          {percentage.toFixed(1)}%
+                        </Text>
+                      </View>
+                    );
+                  })}
 
                   <View
                     style={[
