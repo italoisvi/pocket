@@ -9,6 +9,7 @@ Ao acessar e usar o aplicativo Pocket ("App"), você concorda com estes Termos d
 ## 2. Descrição do Serviço
 
 O Pocket é um aplicativo de gerenciamento de finanças pessoais que permite:
+
 - Registrar e categorizar despesas
 - Visualizar relatórios financeiros
 - Acessar recursos premium mediante assinatura
@@ -45,6 +46,7 @@ Os preços das assinaturas estão disponíveis no aplicativo e podem variar por 
 ### 3.5 Gerenciamento de Assinatura
 
 Você pode gerenciar e cancelar sua assinatura em:
+
 - Configurações do iPhone → [Seu Nome] → Assinaturas → Pocket
 
 ## 4. Conta do Usuário
@@ -52,6 +54,7 @@ Você pode gerenciar e cancelar sua assinatura em:
 ### 4.1 Responsabilidade
 
 Você é responsável por:
+
 - Manter a segurança da sua conta
 - Todas as atividades realizadas em sua conta
 - Manter suas informações de contato atualizadas
@@ -63,6 +66,7 @@ Você pode solicitar o cancelamento da sua conta a qualquer momento através do 
 ## 5. Uso Aceitável
 
 Você concorda em:
+
 - Usar o App apenas para fins legais
 - Não tentar hackear, comprometer ou acessar indevidamente o App
 - Não usar o App para atividades fraudulentas ou ilegais
@@ -79,6 +83,7 @@ O uso do App também é regido pela nossa Política de Privacidade, que descreve
 ## 8. Modificações do Serviço
 
 Reservamos o direito de:
+
 - Modificar ou descontinuar recursos a qualquer momento
 - Atualizar preços de assinaturas com aviso prévio de 30 dias
 - Modificar estes Termos de Uso com notificação no App
@@ -86,6 +91,7 @@ Reservamos o direito de:
 ## 9. Limitação de Responsabilidade
 
 O App é fornecido "como está". Não garantimos que:
+
 - O App estará disponível ininterruptamente
 - Todos os erros serão corrigidos
 - Os resultados obtidos serão precisos ou confiáveis
@@ -101,6 +107,7 @@ Estes termos são regidos pelas leis do Brasil.
 ## 12. Contato
 
 Para dúvidas sobre estes termos:
+
 - Email: suporte@pocketapp.com.br
 - App: Configurações → Suporte
 

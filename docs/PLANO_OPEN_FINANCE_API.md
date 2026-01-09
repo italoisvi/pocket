@@ -166,9 +166,14 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+      });
     }
 
     // Gerar API Key da Pluggy
@@ -186,28 +191,29 @@ serve(async (req) => {
     const { apiKey } = await apiKeyResponse.json();
 
     // Gerar Connect Token
-    const connectTokenResponse = await fetch('https://api.pluggy.ai/connect_token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': apiKey,
-      },
-      body: JSON.stringify({
-        clientUserId: user.id,
-      }),
-    });
+    const connectTokenResponse = await fetch(
+      'https://api.pluggy.ai/connect_token',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-KEY': apiKey,
+        },
+        body: JSON.stringify({
+          clientUserId: user.id,
+        }),
+      }
+    );
 
     const { accessToken } = await connectTokenResponse.json();
 
-    return new Response(
-      JSON.stringify({ connectToken: accessToken }),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ connectToken: accessToken }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+    });
   }
 });
 ```
@@ -478,25 +484,37 @@ export default function CredentialsScreen() {
 import { supabase } from './supabase';
 
 export async function getConnectToken(): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('pluggy-create-token');
+  const { data, error } = await supabase.functions.invoke(
+    'pluggy-create-token'
+  );
 
   if (error) throw error;
   return data.connectToken;
 }
 
 export async function syncAccounts(itemId: string) {
-  const { data, error } = await supabase.functions.invoke('pluggy-sync-accounts', {
-    body: { itemId }
-  });
+  const { data, error } = await supabase.functions.invoke(
+    'pluggy-sync-accounts',
+    {
+      body: { itemId },
+    }
+  );
 
   if (error) throw error;
   return data;
 }
 
-export async function syncTransactions(accountId: string, from: string, to: string) {
-  const { data, error } = await supabase.functions.invoke('pluggy-sync-transactions', {
-    body: { accountId, from, to }
-  });
+export async function syncTransactions(
+  accountId: string,
+  from: string,
+  to: string
+) {
+  const { data, error } = await supabase.functions.invoke(
+    'pluggy-sync-transactions',
+    {
+      body: { accountId, from, to },
+    }
+  );
 
   if (error) throw error;
   return data;
@@ -524,7 +542,7 @@ export async function syncTransactions(accountId: string, from: string, to: stri
 // Botão "Sincronizar" em cada conta
 const handleSync = async (itemId: string) => {
   await supabase.functions.invoke('pluggy-sync-accounts', {
-    body: { itemId }
+    body: { itemId },
   });
 
   // Recarregar lista de contas
@@ -537,6 +555,7 @@ const handleSync = async (itemId: string) => {
 ## 📋 Checklist de Implementação
 
 ### Backend
+
 - [ ] Criar conta na Pluggy e obter Client ID/Secret
 - [ ] Adicionar variáveis de ambiente no Supabase
 - [ ] Criar tabelas no banco de dados
@@ -548,6 +567,7 @@ const handleSync = async (itemId: string) => {
 - [ ] Testar autenticação e geração de tokens
 
 ### Frontend
+
 - [ ] Criar componente `OpenFinanceIcon`
 - [ ] Adicionar tab "Open Finance" no menu inferior
 - [ ] Criar tela principal `/open-finance`
@@ -564,6 +584,7 @@ const handleSync = async (itemId: string) => {
 - [ ] Testar fluxo completo
 
 ### Testes
+
 - [ ] Testar conexão com banco sandbox
 - [ ] Testar sincronização de contas
 - [ ] Testar sincronização de transações
@@ -601,10 +622,12 @@ const handleSync = async (itemId: string) => {
 ## 💰 Custos Estimados
 
 ### Pluggy
+
 - **Plano Free**: 100 items, sem transações categorizadas
 - **Plano Pro**: A partir de R$ 199/mês, transações categorizadas
 
 ### Supabase
+
 - **Edge Functions**: Incluído no plano gratuito até 500K invocations/mês
 - **Database**: Incluído no plano gratuito até 500MB
 

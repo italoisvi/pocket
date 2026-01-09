@@ -61,31 +61,42 @@ function BankLogo({ imageUrl, bankName, primaryColor, theme }: BankLogoProps) {
           if (styleMatch) {
             const styleContent = styleMatch[1];
             // Capturar todas as classes e suas cores
-            const classMatches = styleContent.matchAll(/\.cls-(\d+)\s*\{[^}]*fill:\s*([^;]+);/g);
+            const classMatches = styleContent.matchAll(
+              /\.cls-(\d+)\s*\{[^}]*fill:\s*([^;]+);/g
+            );
             for (const match of classMatches) {
               classColorMap[`cls-${match[1]}`] = match[2].trim();
             }
           }
 
           // Substituir class="cls-X" por fill="cor"
-          processedXml = processedXml.replace(/class="(cls-\d+)"/g, (match, className) => {
-            const color = classColorMap[className];
-            if (color && color !== 'none') {
-              return `fill="${color}"`;
+          processedXml = processedXml.replace(
+            /class="(cls-\d+)"/g,
+            (match, className) => {
+              const color = classColorMap[className];
+              if (color && color !== 'none') {
+                return `fill="${color}"`;
+              }
+              return 'fill="none"';
             }
-            return 'fill="none"';
-          });
+          );
 
           // Remover apenas as definições de classes do <style>, preservando gradientes
-          processedXml = processedXml.replace(/<style>([\s\S]*?)<\/style>/g, (match, content) => {
-            // Manter apenas definições que não sejam de classes CSS
-            const withoutClasses = content.replace(/\.cls-\d+\s*\{[^}]*\}/g, '');
-            // Se sobrou algo (como gradientes), manter a tag style
-            if (withoutClasses.trim()) {
-              return `<style>${withoutClasses}</style>`;
+          processedXml = processedXml.replace(
+            /<style>([\s\S]*?)<\/style>/g,
+            (match, content) => {
+              // Manter apenas definições que não sejam de classes CSS
+              const withoutClasses = content.replace(
+                /\.cls-\d+\s*\{[^}]*\}/g,
+                ''
+              );
+              // Se sobrou algo (como gradientes), manter a tag style
+              if (withoutClasses.trim()) {
+                return `<style>${withoutClasses}</style>`;
+              }
+              return '';
             }
-            return '';
-          });
+          );
 
           setSvgXml(processedXml);
           setImageLoading(false);
@@ -224,7 +235,6 @@ export default function ConnectBankScreen() {
         (c: Connector) =>
           c.type === 'PERSONAL_BANK' || c.type === 'BUSINESS_BANK'
       );
-
 
       setConnectors(bankConnectors);
       setFilteredConnectors(bankConnectors);

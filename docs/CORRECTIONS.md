@@ -15,23 +15,27 @@ Baseado na análise completa, **identifiquei 2 problemas CRÍTICOS** que estão 
 **Problema:** Quando o usuário autentica no banco, o banco redireciona para `oauthRedirectUrl`. Como você não configurou, o usuário fica **perdido no navegador** e não volta para o app.
 
 **CÓDIGO ATUAL:**
+
 ```typescript
 body: JSON.stringify({
   clientUserId: user.id,
-})
+});
 ```
 
 **CÓDIGO CORRETO:**
+
 ```typescript
 body: JSON.stringify({
   clientUserId: user.id,
-  webhookUrl: "https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook",
-  oauthRedirectUrl: "pocket://oauth-callback",  // ← CRÍTICO!
-  avoidDuplicates: true
-})
+  webhookUrl:
+    'https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook',
+  oauthRedirectUrl: 'pocket://oauth-callback', // ← CRÍTICO!
+  avoidDuplicates: true,
+});
 ```
 
 **AÇÃO REQUERIDA:**
+
 1. Abra `supabase/functions/pluggy-create-token/index.ts`
 2. Substitua o `body: JSON.stringify({...})` pelo código correto acima
 3. Deploy da Edge Function: `supabase functions deploy pluggy-create-token`
@@ -49,12 +53,13 @@ body: JSON.stringify({
 **Arquivo:** `app.json`
 
 **ADICIONE** dentro de `expo`:
+
 ```json
 {
   "expo": {
     "name": "Pocket",
     "slug": "pocket",
-    "scheme": "pocket",  // ← ADICIONE ESTA LINHA
+    "scheme": "pocket" // ← ADICIONE ESTA LINHA
     // ... resto das configurações
   }
 }
@@ -94,15 +99,20 @@ export default function OAuthCallback() {
         console.log('[OAuth Callback] Item criado:', itemId);
 
         // Sincronizar item para buscar dados
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        const syncResponse = await supabase.functions.invoke('pluggy-sync-item', {
-          body: { itemId: itemId as string, userId: user?.id }
-        });
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        const syncResponse = await supabase.functions.invoke(
+          'pluggy-sync-item',
+          {
+            body: { itemId: itemId as string, userId: user?.id },
+          }
+        );
 
         if (syncResponse.data?.accountsCount > 0) {
           Alert.alert(
-            'Conexão Concluída!', 
+            'Conexão Concluída!',
             `Banco conectado com sucesso! ${syncResponse.data.accountsCount} conta(s) sincronizada(s).`
           );
         }
@@ -123,6 +133,7 @@ export default function OAuthCallback() {
 ```
 
 **AÇÃO REQUERIDA:**
+
 1. Edite `app.json` e adicione `"scheme": "pocket"`
 2. Crie o arquivo `app/(tabs)/oauth-callback.tsx` com o código acima
 3. **Rebuild do app:** `npx expo prebuild` (necessário para registrar deep link)
@@ -137,38 +148,38 @@ export default function OAuthCallback() {
 **Problema:** Você está chamando `getConnectToken()` mas usando como API Key para buscar `/connectors`. Connect Token tem **permissões limitadas**.
 
 **LINHA 94-103 - CÓDIGO ATUAL:**
+
 ```typescript
 // ❌ ERRADO
 const connectToken = await getConnectToken();
-setApiKey(connectToken);  // Nome confuso
+setApiKey(connectToken); // Nome confuso
 
-const response = await fetch(
-  'https://api.pluggy.ai/connectors?countries=BR',
-  {
-    headers: {
-      'X-API-KEY': connectToken,  // ❌ PERMISSÃO NEGADA
-    },
-  }
-);
+const response = await fetch('https://api.pluggy.ai/connectors?countries=BR', {
+  headers: {
+    'X-API-KEY': connectToken, // ❌ PERMISSÃO NEGADA
+  },
+});
 ```
 
 **CÓDIGO CORRETO:**
+
 ```typescript
 // ✅ CORRETO - Use API Key para buscar connectors
-const apiKey = await getApiKey();  // Não getConnectToken()
+const apiKey = await getApiKey(); // Não getConnectToken()
 setApiKey(apiKey);
 
 const response = await fetch(
-  'https://api.pluggy.ai/connectors?countries=BR&isOpenFinance=true',  // ← Filtra só Open Finance
+  'https://api.pluggy.ai/connectors?countries=BR&isOpenFinance=true', // ← Filtra só Open Finance
   {
     headers: {
-      'X-API-KEY': apiKey,  // ✅ API Key tem permissão total
+      'X-API-KEY': apiKey, // ✅ API Key tem permissão total
     },
   }
 );
 ```
 
 **AÇÃO REQUERIDA:**
+
 1. Abra `app/open-finance/connect.tsx`
 2. **Linha 94:** Troque `getConnectToken()` por `getApiKey()`
 3. **Linha 100:** Adicione `&isOpenFinance=true` na URL para filtrar apenas Open Finance
@@ -182,26 +193,30 @@ const response = await fetch(
 **Problema:** Você está mostrando **todos** os bancos (diretos + Open Finance), mas o fluxo atual só funciona com **OAuth**.
 
 **LINHA 116-119 - CÓDIGO ATUAL:**
+
 ```typescript
 const bankConnectors = results.filter(
-  (c: Connector) =>
-    c.type === 'PERSONAL_BANK' || c.type === 'BUSINESS_BANK'
+  (c: Connector) => c.type === 'PERSONAL_BANK' || c.type === 'BUSINESS_BANK'
 );
 ```
 
 **CÓDIGO CORRETO:**
+
 ```typescript
 // Filtrar APENAS conectores Open Finance com OAuth
 const bankConnectors = results.filter(
   (c: Connector) =>
     (c.type === 'PERSONAL_BANK' || c.type === 'BUSINESS_BANK') &&
-    c.oauth === true  // ← Garante que é OAuth
+    c.oauth === true // ← Garante que é OAuth
 );
 
-console.log(`[Connect] Conectores Open Finance disponíveis: ${bankConnectors.length}`);
+console.log(
+  `[Connect] Conectores Open Finance disponíveis: ${bankConnectors.length}`
+);
 ```
 
 **AÇÃO REQUERIDA:**
+
 1. Adicione `&& c.oauth === true` no filtro
 2. **ALTERNATIVA:** Já filtra na URL da API: `&isOpenFinance=true` (recomendado)
 
@@ -225,19 +240,22 @@ console.log(`[Connect] Conectores Open Finance disponíveis: ${bankConnectors.le
 ## 🧪 COMO TESTAR APÓS AS CORREÇÕES
 
 ### Teste 1: Sandbox Open Finance
+
 ```typescript
 // No connect.tsx, forçar sandbox temporariamente
 const response = await fetch(
-  'https://api.pluggy.ai/connectors?countries=BR&isOpenFinance=true&sandbox=true',
+  'https://api.pluggy.ai/connectors?countries=BR&isOpenFinance=true&sandbox=true'
   // ...
 );
 ```
 
 **Credenciais de teste:**
+
 - **Banco:** Pluggy Bank (Sandbox Open Finance)
 - **CPF:** Qualquer CPF válido (ex: 111.111.111-11)
 
 ### Teste 2: Fluxo completo
+
 1. Abrir app → Tela Open Finance → "Conectar Banco"
 2. Selecionar banco com tag `[OF]` (Open Finance)
 3. Inserir CPF
@@ -264,6 +282,7 @@ console.log('[Webhook] Event:', event, 'Data:', JSON.stringify(data));
 ```
 
 **Compartilhe:**
+
 1. Console do app (Expo logs)
 2. Response do POST /items (com oauthUrl)
 3. Logs do webhook endpoint
@@ -290,6 +309,6 @@ Após implementar **os 6 itens acima**, o fluxo OAuth deve funcionar assim:
 
 ---
 
-**IMPLEMENTE ESSAS CORREÇÕES E ME ENVIE OS LOGS!** 
+**IMPLEMENTE ESSAS CORREÇÕES E ME ENVIE OS LOGS!**
 
 Depois disso, o OAuth deve funcionar perfeitamente. 🚀

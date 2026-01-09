@@ -3,11 +3,13 @@
 ## ✅ Correções Implementadas
 
 ### 1. Bug na Tela de Assinatura
+
 - [x] Mensagem de erro melhorada quando produtos não estão disponíveis
 - [x] Mudou de "Erro" para "Planos em Breve" com mensagem mais amigável
 - [x] App agora funciona graciosamente mesmo com produtos pendentes de revisão
 
 ### 2. Links Obrigatórios Adicionados
+
 - [x] Link "Termos de Uso" adicionado no modal de assinatura
 - [x] Link "Política de Privacidade" adicionado no modal de assinatura
 - [x] Links são funcionais e navegam para as páginas corretas
@@ -26,6 +28,7 @@ Política de Privacidade: [URL da sua página de privacidade]
 ```
 
 **IMPORTANTE:** Você precisa hospedar essas páginas em algum lugar público:
+
 - Opção 1: GitHub Pages (gratuito)
 - Opção 2: Seu próprio domínio
 - Opção 3: Plataforma como Notion (com link público)
@@ -68,25 +71,31 @@ eas build --platform ios --profile production
 ```html
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Termos de Uso - Pocket</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        h1 { color: #333; }
-        h2 { color: #666; margin-top: 30px; }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      h1 {
+        color: #333;
+      }
+      h2 {
+        color: #666;
+        margin-top: 30px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <!-- Cole o conteúdo dos seus termos aqui -->
-</body>
+  </body>
 </html>
 ```
 
@@ -118,6 +127,7 @@ Please note: The subscription functionality requires the In-App Purchase product
 ## 🎯 Depois da Aprovação
 
 Quando os produtos forem aprovados:
+
 1. Os planos aparecerão automaticamente no app
 2. Usuários poderão assinar normalmente
 3. Você pode testar com conta Sandbox

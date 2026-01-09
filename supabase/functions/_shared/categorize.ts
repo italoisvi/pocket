@@ -95,9 +95,12 @@ export function categorizePluggyTransaction(transaction: {
     // PIX enviado: verifica se o receiver é pessoa física
     const receiverName = transaction.paymentData?.receiver?.name;
     if (receiverName && isPessoaFisica(receiverName)) {
-      console.log('[categorizePluggyTransaction] PIX enviado para pessoa física:', {
-        receiverName,
-      });
+      console.log(
+        '[categorizePluggyTransaction] PIX enviado para pessoa física:',
+        {
+          receiverName,
+        }
+      );
 
       return {
         category: 'dividas_pessoais',
@@ -108,9 +111,12 @@ export function categorizePluggyTransaction(transaction: {
     // PIX recebido: verifica se o payer é pessoa física
     const payerName = transaction.paymentData?.payer?.name;
     if (payerName && isPessoaFisica(payerName)) {
-      console.log('[categorizePluggyTransaction] PIX recebido de pessoa física:', {
-        payerName,
-      });
+      console.log(
+        '[categorizePluggyTransaction] PIX recebido de pessoa física:',
+        {
+          payerName,
+        }
+      );
 
       return {
         category: 'dividas_pessoais',

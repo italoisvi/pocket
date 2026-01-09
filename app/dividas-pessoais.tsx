@@ -66,7 +66,9 @@ export default function DividasPessoaisScreen() {
       // DEBUG: Verificar transações PIX da Pluggy que deveriam virar expenses
       const { data: pixTransactions } = await supabase
         .from('pluggy_transactions')
-        .select('id, description, amount, date, category, payment_data_receiver_name, payment_data_payer_name, expense_id, synced')
+        .select(
+          'id, description, amount, date, category, payment_data_receiver_name, payment_data_payer_name, expense_id, synced'
+        )
         .eq('user_id', user.id)
         .ilike('category', '%pix%')
         .order('date', { ascending: false })
@@ -74,15 +76,15 @@ export default function DividasPessoaisScreen() {
 
       console.log('[DividasPessoais] Transações PIX da Pluggy:', {
         total: pixTransactions?.length || 0,
-        data: pixTransactions?.map(tx => ({
+        data: pixTransactions?.map((tx) => ({
           description: tx.description,
           amount: tx.amount,
           date: tx.date,
           receiver: tx.payment_data_receiver_name,
           payer: tx.payment_data_payer_name,
           expense_id: tx.expense_id,
-          synced: tx.synced
-        }))
+          synced: tx.synced,
+        })),
       });
 
       // DEBUG: Primeiro verificar se existem expenses dessa categoria em qualquer mês
@@ -93,9 +95,15 @@ export default function DividasPessoaisScreen() {
         .eq('category', 'dividas_pessoais')
         .order('date', { ascending: false });
 
-      console.log('[DividasPessoais] Total de dívidas pessoais (todos os meses):', allDebts?.length || 0);
+      console.log(
+        '[DividasPessoais] Total de dívidas pessoais (todos os meses):',
+        allDebts?.length || 0
+      );
       if (allDebts && allDebts.length > 0) {
-        console.log('[DividasPessoais] Primeiras 3 dívidas:', allDebts.slice(0, 3));
+        console.log(
+          '[DividasPessoais] Primeiras 3 dívidas:',
+          allDebts.slice(0, 3)
+        );
       }
 
       // Buscar expenses da categoria 'dividas_pessoais' do mês selecionado
@@ -159,7 +167,9 @@ export default function DividasPessoaisScreen() {
 
       if (!user) return;
 
-      console.log('[DividasPessoais] Iniciando sincronização de PIX antigos...');
+      console.log(
+        '[DividasPessoais] Iniciando sincronização de PIX antigos...'
+      );
 
       // Buscar todas as transações PIX que ainda não foram sincronizadas
       const { data: pixTransactions } = await supabase
@@ -170,7 +180,10 @@ export default function DividasPessoaisScreen() {
         .lt('amount', 0) // Apenas gastos (valores negativos)
         .is('expense_id', null); // Que ainda não foram sincronizadas
 
-      console.log('[DividasPessoais] PIX não sincronizados encontrados:', pixTransactions?.length || 0);
+      console.log(
+        '[DividasPessoais] PIX não sincronizados encontrados:',
+        pixTransactions?.length || 0
+      );
 
       if (!pixTransactions || pixTransactions.length === 0) {
         Alert.alert('Info', 'Nenhuma transação PIX antiga para sincronizar');
@@ -193,11 +206,15 @@ export default function DividasPessoaisScreen() {
           .replace(/enviado|recebido|para|de/gi, '')
           .trim();
 
-        const words = cleanText.split(/\s+/).filter((w: string) => w.length > 1);
+        const words = cleanText
+          .split(/\s+/)
+          .filter((w: string) => w.length > 1);
 
         // Verificar se parece ser nome de pessoa
         if (words.length >= 2 && words.length <= 4) {
-          const capitalizedWords = words.filter((w: string) => /^[A-Z]/.test(w));
+          const capitalizedWords = words.filter((w: string) =>
+            /^[A-Z]/.test(w)
+          );
           const isPerson = capitalizedWords.length >= words.length * 0.5;
 
           if (isPerson) {
@@ -383,9 +400,7 @@ export default function DividasPessoaisScreen() {
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
               Nenhuma dívida pessoal registrada este mês
             </Text>
-            <Text
-              style={[styles.emptySubtext, { color: theme.textSecondary }]}
-            >
+            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
               PIX para pessoas físicas aparecerão aqui automaticamente
             </Text>
           </View>
@@ -416,7 +431,10 @@ export default function DividasPessoaisScreen() {
                       {debt.person_name}
                     </Text>
                     <Text
-                      style={[styles.debtSubcategory, { color: theme.textSecondary }]}
+                      style={[
+                        styles.debtSubcategory,
+                        { color: theme.textSecondary },
+                      ]}
                     >
                       {debt.subcategory} • {formatDate(debt.date)}
                     </Text>
@@ -441,9 +459,7 @@ export default function DividasPessoaisScreen() {
                           styles.sourceBadgeText,
                           {
                             color:
-                              debt.source === 'manual'
-                                ? theme.text
-                                : '#000',
+                              debt.source === 'manual' ? theme.text : '#000',
                           },
                         ]}
                       >

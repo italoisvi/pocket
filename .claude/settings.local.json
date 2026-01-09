@@ -63,7 +63,9 @@
       "Bash(supabase status:*)",
       "Bash(supabase functions:*)",
       "Bash(supabase secrets:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(npm test:*)",
+      "Bash(npx react-native:*)"
     ]
   }
 }

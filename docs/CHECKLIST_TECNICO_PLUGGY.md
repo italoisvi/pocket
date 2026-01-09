@@ -14,6 +14,7 @@ Status: Análise Técnica Completa
 **Localização:** `supabase/functions/pluggy-get-api-key/index.ts`
 
 **Código do endpoint POST /auth:**
+
 ```typescript
 const PLUGGY_CLIENT_ID = Deno.env.get('PLUGGY_CLIENT_ID');
 const PLUGGY_CLIENT_SECRET = Deno.env.get('PLUGGY_CLIENT_SECRET');
@@ -43,6 +44,7 @@ serve(async (req) => {
 **Localização:** `supabase/functions/pluggy-create-token/index.ts`
 
 **Código do endpoint POST /connect_token:**
+
 ```typescript
 // 1. Primeiro gera API Key
 const apiKeyResponse = await fetch('https://api.pluggy.ai/auth', {
@@ -57,16 +59,19 @@ const apiKeyResponse = await fetch('https://api.pluggy.ai/auth', {
 const { apiKey } = await apiKeyResponse.json();
 
 // 2. Depois gera Connect Token usando o API Key
-const connectTokenResponse = await fetch('https://api.pluggy.ai/connect_token', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-API-KEY': apiKey,  // ✅ USA API KEY NO HEADER
-  },
-  body: JSON.stringify({
-    clientUserId: user.id,
-  }),
-});
+const connectTokenResponse = await fetch(
+  'https://api.pluggy.ai/connect_token',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-KEY': apiKey, // ✅ USA API KEY NO HEADER
+    },
+    body: JSON.stringify({
+      clientUserId: user.id,
+    }),
+  }
+);
 
 const { accessToken } = await connectTokenResponse.json();
 return new Response(JSON.stringify({ connectToken: accessToken }), { headers });
@@ -91,13 +96,15 @@ return new Response(JSON.stringify({ connectToken: accessToken }), { headers });
 **⚠️ PARCIALMENTE - FALTAM OPÇÕES IMPORTANTES**
 
 **Código atual:**
+
 ```typescript
 body: JSON.stringify({
-  clientUserId: user.id,  // ✅ OK
-})
+  clientUserId: user.id, // ✅ OK
+});
 ```
 
 **❌ FALTAM:**
+
 ```typescript
 {
   "clientUserId": user.id,                           // ✅ OK
@@ -122,6 +129,7 @@ body: JSON.stringify({
 - **Frontend:** React Native puro (não usa react-native-pluggy-connect)
 
 **Fluxo atual:**
+
 1. `connect.tsx` - Lista bancos via GET /connectors
 2. `credentials.tsx` - Formulário manual de credenciais
 3. POST /items direto via fetch
@@ -141,32 +149,31 @@ body: JSON.stringify({
 **⚠️ PROBLEMA IDENTIFICADO #2 - USO INCORRETO**
 
 **No arquivo `connect.tsx` (linha 94-103):**
+
 ```typescript
 // ❌ ERRADO: Chama getConnectToken mas usa como API Key
 const connectToken = await getConnectToken();
-setApiKey(connectToken);  // ❌ Nome da variável está errado
+setApiKey(connectToken); // ❌ Nome da variável está errado
 
 // Buscar lista de connectors
-const response = await fetch(
-  'https://api.pluggy.ai/connectors?countries=BR',
-  {
-    headers: {
-      'X-API-KEY': connectToken,  // ❌ USANDO CONNECT TOKEN COMO API KEY
-    },
-  }
-);
+const response = await fetch('https://api.pluggy.ai/connectors?countries=BR', {
+  headers: {
+    'X-API-KEY': connectToken, // ❌ USANDO CONNECT TOKEN COMO API KEY
+  },
+});
 ```
 
 **🚨 PROBLEMA CRÍTICO:** Connect Token tem permissões limitadas. Para buscar `/connectors`, deve usar **API Key**, não Connect Token.
 
 **No arquivo `credentials.tsx` (linha 122-133):**
+
 ```typescript
 // ❌ ERRADO: Usa o "apiKey" (que é na verdade Connect Token) para criar item
 const createItemResponse = await fetch('https://api.pluggy.ai/items', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-KEY': apiKey,  // ❌ Está usando Connect Token aqui também
+    'X-API-KEY': apiKey, // ❌ Está usando Connect Token aqui também
   },
   body: JSON.stringify({
     connectorId: parseInt(connectorId),
@@ -192,15 +199,16 @@ Não há `onSuccess`, `onError` callbacks pois não está usando o widget oficia
 **❌ NÃO CONFIGURADO**
 
 **Código atual em `connect.tsx` (linha 116-119):**
+
 ```typescript
 // Filtrar apenas bancos (PERSONAL_BANK e BUSINESS_BANK)
 const bankConnectors = results.filter(
-  (c: Connector) =>
-    c.type === 'PERSONAL_BANK' || c.type === 'BUSINESS_BANK'
+  (c: Connector) => c.type === 'PERSONAL_BANK' || c.type === 'BUSINESS_BANK'
 );
 ```
 
 **❌ FALTAM:**
+
 ```typescript
 // ❌ Não filtra por isOpenFinance=true
 // ❌ Não filtra por oauth=true
@@ -218,8 +226,9 @@ const bankConnectors = results.filter(
 **❌ NÃO IDENTIFICADO NO CÓDIGO**
 
 **Deveria ter:**
+
 ```typescript
-const connector = results.find(c => c.id === 601); // Itaú Open Finance
+const connector = results.find((c) => c.id === 601); // Itaú Open Finance
 console.log(connector.oauth); // true
 console.log(connector.isOpenFinance); // true
 ```
@@ -233,6 +242,7 @@ console.log(connector.isOpenFinance); // true
 **✅ CORRETO - Apenas CPF**
 
 **Em `credentials.tsx` (linha 107-118):**
+
 ```typescript
 // Remove formatação do CPF antes de enviar
 const cleanedFormData: Record<string, string> = {};
@@ -257,6 +267,7 @@ for (const [key, value] of Object.entries(formData)) {
 **⚠️ NÃO TESTADO - Precisa de exemplo real**
 
 **Código esperado no parâmetro:**
+
 ```typescript
 {
   "parameter": {
@@ -270,6 +281,7 @@ for (const [key, value] of Object.entries(formData)) {
 ```
 
 **Código atual em `credentials.tsx` (linha 177-183):**
+
 ```typescript
 if (isOAuth) {
   // OAuth: Abrir URL de autenticação do banco
@@ -304,13 +316,13 @@ const handleOpenOAuth = async () => {
     return;
   }
 
-  await Linking.openURL(oauthUrl);  // ✅ Abre URL OAuth
+  await Linking.openURL(oauthUrl); // ✅ Abre URL OAuth
 
   Alert.alert(
     'Aguardando Autenticação',
     `Você será redirecionado para o ${connectorName}...`
   );
-}
+};
 ```
 
 **✅ IMPLEMENTADO CORRETAMENTE**
@@ -322,23 +334,26 @@ const handleOpenOAuth = async () => {
 **❌ NÃO CONFIGURADO**
 
 **Código atual em `pluggy-create-token/index.ts`:**
+
 ```typescript
 body: JSON.stringify({
   clientUserId: user.id,
   // ❌ FALTA: oauthRedirectUrl: "myapp://oauth-callback"
-})
+});
 ```
 
 **🚨 PROBLEMA CRÍTICO #5:** Sem `oauthRedirectUrl`, o usuário NÃO CONSEGUE VOLTAR ao app após autenticar no banco.
 
 **Deveria ter:**
+
 ```typescript
 body: JSON.stringify({
   clientUserId: user.id,
-  webhookUrl: "https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook",
-  oauthRedirectUrl: "pocket://oauth-callback",  // ❌ AUSENTE
-  avoidDuplicates: true
-})
+  webhookUrl:
+    'https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook',
+  oauthRedirectUrl: 'pocket://oauth-callback', // ❌ AUSENTE
+  avoidDuplicates: true,
+});
 ```
 
 ---
@@ -348,6 +363,7 @@ body: JSON.stringify({
 **❌ NÃO IMPLEMENTADO**
 
 **Procurado em:**
+
 - `app.json` / `app.config.js` - Não encontrado esquema de deep link
 - `app/_layout.tsx` - Sem handler de deep link
 - Nenhum arquivo com "oauth-callback" ou deep link handler
@@ -355,7 +371,9 @@ body: JSON.stringify({
 **🚨 PROBLEMA CRÍTICO #6:** Usuário será redirecionado ao banco mas **não conseguirá voltar ao app** após autenticar.
 
 **Precisa implementar:**
+
 1. Configurar deep link em `app.json`:
+
 ```json
 {
   "expo": {
@@ -365,6 +383,7 @@ body: JSON.stringify({
 ```
 
 2. Criar handler de deep link:
+
 ```typescript
 // app/oauth-callback.tsx
 import { useEffect } from 'react';
@@ -392,20 +411,22 @@ export default function OAuthCallback() {
 **✅ SIM - Via Edge Function**
 
 **Em `credentials.tsx` após criar item:**
+
 ```typescript
 const itemData = await createItemResponse.json();
 console.log('[credentials] Item created:', itemData.id);
 
 // Sincronizar Item e Accounts no Supabase
-const syncResult = await syncItem(itemData.id);  // ✅ Passa itemId
+const syncResult = await syncItem(itemData.id); // ✅ Passa itemId
 ```
 
 **Edge Function `pluggy-sync-item` salva no banco:**
+
 ```typescript
 const { error: itemError } = await supabase.from('pluggy_items').upsert(
   {
-    pluggy_item_id: item.id,  // ✅ Salva itemId da Pluggy
-    user_id: user.id,          // ✅ Vincula ao usuário
+    pluggy_item_id: item.id, // ✅ Salva itemId da Pluggy
+    user_id: user.id, // ✅ Vincula ao usuário
     connector_id: item.connector.id,
     connector_name: item.connector.name,
     status: item.status,
@@ -428,7 +449,7 @@ const { error: itemError } = await supabase.from('pluggy_items').upsert(
 // Buscar contas do Item
 const accountsResponse = await fetch(
   `https://api.pluggy.ai/accounts?itemId=${itemId}`,
-  { headers: { 'X-API-KEY': apiKey } }  // ✅ Usa API Key no backend
+  { headers: { 'X-API-KEY': apiKey } } // ✅ Usa API Key no backend
 );
 
 const { results: accounts } = await accountsResponse.json();
@@ -464,7 +485,7 @@ if (to) transactionsUrl += `&to=${to}`;
 
 // Buscar transações
 const transactionsResponse = await fetch(transactionsUrl, {
-  headers: { 'X-API-KEY': apiKey },  // ✅ Usa API Key no backend
+  headers: { 'X-API-KEY': apiKey }, // ✅ Usa API Key no backend
 });
 
 const { results: transactions } = await transactionsResponse.json();
@@ -508,6 +529,7 @@ for (const transaction of transactions) {
 **Arquivo:** `supabase/functions/pluggy-webhook/index.ts`
 
 **Código do endpoint:**
+
 ```typescript
 serve(async (req) => {
   const headers = {
@@ -549,6 +571,7 @@ serve(async (req) => {
 **⚠️ POTENCIAL PROBLEMA**
 
 **Código atual:**
+
 ```typescript
 // handleTransactionsCreated faz:
 const transactionsResponse = await fetch(/* busca API Pluggy */);
@@ -563,6 +586,7 @@ for (const transaction of transactions) {
 **🚨 PROBLEMA #7:** Para muitas transações (500+), pode demorar mais de 5 segundos.
 
 **Deveria ter:**
+
 ```typescript
 // Responder 200 imediatamente
 return new Response(JSON.stringify({ success: true }), { headers });
@@ -578,13 +602,13 @@ return new Response(JSON.stringify({ success: true }), { headers });
 
 ```typescript
 switch (event) {
-  case 'item/created':          // ✅
-  case 'item/updated':          // ✅
-  case 'item/error':            // ✅
-  case 'transactions/created':  // ✅
-  case 'item/deleted':          // ✅
+  case 'item/created': // ✅
+  case 'item/updated': // ✅
+  case 'item/error': // ✅
+  case 'transactions/created': // ✅
+  case 'item/deleted': // ✅
   case 'item/waiting_user_input': // ✅
-  case 'transactions/deleted':  // ✅
+  case 'transactions/deleted': // ✅
 }
 ```
 
@@ -597,6 +621,7 @@ switch (event) {
 **❌ NÃO IMPLEMENTADO**
 
 **Código atual:**
+
 ```typescript
 // handleTransactionsCreated busca TODAS as transações do account
 const transactionsResponse = await fetch(
@@ -608,13 +633,14 @@ const transactionsResponse = await fetch(
 **🚨 INEFICIENTE:** Busca todas transações novamente ao invés de usar o link das novas.
 
 **Deveria ter:**
+
 ```typescript
 // Webhook envia createdTransactionsLink
 const { createdTransactionsLink } = webhookEvent;
 
 // Buscar apenas transações novas via link
 const transactionsResponse = await fetch(createdTransactionsLink, {
-  headers: { 'X-API-KEY': apiKey }
+  headers: { 'X-API-KEY': apiKey },
 });
 ```
 
@@ -627,6 +653,7 @@ const transactionsResponse = await fetch(createdTransactionsLink, {
 **✅ SIM - Via webhooks**
 
 **Código em `credentials.tsx` (linha 198-209):**
+
 ```typescript
 } else if (syncResult.item.status === 'UPDATING') {
   Alert.alert(
@@ -647,6 +674,7 @@ const transactionsResponse = await fetch(createdTransactionsLink, {
 **✅ SIM - IMPLEMENTADO**
 
 **Código em `credentials.tsx` (linha 151-208):**
+
 ```typescript
 if (syncResult.item.status === 'WAITING_USER_INPUT') {
   const fullItem = await itemResponse.json();
@@ -677,6 +705,7 @@ if (syncResult.item.status === 'WAITING_USER_INPUT') {
 **✅ SIM - IMPLEMENTADO**
 
 **Código em `open-finance.tsx` (linha 164-173):**
+
 ```typescript
 } else if (
   result.item.status === 'OUTDATED' ||
@@ -699,14 +728,15 @@ if (syncResult.item.status === 'WAITING_USER_INPUT') {
 **⚠️ PARCIALMENTE**
 
 **Código retorna executionStatus:**
+
 ```typescript
 // pluggy-sync-item/index.ts
 return new Response(
   JSON.stringify({
     item: {
       status: item.status,
-      executionStatus: item.executionStatus || null,  // ✅ Retorna
-    }
+      executionStatus: item.executionStatus || null, // ✅ Retorna
+    },
   })
 );
 ```
@@ -738,6 +768,7 @@ Precisa de logs reais de teste para confirmar.
 **❌ NÃO FORNECIDOS**
 
 Precisamos de:
+
 - Request completo de criação do Item
 - Response com oauthUrl (se Open Finance)
 - Status do Item após criação
@@ -801,6 +832,7 @@ Precisamos de:
 ### Prioridade ALTA (Implementar AGORA)
 
 1. **Configurar Deep Link**
+
    ```json
    // app.json
    {
@@ -811,16 +843,19 @@ Precisamos de:
    ```
 
 2. **Adicionar `oauthRedirectUrl` e `webhookUrl` ao Connect Token**
+
    ```typescript
    body: JSON.stringify({
      clientUserId: user.id,
-     webhookUrl: "https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook",
-     oauthRedirectUrl: "pocket://oauth-callback",
-     avoidDuplicates: true
-   })
+     webhookUrl:
+       'https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook',
+     oauthRedirectUrl: 'pocket://oauth-callback',
+     avoidDuplicates: true,
+   });
    ```
 
 3. **Criar handler de OAuth callback**
+
    ```typescript
    // app/oauth-callback.tsx
    export default function OAuthCallback() {
@@ -831,7 +866,7 @@ Precisamos de:
 
 4. **Trocar Connect Token por API Key em `connect.tsx`**
    ```typescript
-   const apiKey = await getApiKey();  // Não getConnectToken()
+   const apiKey = await getApiKey(); // Não getConnectToken()
    ```
 
 ### Prioridade MÉDIA

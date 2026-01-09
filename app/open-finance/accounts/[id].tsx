@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { getAccountsByItem, syncItem } from '@/lib/pluggy';
+import { getAccountsByItem, syncItem, updateItem } from '@/lib/pluggy';
 import { supabase } from '@/lib/supabase';
 import { CardBrandIcon } from '@/lib/cardBrand';
 
@@ -43,6 +43,7 @@ export default function AccountsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     loadAccounts();
@@ -150,6 +151,63 @@ export default function AccountsScreen() {
       );
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleUpdateItem = async () => {
+    try {
+      setUpdating(true);
+
+      console.log('[accounts] handleUpdateItem - itemId:', itemId);
+
+      // Buscar pluggy_item_id do banco de dados
+      const { data: itemData, error: itemError } = await supabase
+        .from('pluggy_items')
+        .select('pluggy_item_id')
+        .eq('id', itemId)
+        .single();
+
+      if (itemError || !itemData) {
+        Alert.alert('Erro', 'Item não encontrado no banco de dados.');
+        return;
+      }
+
+      console.log('[accounts] Triggering update for:', itemData.pluggy_item_id);
+
+      // Disparar atualização
+      const result = await updateItem(itemData.pluggy_item_id);
+
+      console.log('[accounts] Update result:', result);
+
+      if (result.item.status === 'UPDATING') {
+        Alert.alert(
+          'Atualização Iniciada',
+          `${bankName}: Os dados estão sendo atualizados. Isso pode levar alguns instantes.\n\nVocê pode usar "Sincronizar" em alguns segundos para buscar os dados atualizados.`
+        );
+      } else if (result.item.status === 'WAITING_USER_INPUT') {
+        Alert.alert(
+          'Autenticação Necessária',
+          `${bankName} requer autenticação adicional. Use o botão "Sincronizar" para continuar.`
+        );
+      } else {
+        Alert.alert('Atualização Iniciada', result.item.message);
+      }
+    } catch (error) {
+      console.error('[accounts] Error updating item:', error);
+
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      if (errorMessage.includes('429')) {
+        Alert.alert(
+          'Muitas Tentativas',
+          'Você fez muitas atualizações recentemente. Aguarde alguns minutos e tente novamente.'
+        );
+      } else {
+        Alert.alert('Erro', 'Não foi possível atualizar o banco');
+      }
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -293,6 +351,75 @@ export default function AccountsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
+      {/* Botões de Ação */}
+      <View style={styles.actionsContainer}>
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor:
+                theme.background === '#000' ? theme.card : theme.primary,
+              borderWidth: 2,
+              borderColor:
+                theme.background === '#000' ? theme.cardBorder : theme.primary,
+            },
+          ]}
+          onPress={handleUpdateItem}
+          disabled={updating}
+        >
+          {updating ? (
+            <ActivityIndicator
+              size="small"
+              color={theme.background === '#000' ? theme.text : '#fff'}
+            />
+          ) : (
+            <Text
+              style={[
+                styles.actionButtonText,
+                {
+                  color: theme.background === '#000' ? theme.text : '#fff',
+                },
+              ]}
+            >
+              Atualizar
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor:
+                theme.background === '#000' ? theme.card : theme.primary,
+              borderWidth: 2,
+              borderColor:
+                theme.background === '#000' ? theme.cardBorder : theme.primary,
+            },
+          ]}
+          onPress={handleForceSync}
+          disabled={syncing}
+        >
+          {syncing ? (
+            <ActivityIndicator
+              size="small"
+              color={theme.background === '#000' ? theme.text : '#fff'}
+            />
+          ) : (
+            <Text
+              style={[
+                styles.actionButtonText,
+                {
+                  color: theme.background === '#000' ? theme.text : '#fff',
+                },
+              ]}
+            >
+              Sincronizar
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {/* Lista de contas */}
       <ScrollView
         style={styles.content}
@@ -386,6 +513,25 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  actionButtonText: {
+    fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
   },
   content: {

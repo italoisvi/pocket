@@ -58,15 +58,19 @@ export async function diagnoseRevenueCat(): Promise<void> {
 
     try {
       const products = await Purchases.getProducts(productIds);
-      console.log('[Diagnostics] Products fetched directly:',
-        products.map(p => ({
+      console.log(
+        '[Diagnostics] Products fetched directly:',
+        products.map((p) => ({
           id: p.identifier,
           title: p.title,
           price: p.priceString,
         }))
       );
     } catch (error) {
-      console.error('[Diagnostics] ❌ Error fetching products directly:', error);
+      console.error(
+        '[Diagnostics] ❌ Error fetching products directly:',
+        error
+      );
     }
 
     console.log('[Diagnostics] ✅ Diagnostics complete');

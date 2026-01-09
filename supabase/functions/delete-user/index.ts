@@ -89,7 +89,10 @@ serve(async (req) => {
       .eq('user_id', userId);
 
     if (pluggyTransactionsError) {
-      console.error('[DeleteUser] Error deleting pluggy_transactions:', pluggyTransactionsError);
+      console.error(
+        '[DeleteUser] Error deleting pluggy_transactions:',
+        pluggyTransactionsError
+      );
     }
 
     // 2. Delete Pluggy accounts
@@ -99,7 +102,10 @@ serve(async (req) => {
       .eq('user_id', userId);
 
     if (pluggyAccountsError) {
-      console.error('[DeleteUser] Error deleting pluggy_accounts:', pluggyAccountsError);
+      console.error(
+        '[DeleteUser] Error deleting pluggy_accounts:',
+        pluggyAccountsError
+      );
     }
 
     // 3. Delete Pluggy items
@@ -109,7 +115,10 @@ serve(async (req) => {
       .eq('user_id', userId);
 
     if (pluggyItemsError) {
-      console.error('[DeleteUser] Error deleting pluggy_items:', pluggyItemsError);
+      console.error(
+        '[DeleteUser] Error deleting pluggy_items:',
+        pluggyItemsError
+      );
     }
 
     // 4. Delete budgets
@@ -139,7 +148,10 @@ serve(async (req) => {
       .eq('user_id', userId);
 
     if (conversationsError) {
-      console.error('[DeleteUser] Error deleting conversations:', conversationsError);
+      console.error(
+        '[DeleteUser] Error deleting conversations:',
+        conversationsError
+      );
     }
 
     // 7. Delete profile
@@ -153,9 +165,8 @@ serve(async (req) => {
     }
 
     // 8. Delete user from auth (THIS IS THE KEY STEP!)
-    const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(
-      userId
-    );
+    const { error: deleteUserError } =
+      await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteUserError) {
       console.error('[DeleteUser] Error deleting auth user:', deleteUserError);

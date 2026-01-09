@@ -81,10 +81,12 @@ if (result.success) {
 const handleAppStateChange = async (nextAppState: AppStateStatus) => {
   const now = Date.now();
   const timeSinceLastAuth = now - lastAuthenticationTime.current;
-  
+
   // ✅ COOLDOWN: Ignora mudanças nos primeiros 2 segundos
   if (timeSinceLastAuth < 2000) {
-    console.log('[BiometricLock] Ignorando mudança de AppState (cooldown ativo)');
+    console.log(
+      '[BiometricLock] Ignorando mudança de AppState (cooldown ativo)'
+    );
     appState.current = nextAppState;
     return; // ← SAI SEM BLOQUEAR
   }
@@ -96,6 +98,7 @@ const handleAppStateChange = async (nextAppState: AppStateStatus) => {
 ## 🎯 Comportamento Agora
 
 ### ✅ Cenário 1: Abrir App (Primeira Vez)
+
 ```
 1. App abre → Splash
 2. Pede biometria
@@ -107,6 +110,7 @@ const handleAppStateChange = async (nextAppState: AppStateStatus) => {
 ```
 
 ### ✅ Cenário 2: Voltar do Background (Real)
+
 ```
 1. App minimizado por 10 segundos
 2. Usuário volta ao app
@@ -120,6 +124,7 @@ const handleAppStateChange = async (nextAppState: AppStateStatus) => {
 ```
 
 ### ✅ Cenário 3: Navegar no App
+
 ```
 1. Usuário já autenticado
 2. Navega entre telas
@@ -130,6 +135,7 @@ const handleAppStateChange = async (nextAppState: AppStateStatus) => {
 ## 🧪 Como Testar
 
 ### Teste 1: Loop foi Eliminado? ✅
+
 1. Feche o app completamente
 2. Abra novamente
 3. Autentique com Face ID/Touch ID
@@ -137,6 +143,7 @@ const handleAppStateChange = async (nextAppState: AppStateStatus) => {
 5. **CONSOLE:** Deve aparecer "Ignorando mudança de AppState (cooldown ativo)"
 
 ### Teste 2: Background Real Ainda Funciona? ✅
+
 1. App aberto e autenticado
 2. Minimize (botão Home)
 3. **AGUARDE 3+ SEGUNDOS**
@@ -144,6 +151,7 @@ const handleAppStateChange = async (nextAppState: AppStateStatus) => {
 5. **DEVE** pedir biometria novamente
 
 ### Teste 3: Background Rápido (< 2s)
+
 1. App aberto e autenticado
 2. Minimize rapidamente
 3. Volte IMEDIATAMENTE (< 2s)
@@ -177,18 +185,19 @@ Se você NÃO ver esse log, significa que o cooldown expirou e o app realmente v
 
 ## 📊 Comparação
 
-| Situação | Antes | Depois |
-|----------|-------|--------|
-| Autenticar → AppState muda | Loop infinito 🔄 | Cooldown ignora ✅ |
-| Minimizar < 2s | Bloqueava | Cooldown pode ignorar |
-| Minimizar > 2s | - | Bloqueia normalmente ✅ |
-| Navegação interna | - | Nada acontece ✅ |
+| Situação                   | Antes            | Depois                  |
+| -------------------------- | ---------------- | ----------------------- |
+| Autenticar → AppState muda | Loop infinito 🔄 | Cooldown ignora ✅      |
+| Minimizar < 2s             | Bloqueava        | Cooldown pode ignorar   |
+| Minimizar > 2s             | -                | Bloqueia normalmente ✅ |
+| Navegação interna          | -                | Nada acontece ✅        |
 
 ## 🎓 Lição Aprendida
 
 **Face ID/Touch ID causam mudanças no AppState!**
 
 Quando você mostra o prompt de biometria:
+
 - App fica `inactive` temporariamente
 - Quando fecha o prompt, volta para `active`
 - Isso parece com "voltou do background"
@@ -201,6 +210,7 @@ Quando você mostra o prompt de biometria:
 Com essa mudança simples (cooldown de 2s), o loop infinito foi eliminado mantendo toda a funcionalidade de segurança.
 
 O app agora se comporta **exatamente** como apps de banco:
+
 - ✅ Pede biometria ao abrir
 - ✅ Pede biometria ao voltar do background
 - ✅ Não pede durante uso normal

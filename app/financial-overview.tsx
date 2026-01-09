@@ -39,6 +39,8 @@ export default function FinancialOverviewScreen() {
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [totalDebt, setTotalDebt] = useState<number>(0);
   const [debtCount, setDebtCount] = useState<number>(0);
+  const [totalCreditCard, setTotalCreditCard] = useState<number>(0);
+  const [creditCardCount, setCreditCardCount] = useState<number>(0);
   const [waltsSuggestion, setWaltsSuggestion] = useState<{
     dailyBudget: number;
     reasoning: string;
@@ -227,9 +229,19 @@ export default function FinancialOverviewScreen() {
         .eq('user_id', user.id)
         .eq('type', 'CREDIT');
 
+      // Buscar contas bancárias (não cartões de crédito)
+      const { data: bankAccounts } = await supabase
+        .from('pluggy_accounts')
+        .select('id')
+        .eq('user_id', user.id)
+        .in('type', ['BANK', 'CHECKING']);
+
+      const bankAccountIds = bankAccounts?.map((acc) => acc.id) || [];
+
+      // Buscar apenas transações pendentes de contas bancárias (excluir cartões)
       const { data: pendingTransactions } = await supabase
         .from('pluggy_transactions')
-        .select('id, description, amount, date, status')
+        .select('id, description, amount, date, status, account_id')
         .eq('user_id', user.id)
         .eq('status', 'PENDING')
         .eq('type', 'DEBIT')
@@ -237,34 +249,38 @@ export default function FinancialOverviewScreen() {
 
       let debtTotal = 0;
       let debtCounter = 0;
+      let creditCardTotal = 0;
+      let creditCardCounter = 0;
 
-      // Analisar cartões de crédito
+      // Analisar cartões de crédito (separado de dívidas)
       if (creditAccounts) {
         creditAccounts.forEach((account) => {
-          if (
-            account.credit_limit &&
-            account.available_credit_limit !== null &&
-            account.available_credit_limit < account.credit_limit * 0.1
-          ) {
+          if (account.credit_limit && account.available_credit_limit !== null) {
             const usedCredit =
               account.credit_limit - account.available_credit_limit;
-            if (usedCredit > account.credit_limit * 0.9) {
-              debtTotal += usedCredit;
-              debtCounter++;
+            if (usedCredit > 0) {
+              creditCardTotal += usedCredit;
+              creditCardCounter++;
             }
           }
         });
       }
 
-      // Analisar transações pendentes
-      if (pendingTransactions) {
+      // Analisar transações pendentes ATRASADAS de contas bancárias (apenas dívidas reais)
+      if (pendingTransactions && bankAccountIds.length > 0) {
         pendingTransactions.forEach((tx) => {
+          // Apenas considerar transações de contas bancárias (não cartões)
+          if (!bankAccountIds.includes(tx.account_id)) {
+            return;
+          }
+
           const dueDate = new Date(tx.date);
           const today = new Date();
           const daysOverdue = Math.floor(
             (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
           );
 
+          // Apenas contas ATRASADAS são dívidas
           if (daysOverdue > 0) {
             debtTotal += Math.abs(tx.amount);
             debtCounter++;
@@ -274,6 +290,8 @@ export default function FinancialOverviewScreen() {
 
       setTotalDebt(debtTotal);
       setDebtCount(debtCounter);
+      setTotalCreditCard(creditCardTotal);
+      setCreditCardCount(creditCardCounter);
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error);
     } finally {

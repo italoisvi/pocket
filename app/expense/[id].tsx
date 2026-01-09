@@ -75,7 +75,9 @@ export default function ExpenseDetailScreen() {
       if (expense.image_url && expense.image_url.includes('supabase')) {
         try {
           // Extrair o caminho do arquivo da URL pública
-          const urlParts = expense.image_url.split('/storage/v1/object/public/receipts/');
+          const urlParts = expense.image_url.split(
+            '/storage/v1/object/public/receipts/'
+          );
           if (urlParts.length > 1) {
             const filePath = urlParts[1];
             await supabase.storage.from('receipts').remove([filePath]);
@@ -166,13 +168,18 @@ export default function ExpenseDetailScreen() {
               source={{ uri: expense.image_url }}
               style={styles.image}
               onError={(error) => {
-                console.error('[ExpenseDetail] Erro ao carregar imagem:', error.nativeEvent);
+                console.error(
+                  '[ExpenseDetail] Erro ao carregar imagem:',
+                  error.nativeEvent
+                );
               }}
               onLoad={() => {
                 console.log('[ExpenseDetail] Imagem carregada com sucesso!');
               }}
               onLoadStart={() => {
-                console.log('[ExpenseDetail] Iniciando carregamento da imagem...');
+                console.log(
+                  '[ExpenseDetail] Iniciando carregamento da imagem...'
+                );
               }}
             />
           )}

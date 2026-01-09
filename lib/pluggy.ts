@@ -98,7 +98,8 @@ export async function updateItem(itemId: string): Promise<{
       console.error('[pluggy] Response data:', JSON.stringify(data, null, 2));
 
       // Se temos detalhes do erro no response, incluir na mensagem
-      const errorMessage = data.error || error.message || 'Falha ao atualizar banco';
+      const errorMessage =
+        data.error || error.message || 'Falha ao atualizar banco';
       const errorDetails = data.details ? `\nDetalhes: ${data.details}` : '';
       const statusCode = data.statusCode ? `\nStatus: ${data.statusCode}` : '';
 

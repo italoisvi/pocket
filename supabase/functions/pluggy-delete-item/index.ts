@@ -10,7 +10,8 @@ serve(async (req) => {
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type',
   };
 
   if (req.method === 'OPTIONS') {
@@ -37,10 +38,10 @@ serve(async (req) => {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers,
+      });
     }
 
     // Ler body
@@ -53,7 +54,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[pluggy-delete-item] Deleting item ${itemId} for user ${user.id}`);
+    console.log(
+      `[pluggy-delete-item] Deleting item ${itemId} for user ${user.id}`
+    );
 
     // Buscar o pluggy_item_id
     const { data: itemData, error: itemError } = await supabase
@@ -102,7 +105,10 @@ serve(async (req) => {
 
     if (!deleteResponse.ok && deleteResponse.status !== 404) {
       const errorText = await deleteResponse.text();
-      console.error('[pluggy-delete-item] Failed to delete from Pluggy:', errorText);
+      console.error(
+        '[pluggy-delete-item] Failed to delete from Pluggy:',
+        errorText
+      );
       return new Response(
         JSON.stringify({ error: 'Failed to delete item from Pluggy' }),
         { status: 500, headers }
@@ -119,7 +125,10 @@ serve(async (req) => {
       .eq('user_id', user.id);
 
     if (deleteError) {
-      console.error('[pluggy-delete-item] Failed to delete from database:', deleteError);
+      console.error(
+        '[pluggy-delete-item] Failed to delete from database:',
+        deleteError
+      );
       return new Response(
         JSON.stringify({ error: 'Failed to delete item from database' }),
         { status: 500, headers }
@@ -128,10 +137,7 @@ serve(async (req) => {
 
     console.log('[pluggy-delete-item] Item deleted from database');
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { headers }
-    );
+    return new Response(JSON.stringify({ success: true }), { headers });
   } catch (error) {
     console.error('[pluggy-delete-item] Error:', error);
     return new Response(

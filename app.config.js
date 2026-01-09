@@ -1,6 +1,6 @@
 export default {
   expo: {
-    owner: "gladius-sistemas",
+    owner: 'gladius-sistemas',
     name: 'Pocket',
     slug: 'pocket',
     version: '1.0.1',
@@ -56,7 +56,7 @@ export default {
     ],
     extra: {
       eas: {
-        "projectId": "3f8676c7-50be-4b5e-a3a0-c49dde31197d"
+        projectId: '3f8676c7-50be-4b5e-a3a0-c49dde31197d',
       },
       // Expor variáveis de ambiente para o runtime (funciona em builds release)
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,

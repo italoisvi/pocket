@@ -9,6 +9,7 @@ Este documento descreve as políticas de Row Level Security (RLS) implementadas 
 As seguintes políticas DELETE foram criadas para permitir que usuários autenticados deletem apenas seus próprios dados:
 
 ### 1. Profiles
+
 ```sql
 CREATE POLICY "Users can delete their own profile"
 ON public.profiles
@@ -16,9 +17,11 @@ FOR DELETE
 TO authenticated
 USING (auth.uid() = id);
 ```
+
 **Descrição:** Permite que usuários deletem seu próprio perfil.
 
 ### 2. Expenses
+
 ```sql
 CREATE POLICY "Users can delete their own expenses"
 ON public.expenses
@@ -26,9 +29,11 @@ FOR DELETE
 TO authenticated
 USING (auth.uid() = user_id);
 ```
+
 **Descrição:** Permite que usuários deletem suas próprias despesas.
 
 ### 3. Budgets
+
 ```sql
 CREATE POLICY "Users can delete their own budgets"
 ON public.budgets
@@ -36,9 +41,11 @@ FOR DELETE
 TO authenticated
 USING (auth.uid() = user_id);
 ```
+
 **Descrição:** Permite que usuários deletem seus próprios orçamentos.
 
 ### 4. Pluggy Items
+
 ```sql
 CREATE POLICY "Users can delete their own pluggy items"
 ON public.pluggy_items
@@ -46,9 +53,11 @@ FOR DELETE
 TO authenticated
 USING (auth.uid() = user_id);
 ```
+
 **Descrição:** Permite que usuários deletem seus próprios itens do Pluggy (conexões bancárias).
 
 ### 5. Pluggy Accounts
+
 ```sql
 CREATE POLICY "Users can delete their own pluggy accounts"
 ON public.pluggy_accounts
@@ -56,9 +65,11 @@ FOR DELETE
 TO authenticated
 USING (auth.uid() = user_id);
 ```
+
 **Descrição:** Permite que usuários deletem suas próprias contas bancárias conectadas via Pluggy.
 
 ### 6. Pluggy Transactions
+
 ```sql
 CREATE POLICY "Users can delete their own pluggy transactions"
 ON public.pluggy_transactions
@@ -66,9 +77,11 @@ FOR DELETE
 TO authenticated
 USING (auth.uid() = user_id);
 ```
+
 **Descrição:** Permite que usuários deletem suas próprias transações sincronizadas do Pluggy.
 
 ### 7. Conversations
+
 ```sql
 CREATE POLICY "Users can delete their own conversations"
 ON public.conversations
@@ -76,6 +89,7 @@ FOR DELETE
 TO authenticated
 USING (auth.uid() = user_id);
 ```
+
 **Descrição:** Permite que usuários deletem suas próprias conversas.
 
 ## Segurança

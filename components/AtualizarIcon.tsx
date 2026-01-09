@@ -5,7 +5,10 @@ type AtualizarIconProps = {
   color?: string;
 };
 
-export function AtualizarIcon({ size = 24, color = '#000' }: AtualizarIconProps) {
+export function AtualizarIcon({
+  size = 24,
+  color = '#000',
+}: AtualizarIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path

@@ -21,7 +21,7 @@ import { ExpenseConfirmModal } from '@/components/ExpenseConfirmModal';
 import { CameraInstructionsModal } from '@/components/CameraInstructionsModal';
 import { extractReceiptData, type ReceiptData } from '@/lib/ocr';
 import { supabase } from '@/lib/supabase';
-import { categorizeExpense } from '@/lib/categories';
+import { categorizeWithWalts } from '@/lib/categorize-with-walts';
 
 const INSTRUCTIONS_SHOWN_KEY = 'camera_instructions_shown';
 
@@ -235,8 +235,17 @@ export default function CameraScreen() {
         publicUrl = null;
       }
 
-      const categorization = categorizeExpense(editedData.establishmentName);
+      // Usar Walts para categorização inteligente
+      console.log('[Camera] Iniciando categorização com Walts...');
+      const categorization = await categorizeWithWalts(
+        editedData.establishmentName,
+        {
+          amount: editedData.amount,
+          items: editedData.items,
+        }
+      );
 
+      console.log('[Camera] Categorização concluída:', categorization);
       console.log('[Camera] Dados do insert:', {
         user_id: user.id,
         establishment_name: editedData.establishmentName,
@@ -244,6 +253,7 @@ export default function CameraScreen() {
         date: editedData.date,
         category: categorization.category,
         subcategory: categorization.subcategory,
+        confidence: categorization.confidence,
       });
 
       const { data: insertedData, error } = await supabase

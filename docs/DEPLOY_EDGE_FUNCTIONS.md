@@ -12,16 +12,19 @@
 ### 1. Instalar Supabase CLI (se ainda não tiver)
 
 **Windows (PowerShell):**
+
 ```powershell
 scoop install supabase
 ```
 
 Ou via NPM:
+
 ```bash
 npm install -g supabase
 ```
 
 **Verificar instalação:**
+
 ```bash
 supabase --version
 ```
@@ -45,12 +48,14 @@ supabase link --project-ref SEU_PROJECT_REF
 ```
 
 **Como encontrar o PROJECT_REF:**
+
 1. Acesse https://app.supabase.com
 2. Selecione seu projeto
 3. Vá em **Settings** → **General**
 4. Copie o **Reference ID**
 
 **Exemplo:**
+
 ```bash
 supabase link --project-ref abcdefghijklmnop
 ```
@@ -60,11 +65,13 @@ supabase link --project-ref abcdefghijklmnop
 ### 4. Deploy das Edge Functions
 
 **Deploy TODAS as funções de uma vez:**
+
 ```bash
 supabase functions deploy
 ```
 
 **Ou deploy individual:**
+
 ```bash
 supabase functions deploy pluggy-create-token
 supabase functions deploy pluggy-sync-item
@@ -97,6 +104,7 @@ Você pode testar diretamente no Supabase Dashboard:
 5. Clique em **Send request**
 
 **Exemplo de teste para `pluggy-create-token`:**
+
 - Método: POST
 - Body: (vazio, usa o token do usuário logado)
 - Headers: Authorization com token do Supabase
@@ -106,16 +114,19 @@ Você pode testar diretamente no Supabase Dashboard:
 ## 🔧 Comandos Úteis
 
 ### Ver logs em tempo real:
+
 ```bash
 supabase functions logs pluggy-create-token --tail
 ```
 
 ### Deletar uma função:
+
 ```bash
 supabase functions delete pluggy-create-token
 ```
 
 ### Listar funções:
+
 ```bash
 supabase functions list
 ```

@@ -26,6 +26,7 @@ vercel --prod
 ### 4. Anote a URL do deploy
 
 Após o deploy, você receberá uma URL como:
+
 ```
 https://pocket-redirect-xxxxxxx.vercel.app
 ```

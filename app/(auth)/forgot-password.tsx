@@ -27,8 +27,7 @@ export default function ForgotPasswordScreen() {
 
     setLoading(true);
     // TODO: Substituir pela URL do Vercel após deploy
-    const redirectUrl =
-      'https://pocket-redirect.vercel.app/'; // Substituir pela URL real após deploy
+    const redirectUrl = 'https://pocket-redirect.vercel.app/'; // Substituir pela URL real após deploy
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,

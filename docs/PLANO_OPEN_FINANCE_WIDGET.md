@@ -18,6 +18,7 @@ Este plano descreve a implementação do Open Finance no app Pocket usando o **P
 ## ✅ Vantagens do Widget
 
 ### 👍 Prós
+
 - ✅ **Menos código**: Widget gerencia toda a UI de conexão
 - ✅ **Manutenção reduzida**: Pluggy atualiza o widget automaticamente
 - ✅ **UI/UX testada**: Interface otimizada e testada pela Pluggy
@@ -26,6 +27,7 @@ Este plano descreve a implementação do Open Finance no app Pocket usando o **P
 - ✅ **Atualizações automáticas**: Novos bancos adicionados automaticamente
 
 ### 👎 Contras
+
 - ❌ **Menos customização visual**: Limitado às opções do widget
 - ❌ **Dependência externa**: Depende do serviço da Pluggy estar online
 - ❌ **Tamanho do bundle**: Adiciona biblioteca ao app
@@ -188,9 +190,14 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+      });
     }
 
     // Gerar API Key da Pluggy
@@ -212,16 +219,19 @@ serve(async (req) => {
     const { apiKey } = await apiKeyResponse.json();
 
     // Gerar Connect Token
-    const connectTokenResponse = await fetch('https://api.pluggy.ai/connect_token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': apiKey,
-      },
-      body: JSON.stringify({
-        clientUserId: user.id,
-      }),
-    });
+    const connectTokenResponse = await fetch(
+      'https://api.pluggy.ai/connect_token',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-KEY': apiKey,
+        },
+        body: JSON.stringify({
+          clientUserId: user.id,
+        }),
+      }
+    );
 
     if (!connectTokenResponse.ok) {
       throw new Error('Failed to generate connect token');
@@ -229,16 +239,15 @@ serve(async (req) => {
 
     const { accessToken } = await connectTokenResponse.json();
 
-    return new Response(
-      JSON.stringify({ connectToken: accessToken }),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ connectToken: accessToken }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error generating connect token:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 });
 ```
@@ -259,9 +268,14 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+      });
     }
 
     // Gerar API Key
@@ -317,16 +331,14 @@ serve(async (req) => {
       });
     }
 
-    return new Response(
-      JSON.stringify({ success: true, accounts }),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ success: true, accounts }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error syncing item:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+    });
   }
 });
 ```
@@ -919,6 +931,7 @@ const styles = StyleSheet.create({
 ## 📋 Checklist de Implementação
 
 ### Configuração Inicial
+
 - [ ] Criar conta na Pluggy (https://dashboard.pluggy.ai)
 - [ ] Obter Client ID e Client Secret
 - [ ] Adicionar variáveis de ambiente no Supabase:
@@ -926,6 +939,7 @@ const styles = StyleSheet.create({
   - `PLUGGY_CLIENT_SECRET`
 
 ### Backend (Supabase)
+
 - [ ] Executar script SQL para criar tabelas
 - [ ] Criar Edge Function `pluggy-create-token`
 - [ ] Criar Edge Function `pluggy-sync-item`
@@ -934,6 +948,7 @@ const styles = StyleSheet.create({
 - [ ] Deploy das Edge Functions
 
 ### Frontend (React Native)
+
 - [ ] Instalar `react-pluggy-connect`: `npm install react-pluggy-connect`
 - [ ] Criar componente `OpenFinanceIcon`
 - [ ] Adicionar tab "Open Finance" no menu inferior
@@ -944,6 +959,7 @@ const styles = StyleSheet.create({
 - [ ] Testar fluxo completo de conexão
 
 ### Testes
+
 - [ ] Testar conexão com banco sandbox (Pluggy Sandbox)
 - [ ] Testar callback onSuccess
 - [ ] Testar sincronização de contas
@@ -954,6 +970,7 @@ const styles = StyleSheet.create({
 - [ ] Testar em Android
 
 ### Produção
+
 - [ ] Usar Client ID/Secret de produção
 - [ ] Remover `includeSandbox: true`
 - [ ] Configurar webhooks (opcional)
@@ -1012,10 +1029,12 @@ O Widget oferece algumas opções de customização:
 ## 💰 Custos
 
 ### Pluggy
+
 - **Plano Free**: 100 Items (conexões), sem categorização
 - **Plano Pro**: A partir de R$ 199/mês, com categorização
 
 ### Supabase
+
 - **Edge Functions**: Gratuito até 500K invocations/mês
 - **Database**: Gratuito até 500MB
 - **Bandwidth**: Gratuito até 5GB/mês
@@ -1025,27 +1044,32 @@ O Widget oferece algumas opções de customização:
 ## 🚀 Próximos Passos Recomendados
 
 ### Fase 1: Setup (1-2 dias)
+
 1. Criar conta Pluggy
 2. Configurar Supabase
 3. Criar tabelas no banco
 
 ### Fase 2: Backend (2-3 dias)
+
 1. Implementar Edge Function de token
 2. Implementar Edge Function de sync
 3. Testar com Postman
 
 ### Fase 3: Widget Integration (1-2 dias)
+
 1. Instalar biblioteca
 2. Criar tela de conexão
 3. Integrar callbacks
 
 ### Fase 4: UI Completa (2-3 dias)
+
 1. Tela principal Open Finance
 2. Tela de contas
 3. Tela de transações
 4. Polimento visual
 
 ### Fase 5: Testes & Deploy (1-2 dias)
+
 1. Testes completos
 2. Correções de bugs
 3. Deploy para produção

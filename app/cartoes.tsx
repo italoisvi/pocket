@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,26 +8,63 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { useTheme } from '@/lib/theme';
 
-type CardExpense = {
-  bank: string;
+type CreditCardInvoice = {
+  accountId: string;
+  accountName: string;
+  month: string; // YYYY-MM
   total: number;
+  transactionCount: number;
 };
 
 export default function CartoesScreen() {
   const { theme, isDark } = useTheme();
-  const [cardExpenses, setCardExpenses] = useState<CardExpense[]>([]);
+  const [invoices, setInvoices] = useState<CreditCardInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [availableMonths, setAvailableMonths] = useState<Date[]>([]);
+  const monthScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    // Gerar últimos 12 meses
+    const months: Date[] = [];
+    const today = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      months.push(date);
+    }
+    setAvailableMonths(months);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (availableMonths.length > 0) {
+        const currentMonthIndex = availableMonths.findIndex(
+          (month) =>
+            month.getMonth() === new Date().getMonth() &&
+            month.getFullYear() === new Date().getFullYear()
+        );
+        if (currentMonthIndex !== -1 && monthScrollRef.current) {
+          setTimeout(() => {
+            monthScrollRef.current?.scrollTo({
+              x: currentMonthIndex * 88,
+              animated: false,
+            });
+          }, 300);
+        }
+      }
+    }, [availableMonths])
+  );
 
   useEffect(() => {
     loadCardExpenses();
-  }, []);
+  }, [selectedMonth]);
 
   const loadCardExpenses = async () => {
     try {
@@ -37,89 +74,99 @@ export default function CartoesScreen() {
 
       if (!user) return;
 
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-      const { data: expensesData } = await supabase
-        .from('expenses')
-        .select('amount, category, subcategory, establishment_name')
+      // Buscar contas de cartão de crédito do Open Finance
+      const { data: creditAccounts } = await supabase
+        .from('pluggy_accounts')
+        .select('id, name, type')
         .eq('user_id', user.id)
-        .eq('category', 'cartao_credito')
-        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
-        .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
+        .eq('type', 'CREDIT');
 
-      if (expensesData) {
-        // Agrupar por banco (extraído do establishment_name ou subcategory)
-        const bankMap = new Map<string, number>();
-
-        expensesData.forEach((exp) => {
-          // Tentar extrair o banco do nome do estabelecimento
-          const establishmentLower = exp.establishment_name.toLowerCase();
-          let bank = 'Outros';
-
-          // Lista de bancos comuns
-          const banks = [
-            'nubank',
-            'inter',
-            'c6',
-            'itau',
-            'itaú',
-            'bradesco',
-            'santander',
-            'banco do brasil',
-            'caixa',
-            'original',
-            'pan',
-            'neon',
-            'picpay',
-            'mercado pago',
-            'pagbank',
-            'next',
-            'will bank',
-            'digio',
-            'credz',
-            'bmg',
-          ];
-
-          // Procurar o nome do banco no establishment_name
-          for (const bankName of banks) {
-            if (establishmentLower.includes(bankName)) {
-              // Capitalizar o nome do banco
-              bank =
-                bankName.charAt(0).toUpperCase() +
-                bankName.slice(1).toLowerCase();
-              // Ajustar nomes específicos
-              if (bank === 'Banco do brasil') bank = 'Banco do Brasil';
-              if (bank === 'Mercado pago') bank = 'Mercado Pago';
-              if (bank === 'Pagbank') bank = 'PagBank';
-              if (bank === 'Will bank') bank = 'Will Bank';
-              break;
-            }
-          }
-
-          // Agrupar por banco
-          const current = bankMap.get(bank) || 0;
-          bankMap.set(bank, current + exp.amount);
-        });
-
-        const cards: CardExpense[] = Array.from(bankMap.entries()).map(
-          ([bank, total]) => ({
-            bank,
-            total,
-          })
-        );
-
-        setCardExpenses(cards.sort((a, b) => b.total - a.total));
+      if (!creditAccounts || creditAccounts.length === 0) {
+        setInvoices([]);
+        setLoading(false);
+        return;
       }
+
+      // Calcular range do mês selecionado
+      const startOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
+        1
+      );
+      const endOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth() + 1,
+        0,
+        23,
+        59,
+        59
+      );
+
+      const selectedMonthKey = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
+
+      // Para cada cartão, buscar transações do mês selecionado
+      const allInvoices: CreditCardInvoice[] = [];
+
+      for (const account of creditAccounts) {
+        // Buscar transações do mês selecionado
+        const { data: transactions } = await supabase
+          .from('pluggy_transactions')
+          .select('id, amount, date, type')
+          .eq('account_id', account.id)
+          .gte('date', startOfMonth.toISOString().split('T')[0])
+          .lte('date', endOfMonth.toISOString().split('T')[0])
+          .order('date', { ascending: false });
+
+        if (transactions && transactions.length > 0) {
+          // Separar compras (CREDIT) e pagamentos (DEBIT)
+          let compras = 0;
+          let pagamentos = 0;
+          let transactionCount = 0;
+
+          transactions.forEach((tx) => {
+            const amount = Math.abs(tx.amount);
+
+            if (tx.type === 'CREDIT') {
+              // Compras no cartão (aumentam a fatura)
+              compras += amount;
+              transactionCount++;
+            } else if (tx.type === 'DEBIT') {
+              // Pagamentos da fatura (diminuem o saldo devedor)
+              pagamentos += amount;
+            }
+          });
+
+          // Total da fatura = Compras - Pagamentos
+          const monthTotal = compras - pagamentos;
+
+          // Só adicionar se houver saldo devedor ou compras
+          if (compras > 0) {
+            allInvoices.push({
+              accountId: account.id,
+              accountName: account.name,
+              month: selectedMonthKey,
+              total: Math.max(0, monthTotal), // Garantir que não fique negativo
+              transactionCount,
+            });
+          }
+        }
+      }
+
+      setInvoices(allInvoices);
     } catch (error) {
-      console.error('Erro ao carregar gastos de cartões:', error);
+      console.error('Erro ao carregar faturas de cartões:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const totalCards = cardExpenses.reduce((sum, item) => sum + item.total, 0);
+  const formatMonthYear = (monthKey: string) => {
+    const [year, month] = monthKey.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  };
+
+  const totalCards = invoices.reduce((sum, item) => sum + item.total, 0);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -140,18 +187,72 @@ export default function CartoesScreen() {
       </SafeAreaView>
 
       <ScrollView style={styles.content}>
+        {/* Seletor de Mês */}
+        <ScrollView
+          ref={monthScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.monthSelector}
+          contentContainerStyle={styles.monthSelectorContent}
+        >
+          {availableMonths.map((month, index) => {
+            const isSelected =
+              month.getMonth() === selectedMonth.getMonth() &&
+              month.getFullYear() === selectedMonth.getFullYear();
+            return (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.monthButton,
+                  {
+                    backgroundColor: isSelected ? theme.primary : theme.card,
+                    borderColor: theme.cardBorder,
+                  },
+                ]}
+                onPress={() => setSelectedMonth(month)}
+              >
+                <Text
+                  style={[
+                    styles.monthButtonText,
+                    {
+                      color: isSelected ? theme.background : theme.text,
+                    },
+                  ]}
+                >
+                  {month.toLocaleDateString('pt-BR', { month: 'short' })}
+                </Text>
+                <Text
+                  style={[
+                    styles.monthButtonYear,
+                    {
+                      color: isSelected
+                        ? theme.background
+                        : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  {month.getFullYear()}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
           </View>
-        ) : cardExpenses.length === 0 ? (
+        ) : invoices.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              Nenhum gasto com cartão de crédito encontrado neste mês
+              Nenhuma fatura de cartão de crédito encontrada
+            </Text>
+            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+              Conecte seus cartões via Open Finance para visualizar as faturas
             </Text>
           </View>
         ) : (
-          <>
+          <View style={styles.invoicesContainer}>
             {/* Card Total */}
             <View
               style={[
@@ -164,17 +265,17 @@ export default function CartoesScreen() {
               ]}
             >
               <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>
-                Total em Cartões
+                Total em Faturas
               </Text>
               <Text style={[styles.totalValue, { color: theme.text }]}>
                 {formatCurrency(totalCards)}
               </Text>
             </View>
 
-            {/* Cards por Banco */}
-            {cardExpenses.map((card, index) => (
-              <View
-                key={index}
+            {/* Faturas por Cartão e Mês */}
+            {invoices.map((invoice, index) => (
+              <TouchableOpacity
+                key={`${invoice.accountId}-${invoice.month}-${index}`}
                 style={[
                   styles.card,
                   {
@@ -183,26 +284,44 @@ export default function CartoesScreen() {
                   },
                   getCardShadowStyle(isDark),
                 ]}
+                onPress={() => {
+                  // TODO: Navegar para página de detalhes da fatura
+                  console.log('Ver detalhes da fatura:', invoice);
+                }}
               >
                 <View style={styles.cardContent}>
                   <View style={styles.cardLeft}>
                     <View
                       style={[
                         styles.bankIndicator,
-                        { backgroundColor: '#EF5350' },
+                        { backgroundColor: '#f59e0b' },
                       ]}
                     />
-                    <Text style={[styles.bankName, { color: theme.text }]}>
-                      {card.bank}
-                    </Text>
+                    <View>
+                      <Text style={[styles.bankName, { color: theme.text }]}>
+                        {invoice.accountName}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.monthText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {formatMonthYear(invoice.month)} •{' '}
+                        {invoice.transactionCount}{' '}
+                        {invoice.transactionCount === 1
+                          ? 'transação'
+                          : 'transações'}
+                      </Text>
+                    </View>
                   </View>
                   <Text style={[styles.cardValue, { color: theme.text }]}>
-                    {formatCurrency(card.total)}
+                    {formatCurrency(invoice.total)}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
-          </>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -235,7 +354,33 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 24,
+  },
+  monthSelector: {
+    marginTop: 16,
+    marginBottom: 16,
+    paddingLeft: 24,
+  },
+  monthSelectorContent: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingRight: 24,
+  },
+  monthButton: {
+    width: 76,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+  },
+  monthButtonText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    textTransform: 'capitalize',
+  },
+  monthButtonYear: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 2,
   },
   loadingContainer: {
     padding: 40,
@@ -245,8 +390,17 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
   },
+  invoicesContainer: {
+    padding: 24,
+  },
   emptyText: {
     fontSize: 16,
+    fontFamily: 'CormorantGaramond-Regular',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
   },
@@ -291,6 +445,11 @@ const styles = StyleSheet.create({
   bankName: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
+    marginBottom: 4,
+  },
+  monthText: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
   },
   cardValue: {
     fontSize: 20,

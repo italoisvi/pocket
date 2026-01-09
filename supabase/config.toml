@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.delete-user]
 verify_jwt = true
+
+[functions.walts-analysis]
+verify_jwt = true

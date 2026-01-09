@@ -3,6 +3,7 @@
 ## Problema Identificado
 
 O loop infinito acontecia porque:
+
 1. App iniciava → pedia biometria
 2. Biometria autenticava → voltava pro app
 3. App "reiniciava" algum state → pedia biometria novamente
@@ -11,17 +12,21 @@ O loop infinito acontecia porque:
 ## Como a Nova Solução Funciona
 
 ### 1. **Controle de Sessão**
+
 ```typescript
 const hasAuthenticatedThisSession = useRef(false);
 ```
+
 - Mantém registro se o usuário JÁ autenticou nesta sessão do app
 - Usa `useRef` para não causar re-renders
 - Uma vez autenticado, não pede novamente até que o app vá para background
 
 ### 2. **Detecção de Background/Foreground**
+
 ```typescript
 AppState.addEventListener('change', handleAppStateChange);
 ```
+
 - Monitora quando o app vai para background ou retorna
 - **SÓ bloqueia** quando:
   - App estava em background E voltou para ativo
@@ -29,25 +34,30 @@ AppState.addEventListener('change', handleAppStateChange);
   - Usuário já tinha autenticado antes (ou seja, não é primeira vez)
 
 ### 3. **Primeira Montagem do Componente**
+
 ```typescript
 const isFirstMount = useRef(true);
 ```
+
 - Identifica se é a primeira vez que o componente está montando
 - Na primeira vez + biometria habilitada → bloqueia e pede autenticação
 - Aguarda 500ms antes de mostrar o prompt (para não conflitar com splash)
 
 ### 4. **Proteção contra Múltiplas Autenticações**
+
 ```typescript
 if (isAuthenticating) {
   return;
 }
 ```
+
 - Evita que múltiplos prompts de biometria apareçam ao mesmo tempo
 - Se já está autenticando, ignora novas tentativas
 
 ## Fluxo Completo
 
 ### Cenário 1: Primeira Abertura do App (Biometria Habilitada)
+
 ```
 1. App abre
 2. Splash screen aparece
@@ -62,6 +72,7 @@ if (isAuthenticating) {
 ```
 
 ### Cenário 2: App Vai para Background e Retorna
+
 ```
 1. Usuário está usando o app (já autenticado)
 2. Minimiza o app (vai para background)
@@ -76,6 +87,7 @@ if (isAuthenticating) {
 ```
 
 ### Cenário 3: Biometria Desabilitada
+
 ```
 1. App abre normalmente
 2. BiometricLock verifica configuração
@@ -85,14 +97,14 @@ if (isAuthenticating) {
 
 ## Estados Importantes
 
-| Estado | Tipo | Propósito |
-|--------|------|-----------|
-| `isLocked` | useState | Controla se a tela está bloqueada (UI) |
-| `biometricEnabled` | useState | Se biometria está habilitada nas configurações |
-| `isAuthenticating` | useState | Se está em processo de autenticação |
-| `hasAuthenticatedThisSession` | useRef | Se já autenticou nesta sessão (não causa re-render) |
-| `isFirstMount` | useRef | Se é a primeira montagem do componente |
-| `appState` | useRef | Estado atual do app (active/background/inactive) |
+| Estado                        | Tipo     | Propósito                                           |
+| ----------------------------- | -------- | --------------------------------------------------- |
+| `isLocked`                    | useState | Controla se a tela está bloqueada (UI)              |
+| `biometricEnabled`            | useState | Se biometria está habilitada nas configurações      |
+| `isAuthenticating`            | useState | Se está em processo de autenticação                 |
+| `hasAuthenticatedThisSession` | useRef   | Se já autenticou nesta sessão (não causa re-render) |
+| `isFirstMount`                | useRef   | Se é a primeira montagem do componente              |
+| `appState`                    | useRef   | Estado atual do app (active/background/inactive)    |
 
 ## Integração no App
 
@@ -111,6 +123,7 @@ O componente já está integrado no `_layout.tsx`:
 ## Configuração do Usuário
 
 A configuração continua sendo feita em `settings.tsx`:
+
 - Toggle liga/desliga a biometria
 - Salva no AsyncStorage: `@pocket_biometric_enabled`
 - BiometricLock lê essa configuração
@@ -163,6 +176,7 @@ setTimeout(() => {
 ## Fail-Safe
 
 Se algo der errado na autenticação biométrica:
+
 ```typescript
 catch (error) {
   // Permite acesso em caso de erro
@@ -176,6 +190,7 @@ Isso garante que bugs na biblioteca de biometria não vão travar o app.
 ## Dependências
 
 Certifique-se de ter instalado:
+
 ```bash
 npx expo install expo-local-authentication
 npx expo install @react-native-async-storage/async-storage
@@ -184,6 +199,7 @@ npx expo install @react-native-async-storage/async-storage
 ## Permissões (iOS)
 
 No `app.json`:
+
 ```json
 {
   "expo": {
@@ -199,6 +215,7 @@ No `app.json`:
 ## Próximos Passos
 
 Se quiser melhorar ainda mais:
+
 1. **Adicionar timeout**: Se usuário cancelar biometria 3x, fazer logout
 2. **Animação de transição**: Fade in/out ao bloquear/desbloquear
 3. **Botão manual**: "Autenticar novamente" na tela de bloqueio

@@ -20,6 +20,7 @@ ERROR [RevenueCat] Error fetching offerings
 4. Crie os seguintes produtos de assinatura:
 
 #### Produto 1: Assinatura Mensal
+
 - **Type**: Auto-Renewable Subscription
 - **Reference Name**: `Pocket Premium Monthly`
 - **Product ID**: `com.gladius.pocket.monthly` (ou similar)
@@ -28,6 +29,7 @@ ERROR [RevenueCat] Error fetching offerings
 - **Price**: Escolha o tier de preço desejado (ex: R$ 9,90/mês)
 
 #### Produto 2: Assinatura Anual
+
 - **Type**: Auto-Renewable Subscription
 - **Reference Name**: `Pocket Premium Yearly`
 - **Product ID**: `com.gladius.pocket.yearly` (ou similar)
@@ -36,6 +38,7 @@ ERROR [RevenueCat] Error fetching offerings
 - **Price**: Escolha o tier de preço desejado (ex: R$ 99,90/ano)
 
 #### Produto 3 (Opcional): Trial de 7 Dias
+
 - Configure um **Introductory Offer** no produto mensal ou anual
 - **Offer Type**: Free Trial
 - **Duration**: 7 days
@@ -68,11 +71,13 @@ ERROR [RevenueCat] Error fetching offerings
 4. Configure os packages:
 
 #### Package 1: Mensal
+
 - **Package Identifier**: `$rc_monthly` (use identificadores padrão do RC)
 - **Product**: Selecione `com.gladius.pocket.monthly`
 - **Attached Entitlements**: Selecione `Pocket`
 
 #### Package 2: Anual
+
 - **Package Identifier**: `$rc_annual` (use identificadores padrão do RC)
 - **Product**: Selecione `com.gladius.pocket.yearly`
 - **Attached Entitlements**: Selecione `Pocket`
@@ -99,15 +104,18 @@ Após configurar tudo:
 ### Troubleshooting
 
 #### Erro: "Offerings empty"
+
 - Verifique se a offering `default` está marcada como **Current**
 - Verifique se há packages na offering
 - Aguarde alguns minutos (cache do RevenueCat)
 
 #### Erro: "Product not found"
+
 - Verifique se os Product IDs estão EXATAMENTE iguais no App Store Connect e RevenueCat
 - Verifique se os produtos estão aprovados no App Store Connect (podem estar em "Waiting for Review")
 
 #### Produtos não aparecem em Sandbox
+
 - Certifique-se de estar usando uma conta de Sandbox do App Store
 - Os produtos precisam estar "Ready to Submit" no App Store Connect
 
@@ -134,6 +142,7 @@ RevenueCat:
 ### Próximos Passos
 
 Depois de configurar tudo, você pode adicionar mais ofertas:
+
 - Trials gratuitos
 - Preços introdutórios
 - Múltiplas offerings (ex: "onboarding", "settings")

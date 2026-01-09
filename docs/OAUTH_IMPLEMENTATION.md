@@ -5,21 +5,26 @@ Data: 2026-01-02
 ## 🎯 Mudanças Implementadas
 
 ### 1. ✅ Deep Link Configurado
+
 **Arquivo:** `app.json`
+
 - Scheme `pocket://` já estava configurado
 - Suporta iOS e Android
 - Intent filters configurados corretamente
 
 ### 2. ✅ OAuth Callback Handler Criado
+
 **Arquivo:** `app/oauth-callback.tsx` (NOVO)
 
 **Funcionalidade:**
+
 - Captura deep link `pocket://oauth-callback?itemId=xxx&success=true`
 - Sincroniza item automaticamente após OAuth
 - Mostra feedback ao usuário
 - Redireciona de volta para tela Open Finance
 
 **Fluxo:**
+
 ```
 1. Banco redireciona → pocket://oauth-callback?itemId=123&success=true
 2. App captura deep link
@@ -30,28 +35,34 @@ Data: 2026-01-02
 ```
 
 ### 3. ✅ Connect Token com OAuth Redirect URL
+
 **Arquivo:** `supabase/functions/pluggy-create-token/index.ts`
 **Status:** ✅ DEPLOYED
 
 **Mudança:**
+
 ```typescript
 body: JSON.stringify({
   clientUserId: user.id,
-  webhookUrl: 'https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook',
-  oauthRedirectUrl: 'pocket://oauth-callback',  // ← ADICIONADO
-  avoidDuplicates: true,                        // ← ADICIONADO
-})
+  webhookUrl:
+    'https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook',
+  oauthRedirectUrl: 'pocket://oauth-callback', // ← ADICIONADO
+  avoidDuplicates: true, // ← ADICIONADO
+});
 ```
 
 **Impacto:**
+
 - Pluggy agora sabe para onde redirecionar após OAuth
 - Webhook configurado automaticamente
 - Evita duplicação de items
 
 ### 4. ✅ API Key ao invés de Connect Token
+
 **Arquivo:** `app/open-finance/connect.tsx`
 
 **Mudança:**
+
 ```typescript
 // ANTES (❌ ERRADO):
 const connectToken = await getConnectToken();
@@ -63,36 +74,43 @@ headers: { 'X-API-KEY': apiKey }
 ```
 
 **Impacto:**
+
 - Connect Token tem permissões limitadas
 - API Key permite buscar todos conectores
 - Elimina erros de permissão
 
 ### 5. ✅ Filtro Open Finance Apenas
+
 **Arquivo:** `app/open-finance/connect.tsx`
 
 **Mudança:**
+
 ```typescript
 // ANTES:
-'https://api.pluggy.ai/connectors?countries=BR'
+'https://api.pluggy.ai/connectors?countries=BR';
 
 // DEPOIS:
-'https://api.pluggy.ai/connectors?countries=BR&isOpenFinance=true'
+'https://api.pluggy.ai/connectors?countries=BR&isOpenFinance=true';
 ```
 
 **Impacto:**
+
 - Lista apenas conectores Open Finance (OAuth)
 - Remove conectores diretos (credenciais)
 - Garante fluxo consistente
 
 ### 6. ✅ Botão "Atualizar" Removido
+
 **Arquivo:** `app/(tabs)/open-finance.tsx`
 
 **Mudança:**
+
 - Removido botão "↻ Atualizar" dos cards
 - Sincronização agora é automática via webhook
 - Usuário não precisa atualizar manualmente
 
 **Impacto:**
+
 - Interface mais limpa
 - Fluxo automático (webhooks cuidam da sincronização)
 - Evita confusão do usuário
@@ -178,6 +196,7 @@ headers: { 'X-API-KEY': apiKey }
 ## 🧪 Como Testar
 
 ### Pré-requisitos:
+
 ```bash
 # 1. Rebuild do app (necessário para registrar deep link)
 npx expo prebuild
@@ -203,6 +222,7 @@ npx expo run:android
    - Clicar em "Conectar"
 
 5. **Modal OAuth aparece**:
+
    ```
    Autenticação via Open Finance
 
@@ -235,6 +255,7 @@ npx expo run:android
    - Tela de loading com ActivityIndicator
 
 9. **Alert aparece**:
+
    ```
    Conexão Concluída!
 
@@ -258,6 +279,7 @@ npx expo run:android
 ## 📝 Logs Importantes
 
 ### Logs do OAuth Callback:
+
 ```typescript
 console.log('[OAuth Callback] Params recebidos:', params);
 // Esperado: { itemId: 'xxx', success: 'true' }
@@ -271,12 +293,14 @@ console.log('[OAuth Callback] Sync response:', syncResponse);
 ```
 
 ### Logs do Credentials:
+
 ```typescript
 console.log('[credentials] OAuth URL:', authUrl);
 // Esperado: https://oauth.pluggy.ai/v1/...
 ```
 
 ### Logs do Webhook:
+
 ```typescript
 console.log('[pluggy-webhook] Received event:', event);
 // Esperado: item/updated, item/created, transactions/created
@@ -287,38 +311,48 @@ console.log('[pluggy-webhook] Received event:', event);
 ## ⚠️ Troubleshooting
 
 ### Problema: Deep link não funciona
+
 **Causa:** App não foi rebuiltado após adicionar scheme
 **Solução:**
+
 ```bash
 npx expo prebuild --clean
 npx expo run:ios  # ou run:android
 ```
 
 ### Problema: "Não foi possível obter link de autenticação"
+
 **Causa:** parameter.data.url não está presente
 **Solução:**
+
 - Verificar logs: `console.log('[credentials] Full item:', fullItem)`
 - Verificar se conector é Open Finance (ID >= 600)
 - Verificar se `isOpenFinance=true` na URL
 
 ### Problema: Navegador não abre
+
 **Causa:** URL OAuth inválida ou Linking.canOpenURL retorna false
 **Solução:**
+
 - Verificar permissões do app
 - Testar URL manualmente no navegador
 - Verificar logs do OAuthModal
 
 ### Problema: Após autenticar, nada acontece
+
 **Causa:** Deep link não está capturando ou oauthRedirectUrl incorreto
 **Solução:**
+
 - Verificar app.json tem `"scheme": "pocket"`
 - Verificar Connect Token tem `oauthRedirectUrl: "pocket://oauth-callback"`
 - Fazer rebuild: `npx expo prebuild --clean`
 - Testar deep link manualmente: `npx uri-scheme open pocket://oauth-callback?itemId=test&success=true --ios`
 
 ### Problema: Edge Function não atualizada
+
 **Causa:** Deploy não foi feito
 **Solução:**
+
 ```bash
 supabase functions deploy pluggy-create-token
 ```
@@ -359,6 +393,7 @@ Após implementar todas as correções:
 **FIM DA IMPLEMENTAÇÃO**
 
 Se tiver qualquer problema, envie os logs completos:
+
 1. Console do app (Expo logs)
 2. Response do POST /items
 3. Logs do webhook (Supabase Dashboard)

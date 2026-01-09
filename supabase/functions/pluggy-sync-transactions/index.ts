@@ -10,7 +10,8 @@ serve(async (req) => {
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type',
   };
 
   if (req.method === 'OPTIONS') {
@@ -37,10 +38,10 @@ serve(async (req) => {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers,
+      });
     }
 
     // Ler body
@@ -53,7 +54,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[pluggy-sync-transactions] Syncing transactions for account ${accountId}`);
+    console.log(
+      `[pluggy-sync-transactions] Syncing transactions for account ${accountId}`
+    );
 
     // Gerar API Key
     const apiKeyResponse = await fetch('https://api.pluggy.ai/auth', {
@@ -87,7 +90,10 @@ serve(async (req) => {
 
     if (!transactionsResponse.ok) {
       const errorText = await transactionsResponse.text();
-      console.error('[pluggy-sync-transactions] Failed to fetch transactions:', errorText);
+      console.error(
+        '[pluggy-sync-transactions] Failed to fetch transactions:',
+        errorText
+      );
       return new Response(
         JSON.stringify({ error: 'Failed to fetch transactions from Pluggy' }),
         { status: 500, headers }
@@ -95,7 +101,9 @@ serve(async (req) => {
     }
 
     const { results: transactions } = await transactionsResponse.json();
-    console.log(`[pluggy-sync-transactions] Found ${transactions.length} transactions`);
+    console.log(
+      `[pluggy-sync-transactions] Found ${transactions.length} transactions`
+    );
 
     // Buscar o UUID da conta no banco
     const { data: accountData } = await supabase

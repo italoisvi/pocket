@@ -18,6 +18,7 @@ import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { GraficoCircularIcon } from '@/components/GraficoCircularIcon';
 import { GraficoBarrasIcon } from '@/components/GraficoBarrasIcon';
+import { ComparacaoSetaIcon } from '@/components/ComparacaoSetaIcon';
 import {
   CATEGORIES,
   type ExpenseCategory,
@@ -251,14 +252,17 @@ export default function GraficosTabelasScreen() {
     };
   });
 
-  const barChartData = categoryExpenses.slice(0, 6);
+  // Mostrar todas as categorias no gráfico de barras com scroll
+  const barChartData = categoryExpenses;
 
   const maxValue = Math.max(...barChartData.map((item) => item.total), 0);
-  const chartWidth = screenWidth - 88;
   const chartHeight = 260;
-  const barWidth = 40;
-  const barSpacing =
-    (chartWidth - barWidth * barChartData.length) / (barChartData.length + 1);
+  const barWidth = 60;
+  const barSpacing = 30;
+  const chartWidth = Math.max(
+    screenWidth - 88,
+    barChartData.length * (barWidth + barSpacing) + barSpacing
+  );
 
   // Calcular ângulos e posições para o gráfico de pizza
   const calculatePieData = () => {
@@ -351,7 +355,12 @@ export default function GraficosTabelasScreen() {
         <Text style={[styles.title, { color: theme.text }]}>
           Gráficos & Tabelas
         </Text>
-        <View style={styles.placeholder} />
+        <TouchableOpacity
+          style={styles.compareButton}
+          onPress={() => router.push('/analises-walts')}
+        >
+          <ComparacaoSetaIcon size={24} color={theme.primary} />
+        </TouchableOpacity>
       </SafeAreaView>
 
       <ScrollView style={styles.content}>
@@ -522,76 +531,27 @@ export default function GraficosTabelasScreen() {
                   </View>
                   {chartType === 'pie' ? (
                     <View style={styles.chartWrapper}>
-                      <View style={{ position: 'relative' }}>
-                        {/* Gráfico de pizza base */}
-                        <PieChart
-                          data={pieChartData}
-                          width={screenWidth - 48}
-                          height={220}
-                          chartConfig={{
-                            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                          }}
-                          accessor="population"
-                          backgroundColor="transparent"
-                          paddingLeft="90"
-                          absolute
-                          hasLegend={false}
-                        />
-
-                        {/* Labels e linhas sobrepostos */}
-                        <Svg
-                          width={screenWidth - 48}
-                          height={220}
-                          style={{ position: 'absolute', top: 0, left: 0 }}
-                        >
-                          {pieDataWithPositions.map((item, index) => (
-                            <G key={`label-${index}`}>
-                              {/* Linha do ponto até o label */}
-                              <Line
-                                x1={item.pointX}
-                                y1={item.pointY}
-                                x2={item.labelX}
-                                y2={item.labelY}
-                                stroke={item.color}
-                                strokeWidth={2}
-                              />
-
-                              {/* Linha horizontal curta no final */}
-                              <Line
-                                x1={item.labelX}
-                                y1={item.labelY}
-                                x2={
-                                  item.isRightSide
-                                    ? item.labelX + 15
-                                    : item.labelX - 15
-                                }
-                                y2={item.labelY}
-                                stroke={item.color}
-                                strokeWidth={2}
-                              />
-
-                              {/* Label com valor */}
-                              <SvgText
-                                x={
-                                  item.isRightSide
-                                    ? item.labelX + 20
-                                    : item.labelX - 20
-                                }
-                                y={item.labelY + 5}
-                                fontSize={13}
-                                fontFamily="CormorantGaramond-SemiBold"
-                                fill={theme.text}
-                                textAnchor={item.isRightSide ? 'start' : 'end'}
-                              >
-                                {formatCurrency(item.population)}
-                              </SvgText>
-                            </G>
-                          ))}
-                        </Svg>
-                      </View>
+                      {/* Gráfico de pizza limpo sem labels */}
+                      <PieChart
+                        data={pieChartData}
+                        width={screenWidth - 48}
+                        height={220}
+                        chartConfig={{
+                          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                        }}
+                        accessor="population"
+                        backgroundColor="transparent"
+                        paddingLeft="75"
+                        absolute
+                        hasLegend={false}
+                      />
                     </View>
                   ) : (
-                    <View style={styles.chartWrapper}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={true}
+                      style={styles.barChartScrollView}
+                    >
                       <Svg width={chartWidth} height={chartHeight + 60}>
                         {/* Linhas de grade horizontais */}
                         {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -656,13 +616,15 @@ export default function GraficosTabelasScreen() {
                                 fill={theme.text}
                                 textAnchor="middle"
                               >
-                                {item.subcategory.substring(0, 8)}
+                                {item.subcategory.length > 10
+                                  ? item.subcategory.substring(0, 10) + '...'
+                                  : item.subcategory}
                               </SvgText>
                             </React.Fragment>
                           );
                         })}
                       </Svg>
-                    </View>
+                    </ScrollView>
                   )}
 
                   {/* Divider line */}
@@ -909,8 +871,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
   },
-  placeholder: {
+  compareButton: {
     width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -995,6 +960,9 @@ const styles = StyleSheet.create({
   chartWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+  },
+  barChartScrollView: {
     width: '100%',
   },
   chartDivider: {

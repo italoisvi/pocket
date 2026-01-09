@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { categorizePluggyTransaction } from '../_shared/categorize.ts';
+import { categorizeWithWalts } from '../_shared/categorize-with-walts.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -260,16 +260,36 @@ async function handleTransactionsCreated(supabase: any, data: any) {
   const expensesToCreate: any[] = [];
   const categorizationMap = new Map();
 
-  // Categorizar todas as transações primeiro (em memória, rápido)
+  // 🤖 Categorizar todas as transações com Walts (inteligente!)
+  console.log(
+    '[pluggy-webhook] Starting intelligent categorization with Walts'
+  );
   for (const transaction of transactions) {
-    const categorization = categorizePluggyTransaction({
-      description: transaction.description,
-      category: transaction.category,
-      paymentData: transaction.paymentData,
-    });
+    // Apenas categorizar transações DEBIT (gastos) com valor negativo
+    if (transaction.amount < 0) {
+      try {
+        const categorization = await categorizeWithWalts(
+          transaction.description,
+          {
+            pluggyCategory: transaction.category,
+            receiverName: transaction.paymentData?.receiver?.name,
+            payerName: transaction.paymentData?.payer?.name,
+            amount: Math.abs(transaction.amount),
+          }
+        );
 
-    if (categorization && transaction.amount < 0) {
-      categorizationMap.set(transaction.id, categorization);
+        console.log(
+          `[pluggy-webhook] Categorized "${transaction.description}":`,
+          categorization
+        );
+        categorizationMap.set(transaction.id, categorization);
+      } catch (error) {
+        console.error(
+          `[pluggy-webhook] Error categorizing transaction ${transaction.id}:`,
+          error
+        );
+        // Continue sem categorização - será marcado como não sincronizado
+      }
     }
 
     // Preparar objeto de transação

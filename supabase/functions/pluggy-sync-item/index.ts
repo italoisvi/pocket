@@ -10,7 +10,8 @@ serve(async (req) => {
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type',
   };
 
   if (req.method === 'OPTIONS') {
@@ -37,10 +38,10 @@ serve(async (req) => {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers,
+      });
     }
 
     // Ler body
@@ -53,7 +54,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[pluggy-sync-item] Syncing item ${itemId} for user ${user.id}`);
+    console.log(
+      `[pluggy-sync-item] Syncing item ${itemId} for user ${user.id}`
+    );
 
     // Gerar API Key
     const apiKeyResponse = await fetch('https://api.pluggy.ai/auth', {
@@ -93,7 +96,10 @@ serve(async (req) => {
     console.log(`[pluggy-sync-item] Item fetched: ${item.connector.name}`);
     console.log(`[pluggy-sync-item] Item status: ${item.status}`);
     console.log(`[pluggy-sync-item] Item error:`, item.error);
-    console.log(`[pluggy-sync-item] Item executionStatus:`, item.executionStatus);
+    console.log(
+      `[pluggy-sync-item] Item executionStatus:`,
+      item.executionStatus
+    );
 
     // Salvar/atualizar item no banco
     const { error: itemError } = await supabase.from('pluggy_items').upsert(
@@ -152,25 +158,30 @@ serve(async (req) => {
 
     // Salvar contas
     for (const account of accounts) {
-      const { error: accountError } = await supabase.from('pluggy_accounts').upsert(
-        {
-          pluggy_account_id: account.id,
-          user_id: user.id,
-          item_id: itemData.id,
-          type: account.type,
-          subtype: account.subtype,
-          name: account.name,
-          number: account.number,
-          balance: account.balance,
-          currency_code: account.currencyCode || 'BRL',
-          credit_limit: account.creditData?.creditLimit,
-          available_credit_limit: account.creditData?.availableCreditLimit,
-        },
-        { onConflict: 'pluggy_account_id' }
-      );
+      const { error: accountError } = await supabase
+        .from('pluggy_accounts')
+        .upsert(
+          {
+            pluggy_account_id: account.id,
+            user_id: user.id,
+            item_id: itemData.id,
+            type: account.type,
+            subtype: account.subtype,
+            name: account.name,
+            number: account.number,
+            balance: account.balance,
+            currency_code: account.currencyCode || 'BRL',
+            credit_limit: account.creditData?.creditLimit,
+            available_credit_limit: account.creditData?.availableCreditLimit,
+          },
+          { onConflict: 'pluggy_account_id' }
+        );
 
       if (accountError) {
-        console.error(`[pluggy-sync-item] Failed to save account ${account.id}:`, accountError);
+        console.error(
+          `[pluggy-sync-item] Failed to save account ${account.id}:`,
+          accountError
+        );
       }
     }
 

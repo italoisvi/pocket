@@ -22,6 +22,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 **O que faz:**
+
 - Extrai o nome do metadata do usuário (`raw_user_meta_data->>'name'`)
 - Se não houver nome, usa "Usuário" como padrão
 - Cria um registro na tabela `profiles` com o ID do usuário
@@ -36,6 +37,7 @@ CREATE TRIGGER on_auth_user_created
 ```
 
 **Quando executa:**
+
 - Automaticamente após a inserção de um novo usuário em `auth.users`
 - Garante que todo usuário tenha um perfil correspondente
 
@@ -62,6 +64,7 @@ await supabase
 ```
 
 **Sequência:**
+
 1. `signUp()` cria usuário em `auth.users`
 2. **Trigger `on_auth_user_created` dispara** ← Automático
 3. Profile é criado com nome extraído do metadata
@@ -86,6 +89,7 @@ if (credential.fullName) {
 ```
 
 **Sequência:**
+
 1. `signInWithIdToken()` cria/autentica usuário
 2. **Trigger `on_auth_user_created` dispara** (se for novo usuário)
 3. Profile é criado com "Usuário" como padrão
@@ -104,6 +108,7 @@ O código do app usa `upsert` em vez de `update` por segurança:
 ```
 
 **Vantagens:**
+
 - ✅ Funciona mesmo se o trigger falhar
 - ✅ Funciona se o perfil já existir
 - ✅ Funciona se o perfil não existir ainda
@@ -160,11 +165,13 @@ WHERE id = (
 ### Profile não é criado
 
 **Possíveis causas:**
+
 1. Trigger não está ativo
 2. Função tem erro de sintaxe
 3. Permissões insuficientes
 
 **Solução:**
+
 ```bash
 # Reaplicar migration
 supabase db push
@@ -176,11 +183,13 @@ supabase logs
 ### Nome não aparece no perfil
 
 **Possíveis causas:**
+
 1. Metadata não foi enviado no `signUp()`
 2. Upsert não foi executado
 3. Nome é `null` ou vazio
 
 **Solução:**
+
 ```typescript
 // Garantir que o nome está sendo enviado
 const { data, error } = await supabase.auth.signUp({
