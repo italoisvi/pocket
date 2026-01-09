@@ -27,6 +27,14 @@ type CategoryExpense = {
   total: number;
 };
 
+type CreditCardAccount = {
+  id: string;
+  name: string;
+  usedCredit: number;
+  creditLimit: number;
+  availableCredit: number;
+};
+
 export default function FinancialOverviewScreen() {
   const { theme } = useTheme();
   const [monthlySalary, setMonthlySalary] = useState<number>(0);
@@ -39,8 +47,9 @@ export default function FinancialOverviewScreen() {
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [totalDebt, setTotalDebt] = useState<number>(0);
   const [debtCount, setDebtCount] = useState<number>(0);
-  const [totalCreditCard, setTotalCreditCard] = useState<number>(0);
-  const [creditCardCount, setCreditCardCount] = useState<number>(0);
+  const [creditCardAccounts, setCreditCardAccounts] = useState<
+    CreditCardAccount[]
+  >([]);
   const [waltsSuggestion, setWaltsSuggestion] = useState<{
     dailyBudget: number;
     reasoning: string;
@@ -222,7 +231,7 @@ export default function FinancialOverviewScreen() {
         setCategoryExpenses(categories.sort((a, b) => b.total - a.total));
       }
 
-      // Carregar dívidas do Open Finance
+      // Carregar cartões de crédito do Open Finance
       const { data: creditAccounts } = await supabase
         .from('pluggy_accounts')
         .select('id, name, balance, credit_limit, available_credit_limit')
@@ -238,7 +247,7 @@ export default function FinancialOverviewScreen() {
 
       const bankAccountIds = bankAccounts?.map((acc) => acc.id) || [];
 
-      // Buscar apenas transações pendentes de contas bancárias (excluir cartões)
+      // Buscar transações pendentes ATRASADAS de contas bancárias
       const { data: pendingTransactions } = await supabase
         .from('pluggy_transactions')
         .select('id, description, amount, date, status, account_id')
@@ -249,24 +258,28 @@ export default function FinancialOverviewScreen() {
 
       let debtTotal = 0;
       let debtCounter = 0;
-      let creditCardTotal = 0;
-      let creditCardCounter = 0;
+      const creditCards: CreditCardAccount[] = [];
 
-      // Analisar cartões de crédito (separado de dívidas)
+      // Analisar cartões de crédito
       if (creditAccounts) {
         creditAccounts.forEach((account) => {
           if (account.credit_limit && account.available_credit_limit !== null) {
             const usedCredit =
               account.credit_limit - account.available_credit_limit;
             if (usedCredit > 0) {
-              creditCardTotal += usedCredit;
-              creditCardCounter++;
+              creditCards.push({
+                id: account.id,
+                name: account.name,
+                usedCredit,
+                creditLimit: account.credit_limit,
+                availableCredit: account.available_credit_limit,
+              });
             }
           }
         });
       }
 
-      // Analisar transações pendentes ATRASADAS de contas bancárias (apenas dívidas reais)
+      // Analisar transações pendentes ATRASADAS de contas bancárias
       if (pendingTransactions && bankAccountIds.length > 0) {
         pendingTransactions.forEach((tx) => {
           // Apenas considerar transações de contas bancárias (não cartões)
@@ -290,8 +303,7 @@ export default function FinancialOverviewScreen() {
 
       setTotalDebt(debtTotal);
       setDebtCount(debtCounter);
-      setTotalCreditCard(creditCardTotal);
-      setCreditCardCount(creditCardCounter);
+      setCreditCardAccounts(creditCards);
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error);
     } finally {
@@ -350,23 +362,61 @@ export default function FinancialOverviewScreen() {
         }
       });
 
-      const prompt = `Analisando minha situação financeira:
+      // Calcular total de cartões de crédito
+      const totalCreditCards = creditCards.reduce((sum, card) => sum + card.usedCredit, 0);
+
+      // Formatar dados detalhados para o Walts
+      const essentialExpensesStr = Object.entries(essentialExpenses)
+        .map(([cat, val]) => `  - ${CATEGORIES[cat as ExpenseCategory].name}: R$ ${val.toFixed(2)}`)
+        .join('\n');
+
+      const nonEssentialExpensesStr = Object.entries(nonEssentialExpenses)
+        .map(([cat, val]) => `  - ${CATEGORIES[cat as ExpenseCategory].name}: R$ ${val.toFixed(2)}`)
+        .join('\n');
+
+      const creditCardsStr = creditCards
+        .map(card => `  - ${card.name}: R$ ${card.usedCredit.toFixed(2)} / R$ ${card.creditLimit.toFixed(2)}`)
+        .join('\n');
+
+      const prompt = `Você é o Walts, assistente financeiro pessoal. Analise esta situação financeira completa e sugira uma meta diária inteligente:
+
+📊 RESUMO DO MÊS:
 - Renda mensal: R$ ${monthlySalary.toFixed(2)}
 - Total gasto até agora: R$ ${totalExpenses.toFixed(2)}
 - Saldo restante: R$ ${remainingBalance.toFixed(2)}
-- Dívidas ativas: R$ ${totalDebt.toFixed(2)}
+- Percentual gasto: ${spentPercentage.toFixed(1)}%
 - Dias até próximo pagamento: ${daysUntilNextPayment}
-- Meta diária calculada: R$ ${dailyBudget.toFixed(2)}
+- Meta diária simples: R$ ${dailyBudget.toFixed(2)}
 
-Com base nos meus custos fixos, custos variáveis e dívidas ativas, qual valor você sugere que eu gaste POR DIA para manter uma saúde financeira saudável?
+💰 CARTÕES DE CRÉDITO (${creditCards.length} cartão(ões)):
+Total em uso: R$ ${totalCreditCards.toFixed(2)}
+${creditCardsStr || '  (Nenhum cartão com saldo devedor)'}
+
+💸 DÍVIDAS ATRASADAS:
+Total: R$ ${totalDebt.toFixed(2)}
+Quantidade: ${debtCount} conta(s) atrasada(s)
+
+🏠 CUSTOS FIXOS (Essenciais):
+Total: R$ ${Object.values(essentialExpenses).reduce((sum, val) => sum + val, 0).toFixed(2)}
+${essentialExpensesStr || '  (Nenhum custo fixo registrado)'}
+
+🛒 CUSTOS VARIÁVEIS (Não-Essenciais):
+Total: R$ ${Object.values(nonEssentialExpenses).reduce((sum, val) => sum + val, 0).toFixed(2)}
+${nonEssentialExpensesStr || '  (Nenhum custo variável registrado)'}
+
+🎯 SUA MISSÃO:
+Com base em TODA essa saúde financeira (cartões, dívidas, padrão de gastos essenciais e não-essenciais), sugira:
+1. Um valor diário realista que o usuário pode gastar
+2. Uma explicação clara do porquê dessa meta
+3. Considere priorizar pagamento de dívidas se existirem
+4. Considere o saldo dos cartões de crédito como compromisso futuro
+5. Analise se os gastos não-essenciais estão muito altos
 
 IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adicional), seguindo EXATAMENTE este formato:
 {
   "dailyBudget": 150.50,
-  "reasoning": "Sugiro reduzir para 70% da meta calculada, priorizando o pagamento de dívidas."
-}
-
-O reasoning deve ter NO MÁXIMO 100 caracteres e ser direto ao ponto.`;
+  "reasoning": "Sua explicação em até 150 caracteres, mencionando o fator mais crítico"
+}`;
 
       const response = await sendMessageToDeepSeek(
         [
@@ -733,24 +783,26 @@ O reasoning deve ter NO MÁXIMO 100 caracteres e ser direto ao ponto.`;
             </TouchableOpacity>
 
             {/* Card Cartões de Crédito */}
-            <TouchableOpacity
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: theme.cardBorder,
-                },
-                getCardShadowStyle(theme.background === '#000'),
-              ]}
-              onPress={() => router.push('/cartoes')}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={[styles.cardTitle, { color: theme.text }]}>
-                  Cartões de Crédito
-                </Text>
-                <ChevronRightIcon size={20} color={theme.text} />
-              </View>
-            </TouchableOpacity>
+            {creditCardAccounts.length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.cardBorder,
+                  },
+                  getCardShadowStyle(theme.background === '#000'),
+                ]}
+                onPress={() => router.push('/cartoes')}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.cardTitle, { color: theme.text }]}>
+                    Cartões de Crédito
+                  </Text>
+                  <ChevronRightIcon size={20} color={theme.text} />
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Card Custos Fixos */}
             <TouchableOpacity
@@ -821,6 +873,11 @@ O reasoning deve ter NO MÁXIMO 100 caracteres e ser direto ao ponto.`;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    paddingHorizontal: 24,
   },
   header: {
     flexDirection: 'row',
@@ -894,8 +951,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bankIndicator: {
+    width: 8,
+    height: 40,
+    borderRadius: 4,
+  },
   cardTitle: {
     fontSize: 20,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 2,
+  },
+  cardValue: {
+    fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
   },
   cardContent: {

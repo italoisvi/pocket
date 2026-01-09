@@ -78,16 +78,27 @@ export default function TransactionsScreen() {
     setSyncing(true);
 
     try {
-      // Primeiro: buscar o item_id da conta
+      console.log('[Transactions] Starting sync for accountId:', accountId);
+      console.log('[Transactions] Account name:', accountName);
+
+      // Primeiro: buscar o item_id da conta e seus dados
       const { data: accountData, error: accountError } = await supabase
         .from('pluggy_accounts')
-        .select('item_id, pluggy_items(pluggy_item_id)')
+        .select(
+          'id, pluggy_account_id, type, item_id, pluggy_items(pluggy_item_id, connector_name)'
+        )
         .eq('id', accountId)
         .single();
 
       if (accountError || !accountData) {
+        console.error('[Transactions] Error fetching account:', accountError);
         throw new Error('Conta não encontrada');
       }
+
+      console.log(
+        '[Transactions] Account data:',
+        JSON.stringify(accountData, null, 2)
+      );
 
       const pluggyItemId = (accountData.pluggy_items as any)?.pluggy_item_id;
 
@@ -95,12 +106,20 @@ export default function TransactionsScreen() {
         throw new Error('Item do banco não encontrado');
       }
 
+      console.log('[Transactions] Account type:', accountData.type);
+      console.log(
+        '[Transactions] Pluggy account ID:',
+        accountData.pluggy_account_id
+      );
       console.log('[Transactions] Syncing item:', pluggyItemId);
 
       // Sincronizar dados do Item (buscar dados atuais da Pluggy)
       const syncResult = await syncItem(pluggyItemId);
 
-      console.log('[Transactions] Sync result:', syncResult);
+      console.log(
+        '[Transactions] Item sync result:',
+        JSON.stringify(syncResult, null, 2)
+      );
 
       // Sincronizar transações dos últimos 90 dias
       const to = new Date().toISOString().split('T')[0];
@@ -108,21 +127,34 @@ export default function TransactionsScreen() {
         .toISOString()
         .split('T')[0];
 
+      console.log('[Transactions] Syncing transactions from', from, 'to', to);
+      console.log('[Transactions] Using accountId (UUID):', accountId);
+
       const result = await syncTransactionsAPI(accountId, { from, to });
+
+      console.log(
+        '[Transactions] Transactions sync result:',
+        JSON.stringify(result, null, 2)
+      );
+
+      // Sempre recarregar após sincronizar
+      await loadTransactions();
 
       if (result.saved > 0) {
         Alert.alert(
-          'Sucesso',
+          'Sucesso!',
           `${result.saved} nova(s) transação(ões) sincronizada(s)`
         );
-        await loadTransactions();
+      } else if (result.total > 0) {
+        Alert.alert(
+          'Sincronização Concluída',
+          `Foram encontradas ${result.total} transações, mas todas já estavam sincronizadas.`
+        );
       } else {
         Alert.alert(
-          'Atualização Iniciada',
-          'A sincronização foi disparada. Novas transações aparecerão em alguns instantes.'
+          'Sincronização Concluída',
+          'Nenhuma transação foi encontrada nos últimos 90 dias.'
         );
-        // Recarregar de qualquer forma
-        await loadTransactions();
       }
     } catch (error) {
       console.error('Error syncing transactions:', error);

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,64 +9,36 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { useTheme } from '@/lib/theme';
+import { CardBrandIcon } from '@/lib/cardBrand';
 
-type CreditCardInvoice = {
+type CreditCardBank = {
   accountId: string;
   accountName: string;
-  month: string; // YYYY-MM
-  total: number;
-  transactionCount: number;
+  usedCredit: number;
+  creditLimit: number;
+  availableCredit: number;
+  connectorName: string;
 };
 
 export default function CartoesScreen() {
   const { theme, isDark } = useTheme();
-  const [invoices, setInvoices] = useState<CreditCardInvoice[]>([]);
+  const [banks, setBanks] = useState<CreditCardBank[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
-  const [availableMonths, setAvailableMonths] = useState<Date[]>([]);
-  const monthScrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    // Gerar últimos 12 meses
-    const months: Date[] = [];
-    const today = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      months.push(date);
-    }
-    setAvailableMonths(months);
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      if (availableMonths.length > 0) {
-        const currentMonthIndex = availableMonths.findIndex(
-          (month) =>
-            month.getMonth() === new Date().getMonth() &&
-            month.getFullYear() === new Date().getFullYear()
-        );
-        if (currentMonthIndex !== -1 && monthScrollRef.current) {
-          setTimeout(() => {
-            monthScrollRef.current?.scrollTo({
-              x: currentMonthIndex * 88,
-              animated: false,
-            });
-          }, 300);
-        }
-      }
-    }, [availableMonths])
+      loadBanks();
+    }, [])
   );
 
-  useEffect(() => {
-    loadCardExpenses();
-  }, [selectedMonth]);
-
-  const loadCardExpenses = async () => {
+  const loadBanks = async () => {
     try {
       const {
         data: { user },
@@ -74,99 +46,49 @@ export default function CartoesScreen() {
 
       if (!user) return;
 
-      // Buscar contas de cartão de crédito do Open Finance
+      // Buscar contas de cartão de crédito do Open Finance com connector_name
       const { data: creditAccounts } = await supabase
         .from('pluggy_accounts')
-        .select('id, name, type')
+        .select(
+          'id, name, credit_limit, available_credit_limit, pluggy_items(connector_name)'
+        )
         .eq('user_id', user.id)
         .eq('type', 'CREDIT');
 
       if (!creditAccounts || creditAccounts.length === 0) {
-        setInvoices([]);
+        setBanks([]);
         setLoading(false);
         return;
       }
 
-      // Calcular range do mês selecionado
-      const startOfMonth = new Date(
-        selectedMonth.getFullYear(),
-        selectedMonth.getMonth(),
-        1
-      );
-      const endOfMonth = new Date(
-        selectedMonth.getFullYear(),
-        selectedMonth.getMonth() + 1,
-        0,
-        23,
-        59,
-        59
-      );
-
-      const selectedMonthKey = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
-
-      // Para cada cartão, buscar transações do mês selecionado
-      const allInvoices: CreditCardInvoice[] = [];
-
-      for (const account of creditAccounts) {
-        // Buscar transações do mês selecionado
-        const { data: transactions } = await supabase
-          .from('pluggy_transactions')
-          .select('id, amount, date, type')
-          .eq('account_id', account.id)
-          .gte('date', startOfMonth.toISOString().split('T')[0])
-          .lte('date', endOfMonth.toISOString().split('T')[0])
-          .order('date', { ascending: false });
-
-        if (transactions && transactions.length > 0) {
-          // Separar compras (CREDIT) e pagamentos (DEBIT)
-          let compras = 0;
-          let pagamentos = 0;
-          let transactionCount = 0;
-
-          transactions.forEach((tx) => {
-            const amount = Math.abs(tx.amount);
-
-            if (tx.type === 'CREDIT') {
-              // Compras no cartão (aumentam a fatura)
-              compras += amount;
-              transactionCount++;
-            } else if (tx.type === 'DEBIT') {
-              // Pagamentos da fatura (diminuem o saldo devedor)
-              pagamentos += amount;
-            }
-          });
-
-          // Total da fatura = Compras - Pagamentos
-          const monthTotal = compras - pagamentos;
-
-          // Só adicionar se houver saldo devedor ou compras
-          if (compras > 0) {
-            allInvoices.push({
+      // Mapear contas para o formato de bancos
+      const banksData: CreditCardBank[] = creditAccounts
+        .map((account) => {
+          if (account.credit_limit && account.available_credit_limit !== null) {
+            const usedCredit =
+              account.credit_limit - account.available_credit_limit;
+            const connectorName =
+              (account.pluggy_items as any)?.connector_name || 'Unknown';
+            return {
               accountId: account.id,
               accountName: account.name,
-              month: selectedMonthKey,
-              total: Math.max(0, monthTotal), // Garantir que não fique negativo
-              transactionCount,
-            });
+              usedCredit,
+              creditLimit: account.credit_limit,
+              availableCredit: account.available_credit_limit,
+              connectorName,
+            };
           }
-        }
-      }
+          return null;
+        })
+        .filter((bank): bank is CreditCardBank => bank !== null);
 
-      setInvoices(allInvoices);
+      setBanks(banksData);
     } catch (error) {
-      console.error('Erro ao carregar faturas de cartões:', error);
+      console.error('Erro ao carregar bancos:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const formatMonthYear = (monthKey: string) => {
-    const [year, month] = monthKey.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
-    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  };
-
-  const totalCards = invoices.reduce((sum, item) => sum + item.total, 0);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -187,95 +109,25 @@ export default function CartoesScreen() {
       </SafeAreaView>
 
       <ScrollView style={styles.content}>
-        {/* Seletor de Mês */}
-        <ScrollView
-          ref={monthScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.monthSelector}
-          contentContainerStyle={styles.monthSelectorContent}
-        >
-          {availableMonths.map((month, index) => {
-            const isSelected =
-              month.getMonth() === selectedMonth.getMonth() &&
-              month.getFullYear() === selectedMonth.getFullYear();
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.monthButton,
-                  {
-                    backgroundColor: isSelected ? theme.primary : theme.card,
-                    borderColor: theme.cardBorder,
-                  },
-                ]}
-                onPress={() => setSelectedMonth(month)}
-              >
-                <Text
-                  style={[
-                    styles.monthButtonText,
-                    {
-                      color: isSelected ? theme.background : theme.text,
-                    },
-                  ]}
-                >
-                  {month.toLocaleDateString('pt-BR', { month: 'short' })}
-                </Text>
-                <Text
-                  style={[
-                    styles.monthButtonYear,
-                    {
-                      color: isSelected
-                        ? theme.background
-                        : theme.textSecondary,
-                    },
-                  ]}
-                >
-                  {month.getFullYear()}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
           </View>
-        ) : invoices.length === 0 ? (
+        ) : banks.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              Nenhuma fatura de cartão de crédito encontrada
+              Nenhum cartão de crédito conectado
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
               Conecte seus cartões via Open Finance para visualizar as faturas
             </Text>
           </View>
         ) : (
-          <View style={styles.invoicesContainer}>
-            {/* Card Total */}
-            <View
-              style={[
-                styles.totalCard,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: theme.cardBorder,
-                },
-                getCardShadowStyle(isDark),
-              ]}
-            >
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>
-                Total em Faturas
-              </Text>
-              <Text style={[styles.totalValue, { color: theme.text }]}>
-                {formatCurrency(totalCards)}
-              </Text>
-            </View>
-
-            {/* Faturas por Cartão e Mês */}
-            {invoices.map((invoice, index) => (
+          <View style={styles.banksContainer}>
+            {/* Lista de Bancos Conectados */}
+            {banks.map((bank) => (
               <TouchableOpacity
-                key={`${invoice.accountId}-${invoice.month}-${index}`}
+                key={bank.accountId}
                 style={[
                   styles.card,
                   {
@@ -284,40 +136,42 @@ export default function CartoesScreen() {
                   },
                   getCardShadowStyle(isDark),
                 ]}
-                onPress={() => {
-                  // TODO: Navegar para página de detalhes da fatura
-                  console.log('Ver detalhes da fatura:', invoice);
-                }}
+                onPress={() =>
+                  router.push({
+                    pathname: '/cartoes/faturas',
+                    params: {
+                      accountId: bank.accountId,
+                      accountName: bank.accountName,
+                    },
+                  })
+                }
               >
                 <View style={styles.cardContent}>
                   <View style={styles.cardLeft}>
-                    <View
-                      style={[
-                        styles.bankIndicator,
-                        { backgroundColor: '#f59e0b' },
-                      ]}
+                    <CardBrandIcon
+                      cardName={bank.connectorName || bank.accountName}
+                      size={48}
                     />
-                    <View>
+                    <View style={styles.cardTextContainer}>
                       <Text style={[styles.bankName, { color: theme.text }]}>
-                        {invoice.accountName}
+                        {bank.accountName}
                       </Text>
                       <Text
                         style={[
-                          styles.monthText,
+                          styles.bankSubtitle,
                           { color: theme.textSecondary },
                         ]}
                       >
-                        {formatMonthYear(invoice.month)} •{' '}
-                        {invoice.transactionCount}{' '}
-                        {invoice.transactionCount === 1
-                          ? 'transação'
-                          : 'transações'}
+                        Cartão de Crédito
                       </Text>
                     </View>
                   </View>
-                  <Text style={[styles.cardValue, { color: theme.text }]}>
-                    {formatCurrency(invoice.total)}
-                  </Text>
+                  <View style={styles.cardRight}>
+                    <Text style={[styles.cardValue, { color: theme.text }]}>
+                      {formatCurrency(bank.usedCredit)}
+                    </Text>
+                    <ChevronRightIcon size={20} color={theme.text} />
+                  </View>
                 </View>
               </TouchableOpacity>
             ))}
@@ -340,47 +194,21 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 4,
   },
   title: {
+    flex: 1,
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
+    textAlign: 'center',
+    marginHorizontal: 8,
   },
   placeholder: {
-    width: 40,
+    width: 28,
   },
   content: {
     flex: 1,
-  },
-  monthSelector: {
-    marginTop: 16,
-    marginBottom: 16,
-    paddingLeft: 24,
-  },
-  monthSelectorContent: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingRight: 24,
-  },
-  monthButton: {
-    width: 76,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-  },
-  monthButtonText: {
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-    textTransform: 'capitalize',
-  },
-  monthButtonYear: {
-    fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 2,
+    paddingHorizontal: 24,
   },
   loadingContainer: {
     padding: 40,
@@ -390,13 +218,9 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
   },
-  invoicesContainer: {
-    padding: 24,
-  },
   emptyText: {
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
-    textAlign: 'center',
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
     marginBottom: 8,
   },
   emptySubtext: {
@@ -404,27 +228,14 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
   },
-  totalCard: {
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 2,
-    alignItems: 'center',
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 8,
-  },
-  totalValue: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
+  banksContainer: {
+    paddingTop: 16,
   },
   card: {
     borderRadius: 12,
+    borderWidth: 2,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 2,
   },
   cardContent: {
     flexDirection: 'row',
@@ -434,25 +245,34 @@ const styles = StyleSheet.create({
   cardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     flex: 1,
+    marginRight: 12,
   },
   bankIndicator: {
-    width: 4,
-    height: 24,
-    borderRadius: 2,
+    width: 8,
+    height: 48,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  cardTextContainer: {
+    flex: 1,
   },
   bankName: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
     marginBottom: 4,
   },
-  monthText: {
+  bankSubtitle: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
   },
+  cardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   cardValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
   },
 });

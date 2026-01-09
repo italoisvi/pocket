@@ -1,6 +1,24 @@
 [functions.pluggy-webhook]
 verify_jwt = false
 
+[functions.pluggy-create-token]
+verify_jwt = true
+
+[functions.pluggy-delete-item]
+verify_jwt = true
+
+[functions.pluggy-get-api-key]
+verify_jwt = true
+
+[functions.pluggy-send-mfa]
+verify_jwt = true
+
+[functions.pluggy-sync-item]
+verify_jwt = true
+
+[functions.pluggy-sync-transactions]
+verify_jwt = true
+
 [functions.pluggy-update-item]
 verify_jwt = true
 
@@ -11,4 +29,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.walts-analysis]
+verify_jwt = true
+
+[functions.walts-agent]
 verify_jwt = true

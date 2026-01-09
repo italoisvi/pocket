@@ -90,11 +90,12 @@ export default function AccountsScreen() {
       setSyncing(true);
 
       console.log('[accounts] handleForceSync - itemId:', itemId);
+      console.log('[accounts] handleForceSync - bankName:', bankName);
 
       // Buscar pluggy_item_id do banco de dados
       const { data: itemData, error: itemError } = await supabase
         .from('pluggy_items')
-        .select('pluggy_item_id, status, error_message')
+        .select('pluggy_item_id, status, error_message, connector_name')
         .eq('id', itemId)
         .single();
 
@@ -109,20 +110,40 @@ export default function AccountsScreen() {
         return;
       }
 
-      console.log('[accounts] Item status:', itemData.status);
+      console.log('[accounts] Item connector:', itemData.connector_name);
+      console.log('[accounts] Item status before sync:', itemData.status);
       console.log('[accounts] Error message:', itemData.error_message);
 
       // Sincronizar item
+      console.log(
+        '[accounts] Calling syncItem with pluggy_item_id:',
+        itemData.pluggy_item_id
+      );
       const result = await syncItem(itemData.pluggy_item_id);
 
-      console.log('[accounts] Sync result:', result);
+      console.log('[accounts] Sync result:', JSON.stringify(result, null, 2));
+      console.log('[accounts] Accounts count:', result.accountsCount);
+      console.log('[accounts] Item status after sync:', result.item.status);
 
-      if (result.item.status === 'UPDATED' && result.accountsCount > 0) {
-        Alert.alert(
-          'Sucesso!',
-          `${result.accountsCount} conta(s) sincronizada(s). Atualizando...`
-        );
-        loadAccounts();
+      if (result.item.status === 'UPDATED') {
+        if (result.accountsCount > 0) {
+          let message = `${result.accountsCount} conta(s) sincronizada(s).`;
+
+          // Se o executionStatus for PARTIAL_SUCCESS, avisar o usuário
+          if (result.item.executionStatus === 'PARTIAL_SUCCESS') {
+            message +=
+              '\n\nAlgumas transações podem não ter sido sincronizadas completamente, mas as contas foram atualizadas.';
+          }
+
+          Alert.alert('Sucesso!', message);
+          await loadAccounts();
+        } else {
+          Alert.alert(
+            'Atenção',
+            'Sincronização concluída, mas nenhuma conta foi encontrada. Isso pode indicar que o banco não está retornando dados no momento.'
+          );
+          await loadAccounts();
+        }
       } else if (result.item.status === 'UPDATING') {
         Alert.alert(
           'Aguarde',
@@ -140,8 +161,9 @@ export default function AccountsScreen() {
       } else {
         Alert.alert(
           'Status: ' + result.item.status,
-          'O item está com status diferente do esperado. Verifique os logs para mais detalhes.'
+          `O item está com status diferente do esperado.\nContas encontradas: ${result.accountsCount}\nVerifique os logs para mais detalhes.`
         );
+        await loadAccounts();
       }
     } catch (error) {
       console.error('[accounts] Error forcing sync:', error);

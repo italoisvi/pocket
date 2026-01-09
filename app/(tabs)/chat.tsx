@@ -25,6 +25,7 @@ import {
   type Message,
   type Conversation,
 } from '@/lib/deepseek';
+import { sendMessageToWaltsAgent } from '@/lib/walts-agent';
 import { supabase } from '@/lib/supabase';
 import { CATEGORIES } from '@/lib/categories';
 
@@ -35,6 +36,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
+  const [useAgent, setUseAgent] = useState(true); // Modo agente ativado por padrão
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -344,10 +346,20 @@ export default function ChatScreen() {
     setLoading(true);
 
     try {
-      const response = await sendMessageToDeepSeek(
-        updatedMessages,
-        userContext
-      );
+      let response: string;
+
+      if (useAgent) {
+        // Usar o Walts Agent (com function calling - pode executar ações)
+        console.log('[chat] Using Walts Agent mode');
+        response = await sendMessageToWaltsAgent(updatedMessages);
+      } else {
+        // Usar o chat normal (apenas conversa)
+        console.log('[chat] Using normal chat mode');
+        response = await sendMessageToDeepSeek(
+          updatedMessages,
+          userContext
+        );
+      }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),

@@ -83,6 +83,8 @@ serve(async (req) => {
     if (from) transactionsUrl += `&from=${from}`;
     if (to) transactionsUrl += `&to=${to}`;
 
+    console.log(`[pluggy-sync-transactions] Fetching from URL: ${transactionsUrl}`);
+
     // Buscar transações
     const transactionsResponse = await fetch(transactionsUrl, {
       headers: { 'X-API-KEY': apiKey },
@@ -94,16 +96,20 @@ serve(async (req) => {
         '[pluggy-sync-transactions] Failed to fetch transactions:',
         errorText
       );
+      console.error('[pluggy-sync-transactions] Status code:', transactionsResponse.status);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch transactions from Pluggy' }),
         { status: 500, headers }
       );
     }
 
-    const { results: transactions } = await transactionsResponse.json();
+    const transactionsData = await transactionsResponse.json();
+    const transactions = transactionsData.results || [];
+
     console.log(
       `[pluggy-sync-transactions] Found ${transactions.length} transactions`
     );
+    console.log(`[pluggy-sync-transactions] Response data:`, JSON.stringify(transactionsData, null, 2));
 
     // Buscar o UUID da conta no banco
     const { data: accountData } = await supabase
