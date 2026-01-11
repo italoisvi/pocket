@@ -28,20 +28,32 @@ import {
 import { sendMessageToWaltsAgent } from '@/lib/walts-agent';
 import { supabase } from '@/lib/supabase';
 import { CATEGORIES } from '@/lib/categories';
+import { PaywallModal } from '@/components/PaywallModal';
+import { usePremium } from '@/lib/usePremium';
 
 export default function ChatScreen() {
   const { theme } = useTheme();
+  const {
+    isPremium,
+    loading: premiumLoading,
+    refresh: refreshPremium,
+  } = usePremium();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [useAgent, setUseAgent] = useState(true); // Modo agente ativado por padrão
+  const [showPaywall, setShowPaywall] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadUserContext();
   }, []);
+
+  const handlePaywallSuccess = async () => {
+    await refreshPremium();
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -333,6 +345,12 @@ export default function ChatScreen() {
   const handleSendMessage = async () => {
     if (!inputText.trim() || loading) return;
 
+    // Bloquear envio se não for premium (segurança extra)
+    if (!isPremium) {
+      setShowPaywall(true);
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -355,10 +373,7 @@ export default function ChatScreen() {
       } else {
         // Usar o chat normal (apenas conversa)
         console.log('[chat] Using normal chat mode');
-        response = await sendMessageToDeepSeek(
-          updatedMessages,
-          userContext
-        );
+        response = await sendMessageToDeepSeek(updatedMessages, userContext);
       }
 
       const assistantMessage: Message = {
@@ -591,25 +606,46 @@ export default function ChatScreen() {
           },
         ]}
       >
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.card,
-              borderColor: theme.cardBorder,
-              color: theme.text,
-            },
-          ]}
-          value={inputText}
-          onChangeText={setInputText}
-          placeholder="Digite sua mensagem..."
-          placeholderTextColor={theme.textSecondary}
-          multiline
-          maxLength={500}
-          autoCapitalize="sentences"
-          autoCorrect={true}
-          spellCheck={true}
-        />
+        {isPremium ? (
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+                color: theme.text,
+              },
+            ]}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Digite sua mensagem..."
+            placeholderTextColor={theme.textSecondary}
+            multiline
+            maxLength={500}
+            autoCapitalize="sentences"
+            autoCorrect={true}
+            spellCheck={true}
+          />
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.cardBorder,
+                justifyContent: 'center',
+              },
+            ]}
+            onPress={() => setShowPaywall(true)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[styles.inputPlaceholder, { color: theme.textSecondary }]}
+            >
+              Assine para conversar com Walts
+            </Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[
             styles.sendButton,
@@ -644,6 +680,15 @@ export default function ChatScreen() {
           />
         </TouchableOpacity>
       </View>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onSuccess={handlePaywallSuccess}
+        title="Walts Premium"
+        subtitle="Seu assistente financeiro com inteligência artificial"
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -743,6 +788,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 2,
     maxHeight: 100,
+  },
+  inputPlaceholder: {
+    fontSize: 20,
+    fontFamily: 'CormorantGaramond-Regular',
   },
   sendButton: {
     width: 44,

@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router, usePathname } from 'expo-router';
 import { CasaIcon } from '@/components/CasaIcon';
 import { CasaIconFilled } from '@/components/CasaIconFilled';
 import { DividirContaIcon } from '@/components/DividirContaIcon';
@@ -12,6 +12,21 @@ import { useTheme } from '@/lib/theme';
 
 export default function TabsLayout() {
   const { theme } = useTheme();
+  const pathname = usePathname();
+
+  // Função para lidar com o clique na tab - reseta a navegação
+  const handleTabPress = (tabRoute: string) => {
+    return (e: any) => {
+      // Se já está na tab, não faz nada (ou pode implementar scroll to top)
+      if (pathname === `/${tabRoute}` || pathname === `/(tabs)/${tabRoute}`) {
+        e.preventDefault();
+        return;
+      }
+      // Navega para a tab resetando o histórico
+      e.preventDefault();
+      router.replace(`/(tabs)/${tabRoute}`);
+    };
+  };
 
   return (
     <Tabs
@@ -52,6 +67,9 @@ export default function TabsLayout() {
               <CasaIcon size={size} color={color} />
             ),
         }}
+        listeners={{
+          tabPress: handleTabPress('home'),
+        }}
       />
       <Tabs.Screen
         name="dividir-conta"
@@ -64,6 +82,9 @@ export default function TabsLayout() {
               <DividirContaIcon size={size} color={color} />
             ),
         }}
+        listeners={{
+          tabPress: handleTabPress('dividir-conta'),
+        }}
       />
       <Tabs.Screen
         name="open-finance"
@@ -75,6 +96,9 @@ export default function TabsLayout() {
             ) : (
               <OpenFinanceIcon size={size + 40} color={color} />
             ),
+        }}
+        listeners={{
+          tabPress: handleTabPress('open-finance'),
         }}
       />
       <Tabs.Screen
@@ -89,6 +113,9 @@ export default function TabsLayout() {
             />
           ),
         }}
+        listeners={{
+          tabPress: handleTabPress('chat'),
+        }}
       />
       <Tabs.Screen
         name="camera"
@@ -100,6 +127,9 @@ export default function TabsLayout() {
             ) : (
               <CameraIcon size={size} color={color} />
             ),
+        }}
+        listeners={{
+          tabPress: handleTabPress('camera'),
         }}
       />
       <Tabs.Screen

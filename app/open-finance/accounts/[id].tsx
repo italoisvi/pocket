@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { getAccountsByItem, syncItem, updateItem } from '@/lib/pluggy';
+import {
+  getAccountsByItem,
+  syncItem,
+  updateItem,
+  getApiKey,
+} from '@/lib/pluggy';
 import { supabase } from '@/lib/supabase';
 import { CardBrandIcon } from '@/lib/cardBrand';
 
@@ -43,7 +48,7 @@ export default function AccountsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [updating, setUpdating] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string>('');
 
   useEffect(() => {
     loadAccounts();
@@ -85,107 +90,18 @@ export default function AccountsScreen() {
     }).format(value);
   };
 
-  const handleForceSync = async () => {
+  // Função unificada de sincronização: dispara update + faz polling + busca dados
+  const handleSync = async () => {
     try {
       setSyncing(true);
+      setSyncStatus('Iniciando...');
 
-      console.log('[accounts] handleForceSync - itemId:', itemId);
-      console.log('[accounts] handleForceSync - bankName:', bankName);
-
-      // Buscar pluggy_item_id do banco de dados
-      const { data: itemData, error: itemError } = await supabase
-        .from('pluggy_items')
-        .select('pluggy_item_id, status, error_message, connector_name')
-        .eq('id', itemId)
-        .single();
-
-      console.log('[accounts] Query result - data:', itemData);
-      console.log('[accounts] Query result - error:', itemError);
-
-      if (itemError || !itemData) {
-        Alert.alert(
-          'Erro',
-          `Item não encontrado no banco de dados. ItemId: ${itemId}\nError: ${JSON.stringify(itemError)}`
-        );
-        return;
-      }
-
-      console.log('[accounts] Item connector:', itemData.connector_name);
-      console.log('[accounts] Item status before sync:', itemData.status);
-      console.log('[accounts] Error message:', itemData.error_message);
-
-      // Sincronizar item
-      console.log(
-        '[accounts] Calling syncItem with pluggy_item_id:',
-        itemData.pluggy_item_id
-      );
-      const result = await syncItem(itemData.pluggy_item_id);
-
-      console.log('[accounts] Sync result:', JSON.stringify(result, null, 2));
-      console.log('[accounts] Accounts count:', result.accountsCount);
-      console.log('[accounts] Item status after sync:', result.item.status);
-
-      if (result.item.status === 'UPDATED') {
-        if (result.accountsCount > 0) {
-          let message = `${result.accountsCount} conta(s) sincronizada(s).`;
-
-          // Se o executionStatus for PARTIAL_SUCCESS, avisar o usuário
-          if (result.item.executionStatus === 'PARTIAL_SUCCESS') {
-            message +=
-              '\n\nAlgumas transações podem não ter sido sincronizadas completamente, mas as contas foram atualizadas.';
-          }
-
-          Alert.alert('Sucesso!', message);
-          await loadAccounts();
-        } else {
-          Alert.alert(
-            'Atenção',
-            'Sincronização concluída, mas nenhuma conta foi encontrada. Isso pode indicar que o banco não está retornando dados no momento.'
-          );
-          await loadAccounts();
-        }
-      } else if (result.item.status === 'UPDATING') {
-        Alert.alert(
-          'Aguarde',
-          'O banco ainda está sincronizando. Tente novamente em alguns instantes.'
-        );
-      } else if (
-        result.item.status === 'LOGIN_ERROR' ||
-        result.item.status === 'OUTDATED'
-      ) {
-        Alert.alert(
-          'Erro',
-          result.item.error?.message ||
-            'Erro ao conectar com o banco. Tente reconectar.'
-        );
-      } else {
-        Alert.alert(
-          'Status: ' + result.item.status,
-          `O item está com status diferente do esperado.\nContas encontradas: ${result.accountsCount}\nVerifique os logs para mais detalhes.`
-        );
-        await loadAccounts();
-      }
-    } catch (error) {
-      console.error('[accounts] Error forcing sync:', error);
-      Alert.alert(
-        'Erro',
-        error instanceof Error ? error.message : 'Não foi possível sincronizar'
-      );
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleUpdateItem = async () => {
-    try {
-      setUpdating(true);
-
-      console.log('[accounts] handleUpdateItem - itemId:', itemId);
+      console.log('[accounts] handleSync - itemId:', itemId);
 
       // Buscar pluggy_item_id do banco de dados
       const { data: itemData, error: itemError } = await supabase
         .from('pluggy_items')
-        .select('pluggy_item_id')
+        .select('pluggy_item_id, status, connector_name')
         .eq('id', itemId)
         .single();
 
@@ -194,28 +110,112 @@ export default function AccountsScreen() {
         return;
       }
 
-      console.log('[accounts] Triggering update for:', itemData.pluggy_item_id);
+      const pluggyItemId = itemData.pluggy_item_id;
+      console.log('[accounts] Syncing item:', pluggyItemId);
 
-      // Disparar atualização
-      const result = await updateItem(itemData.pluggy_item_id);
+      // Passo 1: Disparar atualização na Pluggy
+      setSyncStatus('Conectando ao banco...');
+      console.log('[accounts] Step 1: Triggering update...');
 
-      console.log('[accounts] Update result:', result);
+      try {
+        const updateResult = await updateItem(pluggyItemId);
+        console.log('[accounts] Update result:', updateResult);
 
-      if (result.item.status === 'UPDATING') {
+        if (updateResult.item.status === 'WAITING_USER_INPUT') {
+          Alert.alert(
+            'Autenticação Necessária',
+            `${bankName} requer autenticação adicional. Volte à tela anterior e toque no banco para autenticar.`
+          );
+          return;
+        }
+      } catch (updateError: any) {
+        // Se for rate limit, apenas continuar com sync
+        if (!updateError.message?.includes('429')) {
+          console.error('[accounts] Update error:', updateError);
+        }
+      }
+
+      // Passo 2: Fazer polling até o status mudar para UPDATED (máximo 30 segundos)
+      setSyncStatus('Aguardando dados do banco...');
+      console.log('[accounts] Step 2: Polling for status...');
+
+      const apiKey = await getApiKey();
+      let attempts = 0;
+      const maxAttempts = 15; // 15 tentativas x 2 segundos = 30 segundos
+      let itemStatus = 'UPDATING';
+
+      while (attempts < maxAttempts && itemStatus === 'UPDATING') {
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // Esperar 2 segundos
+
+        try {
+          const itemResponse = await fetch(
+            `https://api.pluggy.ai/items/${pluggyItemId}`,
+            { headers: { 'X-API-KEY': apiKey } }
+          );
+
+          if (itemResponse.ok) {
+            const item = await itemResponse.json();
+            itemStatus = item.status;
+            console.log(
+              `[accounts] Polling attempt ${attempts + 1}: status = ${itemStatus}`
+            );
+
+            if (item.status === 'WAITING_USER_INPUT') {
+              Alert.alert(
+                'Autenticação Necessária',
+                `${bankName} requer autenticação adicional.`
+              );
+              return;
+            }
+
+            if (item.status === 'LOGIN_ERROR' || item.status === 'OUTDATED') {
+              Alert.alert(
+                'Erro de Conexão',
+                item.error?.message ||
+                  'Erro ao conectar com o banco. Verifique suas credenciais.'
+              );
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('[accounts] Polling error:', error);
+        }
+
+        attempts++;
+      }
+
+      // Passo 3: Buscar dados atualizados
+      setSyncStatus('Sincronizando contas...');
+      console.log('[accounts] Step 3: Syncing item data...');
+
+      const result = await syncItem(pluggyItemId);
+      console.log('[accounts] Sync result:', result);
+
+      // Recarregar contas
+      await loadAccounts();
+
+      // Mostrar resultado
+      if (result.accountsCount > 0) {
+        let message = `${result.accountsCount} conta(s) sincronizada(s) com sucesso!`;
+
+        if (result.item.executionStatus === 'PARTIAL_SUCCESS') {
+          message += '\n\nAlguns dados podem estar incompletos.';
+        }
+
+        Alert.alert('Sincronizado!', message);
+      } else if (itemStatus === 'UPDATING') {
         Alert.alert(
-          'Atualização Iniciada',
-          `${bankName}: Os dados estão sendo atualizados. Isso pode levar alguns instantes.\n\nVocê pode usar "Sincronizar" em alguns segundos para buscar os dados atualizados.`
-        );
-      } else if (result.item.status === 'WAITING_USER_INPUT') {
-        Alert.alert(
-          'Autenticação Necessária',
-          `${bankName} requer autenticação adicional. Use o botão "Sincronizar" para continuar.`
+          'Processando',
+          'O banco ainda está processando. Tente novamente em alguns instantes.'
         );
       } else {
-        Alert.alert('Atualização Iniciada', result.item.message);
+        Alert.alert(
+          'Atenção',
+          'Sincronização concluída, mas nenhuma conta foi encontrada.'
+        );
       }
     } catch (error) {
-      console.error('[accounts] Error updating item:', error);
+      console.error('[accounts] Error syncing:', error);
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -223,13 +223,14 @@ export default function AccountsScreen() {
       if (errorMessage.includes('429')) {
         Alert.alert(
           'Muitas Tentativas',
-          'Você fez muitas atualizações recentemente. Aguarde alguns minutos e tente novamente.'
+          'Aguarde alguns minutos antes de sincronizar novamente.'
         );
       } else {
-        Alert.alert('Erro', 'Não foi possível atualizar o banco');
+        Alert.alert('Erro', 'Não foi possível sincronizar. Tente novamente.');
       }
     } finally {
-      setUpdating(false);
+      setSyncing(false);
+      setSyncStatus('');
     }
   };
 
@@ -373,7 +374,7 @@ export default function AccountsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Botões de Ação */}
+      {/* Botão de Sincronização */}
       <View style={styles.actionsContainer}>
         <TouchableOpacity
           style={[
@@ -384,49 +385,31 @@ export default function AccountsScreen() {
               borderWidth: 2,
               borderColor:
                 theme.background === '#000' ? theme.cardBorder : theme.primary,
+              opacity: syncing ? 0.8 : 1,
             },
           ]}
-          onPress={handleUpdateItem}
-          disabled={updating}
-        >
-          {updating ? (
-            <ActivityIndicator
-              size="small"
-              color={theme.background === '#000' ? theme.text : '#fff'}
-            />
-          ) : (
-            <Text
-              style={[
-                styles.actionButtonText,
-                {
-                  color: theme.background === '#000' ? theme.text : '#fff',
-                },
-              ]}
-            >
-              Atualizar
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor:
-                theme.background === '#000' ? theme.card : theme.primary,
-              borderWidth: 2,
-              borderColor:
-                theme.background === '#000' ? theme.cardBorder : theme.primary,
-            },
-          ]}
-          onPress={handleForceSync}
+          onPress={handleSync}
           disabled={syncing}
         >
           {syncing ? (
-            <ActivityIndicator
-              size="small"
-              color={theme.background === '#000' ? theme.text : '#fff'}
-            />
+            <View style={styles.syncingContainer}>
+              <ActivityIndicator
+                size="small"
+                color={theme.background === '#000' ? theme.text : '#fff'}
+              />
+              {syncStatus ? (
+                <Text
+                  style={[
+                    styles.syncStatusText,
+                    {
+                      color: theme.background === '#000' ? theme.text : '#fff',
+                    },
+                  ]}
+                >
+                  {syncStatus}
+                </Text>
+              ) : null}
+            </View>
           ) : (
             <Text
               style={[
@@ -436,7 +419,7 @@ export default function AccountsScreen() {
                 },
               ]}
             >
-              Sincronizar
+              Sincronizar com o Banco
             </Text>
           )}
         </TouchableOpacity>
@@ -492,7 +475,7 @@ export default function AccountsScreen() {
                       : theme.primary,
                 },
               ]}
-              onPress={handleForceSync}
+              onPress={handleSync}
               disabled={syncing}
             >
               {syncing ? (
@@ -508,7 +491,7 @@ export default function AccountsScreen() {
                     },
                   ]}
                 >
-                  Forçar Sincronização
+                  Sincronizar Agora
                 </Text>
               )}
             </TouchableOpacity>
@@ -555,6 +538,15 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  syncingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncStatusText: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
   },
   content: {
     flex: 1,

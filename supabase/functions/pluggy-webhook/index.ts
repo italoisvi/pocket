@@ -7,6 +7,53 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const PLUGGY_CLIENT_ID = Deno.env.get('PLUGGY_CLIENT_ID');
 const PLUGGY_CLIENT_SECRET = Deno.env.get('PLUGGY_CLIENT_SECRET');
 
+// Tipos para o payload do webhook da Pluggy (baseado na documentação oficial)
+type PluggyWebhookPayload = {
+  event: string;
+  eventId: string;
+  itemId?: string;
+  accountId?: string;
+  triggeredBy?: 'USER' | 'CLIENT' | 'SYNC' | 'INTERNAL';
+  clientUserId?: string;
+  createdTransactionsLink?: string;
+  transactionsCreatedAtFrom?: string;
+};
+
+// Gera API Key para chamadas à API da Pluggy
+async function getPluggyApiKey(): Promise<string> {
+  const response = await fetch('https://api.pluggy.ai/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      clientId: PLUGGY_CLIENT_ID,
+      clientSecret: PLUGGY_CLIENT_SECRET,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to authenticate with Pluggy API');
+  }
+
+  const { apiKey } = await response.json();
+  return apiKey;
+}
+
+// Busca informações completas do Item na API da Pluggy
+async function fetchItemFromPluggy(
+  apiKey: string,
+  itemId: string
+): Promise<any> {
+  const response = await fetch(`https://api.pluggy.ai/items/${itemId}`, {
+    headers: { 'X-API-KEY': apiKey },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch item ${itemId} from Pluggy`);
+  }
+
+  return response.json();
+}
+
 serve(async (req) => {
   const headers = {
     'Content-Type': 'application/json',
@@ -21,20 +68,14 @@ serve(async (req) => {
 
   try {
     // Ler o body do webhook
-    const webhookEvent = await req.json();
+    const webhookPayload: PluggyWebhookPayload = await req.json();
     console.log(
       '[pluggy-webhook] Received event:',
-      JSON.stringify(webhookEvent)
+      JSON.stringify(webhookPayload)
     );
 
-    const { event, data, itemId, accountId, transactionIds } = webhookEvent;
-
-    // Normalizar o payload: se não tem 'data', usar o próprio webhookEvent
-    const eventData = data || {
-      item: { id: itemId },
-      account: { id: accountId },
-      transactionIds: transactionIds,
-    };
+    const { event, itemId, accountId, createdTransactionsLink } =
+      webhookPayload;
 
     if (!event) {
       console.error('[pluggy-webhook] Invalid webhook payload - missing event');
@@ -55,31 +96,37 @@ serve(async (req) => {
     // Processar eventos
     switch (event) {
       case 'item/created':
-        await handleItemCreated(supabase, eventData);
+        if (itemId) await handleItemCreated(supabase, itemId);
         break;
 
       case 'item/updated':
-        await handleItemUpdated(supabase, eventData);
+        if (itemId) await handleItemUpdated(supabase, itemId);
         break;
 
       case 'item/deleted':
-        await handleItemDeleted(supabase, eventData);
+        if (itemId) await handleItemDeleted(supabase, itemId);
         break;
 
       case 'item/error':
-        await handleItemError(supabase, eventData);
+        if (itemId) await handleItemError(supabase, itemId);
         break;
 
       case 'item/waiting_user_input':
-        await handleItemWaitingUserInput(supabase, eventData);
+        if (itemId) await handleItemWaitingUserInput(supabase, itemId);
         break;
 
       case 'transactions/created':
-        await handleTransactionsCreated(supabase, eventData);
+        if (accountId) {
+          await handleTransactionsCreated(
+            supabase,
+            accountId,
+            createdTransactionsLink
+          );
+        }
         break;
 
       case 'transactions/deleted':
-        await handleTransactionsDeleted(supabase, eventData);
+        if (accountId) await handleTransactionsDeleted(supabase, accountId);
         break;
 
       default:
@@ -96,176 +143,422 @@ serve(async (req) => {
   }
 });
 
-async function handleItemCreated(supabase: any, data: any) {
-  console.log('[pluggy-webhook] Item created:', data.item.id);
+async function handleItemCreated(supabase: any, itemId: string) {
+  console.log('[pluggy-webhook] Item created:', itemId);
 
-  // Buscar user_id pelo pluggy_item_id
-  const { data: itemData } = await supabase
-    .from('pluggy_items')
-    .select('user_id')
-    .eq('pluggy_item_id', data.item.id)
-    .single();
+  try {
+    // Buscar dados completos do Item na API da Pluggy
+    const apiKey = await getPluggyApiKey();
+    const item = await fetchItemFromPluggy(apiKey, itemId);
 
-  if (!itemData) {
-    console.error('[pluggy-webhook] Item not found in database');
-    return;
+    console.log('[pluggy-webhook] Item fetched from Pluggy:', {
+      id: item.id,
+      status: item.status,
+      connectorName: item.connector?.name,
+    });
+
+    // Verificar se o item existe no banco
+    const { data: existingItem } = await supabase
+      .from('pluggy_items')
+      .select('id, user_id')
+      .eq('pluggy_item_id', itemId)
+      .single();
+
+    if (!existingItem) {
+      console.log('[pluggy-webhook] Item not in database yet, skipping update');
+      return;
+    }
+
+    // Atualizar status do item
+    await supabase
+      .from('pluggy_items')
+      .update({
+        status: item.status,
+        last_updated_at: item.lastUpdatedAt,
+        error_message: item.error?.message || null,
+      })
+      .eq('pluggy_item_id', itemId);
+
+    // Se o item foi criado com sucesso, sincronizar contas
+    if (item.status === 'UPDATED') {
+      console.log(
+        '[pluggy-webhook] Item created with UPDATED status, syncing accounts...'
+      );
+      await syncItemAccounts(supabase, itemId);
+    }
+
+    console.log('[pluggy-webhook] Item created processed');
+  } catch (error) {
+    console.error('[pluggy-webhook] Error handling item created:', error);
   }
-
-  // Atualizar status do item
-  await supabase
-    .from('pluggy_items')
-    .update({
-      status: data.item.status,
-      last_updated_at: data.item.lastUpdatedAt,
-      error_message: data.item.error?.message || null,
-    })
-    .eq('pluggy_item_id', data.item.id);
-
-  console.log('[pluggy-webhook] Item created processed');
 }
 
-async function handleItemUpdated(supabase: any, data: any) {
-  console.log('[pluggy-webhook] Item updated:', data.item.id);
+async function handleItemUpdated(supabase: any, itemId: string) {
+  console.log('[pluggy-webhook] Item updated:', itemId);
 
-  // Atualizar status do item
+  try {
+    // Buscar dados completos do Item na API da Pluggy
+    const apiKey = await getPluggyApiKey();
+    const item = await fetchItemFromPluggy(apiKey, itemId);
+
+    console.log('[pluggy-webhook] Item fetched from Pluggy:', {
+      id: item.id,
+      status: item.status,
+      executionStatus: item.executionStatus,
+      connectorName: item.connector?.name,
+      lastUpdatedAt: item.lastUpdatedAt,
+    });
+
+    // Atualizar status do item no banco
+    const { error } = await supabase
+      .from('pluggy_items')
+      .update({
+        status: item.status,
+        last_updated_at: item.lastUpdatedAt,
+        error_message: item.error?.message || null,
+      })
+      .eq('pluggy_item_id', itemId);
+
+    if (error) {
+      console.error('[pluggy-webhook] Error updating item in database:', error);
+      return;
+    }
+
+    // Sincronizar contas se o item foi atualizado com sucesso
+    // Aceitar UPDATED ou executionStatus SUCCESS/PARTIAL_SUCCESS
+    const shouldSync =
+      item.status === 'UPDATED' ||
+      item.executionStatus === 'SUCCESS' ||
+      item.executionStatus === 'PARTIAL_SUCCESS';
+
+    if (shouldSync) {
+      console.log('[pluggy-webhook] Syncing accounts and transactions...');
+      await syncItemAccounts(supabase, itemId);
+
+      // Sincronizar transações de todas as contas do item
+      await syncItemTransactions(supabase, itemId, apiKey);
+    } else {
+      console.log(
+        '[pluggy-webhook] Item not ready for sync, status:',
+        item.status
+      );
+    }
+
+    console.log('[pluggy-webhook] Item updated processed successfully');
+  } catch (error) {
+    console.error('[pluggy-webhook] Error handling item updated:', error);
+  }
+}
+
+async function handleItemDeleted(supabase: any, itemId: string) {
+  console.log('[pluggy-webhook] Item deleted:', itemId);
+
+  // Deletar item do banco de dados (cascata deleta contas e transações via FK)
+  const { error } = await supabase
+    .from('pluggy_items')
+    .delete()
+    .eq('pluggy_item_id', itemId);
+
+  if (error) {
+    console.error('[pluggy-webhook] Error deleting item:', error);
+  } else {
+    console.log('[pluggy-webhook] Item deleted processed');
+  }
+}
+
+async function handleItemError(supabase: any, itemId: string) {
+  console.log('[pluggy-webhook] Item error:', itemId);
+
+  try {
+    // Buscar dados completos do Item na API da Pluggy para obter detalhes do erro
+    const apiKey = await getPluggyApiKey();
+    const item = await fetchItemFromPluggy(apiKey, itemId);
+
+    console.log('[pluggy-webhook] Item error details:', {
+      id: item.id,
+      status: item.status,
+      error: item.error,
+    });
+
+    // Atualizar status do item com erro
+    await supabase
+      .from('pluggy_items')
+      .update({
+        status: item.status || 'LOGIN_ERROR',
+        error_message: item.error?.message || 'Unknown error',
+        last_updated_at: item.lastUpdatedAt || new Date().toISOString(),
+      })
+      .eq('pluggy_item_id', itemId);
+
+    console.log('[pluggy-webhook] Item error processed');
+  } catch (error) {
+    console.error('[pluggy-webhook] Error handling item error:', error);
+
+    // Mesmo se falhar ao buscar da API, atualizar status como erro
+    await supabase
+      .from('pluggy_items')
+      .update({
+        status: 'LOGIN_ERROR',
+        error_message: 'Error fetching item details',
+        last_updated_at: new Date().toISOString(),
+      })
+      .eq('pluggy_item_id', itemId);
+  }
+}
+
+async function handleItemWaitingUserInput(supabase: any, itemId: string) {
+  console.log('[pluggy-webhook] Item waiting user input:', itemId);
+
+  // Atualizar status para WAITING_USER_INPUT
   const { error } = await supabase
     .from('pluggy_items')
     .update({
-      status: data.item.status,
-      last_updated_at: data.item.lastUpdatedAt,
-      error_message: data.item.error?.message || null,
+      status: 'WAITING_USER_INPUT',
+      last_updated_at: new Date().toISOString(),
     })
-    .eq('pluggy_item_id', data.item.id);
+    .eq('pluggy_item_id', itemId);
 
   if (error) {
-    console.error('[pluggy-webhook] Error updating item:', error);
-    return;
+    console.error(
+      '[pluggy-webhook] Error updating item waiting user input:',
+      error
+    );
+  } else {
+    console.log('[pluggy-webhook] Item waiting user input processed');
   }
-
-  // Se o item foi atualizado com sucesso (UPDATED), sincronizar accounts
-  if (data.item.status === 'UPDATED') {
-    console.log('[pluggy-webhook] Item status is UPDATED, syncing accounts...');
-    await syncItemAccounts(supabase, data.item.id);
-  }
-
-  console.log('[pluggy-webhook] Item updated processed');
 }
 
-async function handleItemDeleted(supabase: any, data: any) {
-  console.log('[pluggy-webhook] Item deleted:', data.item.id);
-
-  // Deletar item do banco de dados
-  await supabase
-    .from('pluggy_items')
-    .delete()
-    .eq('pluggy_item_id', data.item.id);
-
-  console.log('[pluggy-webhook] Item deleted processed');
-}
-
-async function handleItemError(supabase: any, data: any) {
-  console.log('[pluggy-webhook] Item error:', data.item.id);
-
-  // Atualizar status do item com erro
-  await supabase
-    .from('pluggy_items')
-    .update({
-      status: data.item.status,
-      error_message: data.item.error?.message || 'Unknown error',
-      last_updated_at: data.item.lastUpdatedAt,
-    })
-    .eq('pluggy_item_id', data.item.id);
-
-  console.log('[pluggy-webhook] Item error processed');
-}
-
-async function handleItemWaitingUserInput(supabase: any, data: any) {
-  console.log('[pluggy-webhook] Item waiting user input:', data.item.id);
-
-  // Atualizar status para WAITING_USER_INPUT
-  await supabase
-    .from('pluggy_items')
-    .update({
-      status: 'WAITING_USER_INPUT',
-      last_updated_at: data.item.lastUpdatedAt,
-    })
-    .eq('pluggy_item_id', data.item.id);
-
-  console.log('[pluggy-webhook] Item waiting user input processed');
-}
-
-async function handleTransactionsCreated(supabase: any, data: any) {
-  console.log(
-    '[pluggy-webhook] Transactions created for account:',
-    data.account.id
-  );
+async function handleTransactionsCreated(
+  supabase: any,
+  accountId: string,
+  createdTransactionsLink?: string
+) {
+  console.log('[pluggy-webhook] Transactions created for account:', accountId);
 
   // Buscar o UUID da conta no banco
   const { data: accountData } = await supabase
     .from('pluggy_accounts')
     .select('id, user_id')
-    .eq('pluggy_account_id', data.account.id)
+    .eq('pluggy_account_id', accountId)
     .single();
 
   if (!accountData) {
-    console.error('[pluggy-webhook] Account not found in database');
+    console.error('[pluggy-webhook] Account not found in database:', accountId);
     return;
   }
 
-  // Gerar API Key para buscar as transações
-  const apiKeyResponse = await fetch('https://api.pluggy.ai/auth', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      clientId: PLUGGY_CLIENT_ID,
-      clientSecret: PLUGGY_CLIENT_SECRET,
-    }),
-  });
+  try {
+    // Gerar API Key para buscar as transações
+    const apiKey = await getPluggyApiKey();
 
-  if (!apiKeyResponse.ok) {
-    console.error('[pluggy-webhook] Failed to generate API key');
-    return;
-  }
+    // Usar createdTransactionsLink se disponível (mais eficiente)
+    let transactionsUrl = `https://api.pluggy.ai/transactions?accountId=${accountId}&pageSize=500`;
 
-  const { apiKey } = await apiKeyResponse.json();
+    if (createdTransactionsLink) {
+      console.log(
+        '[pluggy-webhook] Using createdTransactionsLink for efficiency'
+      );
+      transactionsUrl = createdTransactionsLink;
+    }
 
-  // 🚀 OTIMIZAÇÃO: Usar createdTransactionsLink se disponível
-  let transactionsUrl = `https://api.pluggy.ai/transactions?accountId=${data.account.id}&pageSize=500`;
+    // Buscar as novas transações
+    const transactionsResponse = await fetch(transactionsUrl, {
+      headers: { 'X-API-KEY': apiKey },
+    });
 
-  // Se o webhook forneceu o link das transações criadas, usar ele (mais eficiente)
-  if (data.createdTransactionsLink) {
+    if (!transactionsResponse.ok) {
+      console.error('[pluggy-webhook] Failed to fetch transactions');
+      return;
+    }
+
+    const { results: transactions } = await transactionsResponse.json();
     console.log(
-      '[pluggy-webhook] Using createdTransactionsLink for efficiency'
+      `[pluggy-webhook] Found ${transactions.length} transactions to sync`
     );
-    transactionsUrl = data.createdTransactionsLink;
+
+    if (transactions.length === 0) {
+      console.log('[pluggy-webhook] No transactions to process');
+      return;
+    }
+
+    // Processar transações
+    await processTransactions(supabase, transactions, accountData);
+
+    console.log('[pluggy-webhook] Transactions created processed');
+  } catch (error) {
+    console.error(
+      '[pluggy-webhook] Error handling transactions created:',
+      error
+    );
   }
+}
 
-  // Buscar as novas transações
-  const transactionsResponse = await fetch(transactionsUrl, {
-    headers: { 'X-API-KEY': apiKey },
-  });
+async function handleTransactionsDeleted(supabase: any, accountId: string) {
+  console.log('[pluggy-webhook] Transactions deleted for account:', accountId);
 
-  if (!transactionsResponse.ok) {
-    console.error('[pluggy-webhook] Failed to fetch transactions');
-    return;
-  }
-
-  const { results: transactions } = await transactionsResponse.json();
+  // Nota: A Pluggy não envia os IDs das transações deletadas
+  // A melhor prática é fazer uma sincronização completa da conta
   console.log(
-    `[pluggy-webhook] Found ${transactions.length} transactions to sync`
+    '[pluggy-webhook] Transactions deleted event received - will resync on next update'
   );
+}
 
-  // 🚀 OTIMIZAÇÃO: Separar transações para processar em lote
+async function syncItemAccounts(supabase: any, pluggyItemId: string) {
+  console.log('[pluggy-webhook] Syncing accounts for item:', pluggyItemId);
+
+  try {
+    const apiKey = await getPluggyApiKey();
+
+    // Buscar contas do Item
+    const accountsResponse = await fetch(
+      `https://api.pluggy.ai/accounts?itemId=${pluggyItemId}`,
+      { headers: { 'X-API-KEY': apiKey } }
+    );
+
+    if (!accountsResponse.ok) {
+      console.error('[pluggy-webhook] Failed to fetch accounts from Pluggy');
+      return;
+    }
+
+    const { results: accounts } = await accountsResponse.json();
+    console.log(
+      `[pluggy-webhook] Found ${accounts.length} accounts from Pluggy`
+    );
+
+    // Buscar o UUID do item e user_id
+    const { data: itemData } = await supabase
+      .from('pluggy_items')
+      .select('id, user_id')
+      .eq('pluggy_item_id', pluggyItemId)
+      .single();
+
+    if (!itemData) {
+      console.error('[pluggy-webhook] Item not found in database');
+      return;
+    }
+
+    // Preparar todas as contas para inserção em lote
+    const accountsData = accounts.map((account: any) => ({
+      pluggy_account_id: account.id,
+      user_id: itemData.user_id,
+      item_id: itemData.id,
+      type: account.type,
+      subtype: account.subtype,
+      name: account.name,
+      number: account.number,
+      balance: account.balance,
+      currency_code: account.currencyCode || 'BRL',
+      credit_limit: account.creditData?.creditLimit,
+      available_credit_limit: account.creditData?.availableCreditLimit,
+    }));
+
+    // Inserção em lote
+    console.log(`[pluggy-webhook] Upserting ${accountsData.length} accounts`);
+    const { error } = await supabase
+      .from('pluggy_accounts')
+      .upsert(accountsData, { onConflict: 'pluggy_account_id' });
+
+    if (error) {
+      console.error('[pluggy-webhook] Error upserting accounts:', error);
+    } else {
+      console.log('[pluggy-webhook] Accounts synced successfully');
+    }
+  } catch (error) {
+    console.error('[pluggy-webhook] Error syncing accounts:', error);
+  }
+}
+
+// Sincroniza transações de todas as contas de um Item
+async function syncItemTransactions(
+  supabase: any,
+  pluggyItemId: string,
+  apiKey: string
+) {
+  console.log('[pluggy-webhook] Syncing transactions for item:', pluggyItemId);
+
+  try {
+    // Buscar todas as contas do item no banco local
+    const { data: accounts, error: accountsError } = await supabase
+      .from('pluggy_accounts')
+      .select('id, pluggy_account_id, user_id')
+      .eq(
+        'item_id',
+        (
+          await supabase
+            .from('pluggy_items')
+            .select('id')
+            .eq('pluggy_item_id', pluggyItemId)
+            .single()
+        ).data?.id
+      );
+
+    if (accountsError || !accounts || accounts.length === 0) {
+      console.log('[pluggy-webhook] No accounts found to sync transactions');
+      return;
+    }
+
+    console.log(
+      `[pluggy-webhook] Syncing transactions for ${accounts.length} accounts`
+    );
+
+    // Sincronizar transações de cada conta em paralelo
+    await Promise.all(
+      accounts.map(async (account: any) => {
+        try {
+          // Buscar transações dos últimos 90 dias
+          const fromDate = new Date();
+          fromDate.setDate(fromDate.getDate() - 90);
+          const fromDateStr = fromDate.toISOString().split('T')[0];
+
+          const transactionsResponse = await fetch(
+            `https://api.pluggy.ai/transactions?accountId=${account.pluggy_account_id}&from=${fromDateStr}&pageSize=500`,
+            { headers: { 'X-API-KEY': apiKey } }
+          );
+
+          if (!transactionsResponse.ok) {
+            console.error(
+              `[pluggy-webhook] Failed to fetch transactions for account ${account.pluggy_account_id}`
+            );
+            return;
+          }
+
+          const { results: transactions } = await transactionsResponse.json();
+          console.log(
+            `[pluggy-webhook] Found ${transactions.length} transactions for account ${account.pluggy_account_id}`
+          );
+
+          if (transactions.length > 0) {
+            await processTransactions(supabase, transactions, {
+              id: account.id,
+              user_id: account.user_id,
+            });
+          }
+        } catch (error) {
+          console.error(
+            `[pluggy-webhook] Error syncing transactions for account ${account.pluggy_account_id}:`,
+            error
+          );
+        }
+      })
+    );
+
+    console.log('[pluggy-webhook] Transactions synced successfully');
+  } catch (error) {
+    console.error('[pluggy-webhook] Error syncing item transactions:', error);
+  }
+}
+
+// Processa e salva transações no banco de dados
+async function processTransactions(
+  supabase: any,
+  transactions: any[],
+  accountData: { id: string; user_id: string }
+) {
   const transactionsToInsert: any[] = [];
-  const expensesToCreate: any[] = [];
   const categorizationMap = new Map();
 
-  // 🤖 Categorizar todas as transações com Walts (inteligente!)
-  console.log(
-    '[pluggy-webhook] Starting intelligent categorization with Walts'
-  );
+  // Categorizar transações de débito (gastos)
   for (const transaction of transactions) {
-    // Apenas categorizar transações DEBIT (gastos) com valor negativo
     if (transaction.amount < 0) {
       try {
         const categorization = await categorizeWithWalts(
@@ -277,23 +570,14 @@ async function handleTransactionsCreated(supabase: any, data: any) {
             amount: Math.abs(transaction.amount),
           }
         );
-
-        console.log(
-          `[pluggy-webhook] Categorized "${transaction.description}":`,
-          categorization
-        );
         categorizationMap.set(transaction.id, categorization);
       } catch (error) {
-        console.error(
-          `[pluggy-webhook] Error categorizing transaction ${transaction.id}:`,
-          error
-        );
-        // Continue sem categorização - será marcado como não sincronizado
+        // Continue sem categorização
       }
     }
 
     // Preparar objeto de transação
-    const txData = {
+    transactionsToInsert.push({
       pluggy_transaction_id: transaction.id,
       user_id: accountData.user_id,
       account_id: accountData.id,
@@ -309,166 +593,146 @@ async function handleTransactionsCreated(supabase: any, data: any) {
       payment_data_receiver_name: transaction.paymentData?.receiver?.name,
       payment_data_receiver_document_number:
         transaction.paymentData?.receiver?.documentNumber?.value,
-      synced: categorization && transaction.amount < 0 ? false : null,
-    };
-
-    transactionsToInsert.push(txData);
+      synced: categorizationMap.has(transaction.id) ? false : null,
+    });
   }
 
-  // 🚀 INSERÇÃO EM LOTE (muito mais rápido!)
+  // Inserção em lote
   console.log(
-    `[pluggy-webhook] Inserting ${transactionsToInsert.length} transactions in batch`
+    `[pluggy-webhook] Upserting ${transactionsToInsert.length} transactions`
   );
   const { data: savedTransactions, error: txError } = await supabase
     .from('pluggy_transactions')
     .upsert(transactionsToInsert, {
       onConflict: 'pluggy_transaction_id',
-      returning: 'representation',
     })
     .select();
 
   if (txError) {
-    console.error('[pluggy-webhook] Error inserting transactions:', txError);
+    console.error('[pluggy-webhook] Error upserting transactions:', txError);
     return;
   }
 
-  // Criar expenses automaticamente para PIX pessoa física (apenas transações novas)
+  // Criar expenses para transações categorizadas que ainda não têm expense
   const transactionsNeedingExpenses = (savedTransactions || []).filter(
-    (tx) => !tx.expense_id && categorizationMap.has(tx.pluggy_transaction_id)
+    (tx: any) =>
+      !tx.expense_id && categorizationMap.has(tx.pluggy_transaction_id)
   );
 
   if (transactionsNeedingExpenses.length > 0) {
     console.log(
-      `[pluggy-webhook] Creating ${transactionsNeedingExpenses.length} automatic expenses for PIX`
+      `[pluggy-webhook] Processing ${transactionsNeedingExpenses.length} transactions for expense creation`
     );
 
-    // Preparar expenses para inserção em lote
-    const expensesData = transactionsNeedingExpenses.map((tx) => {
-      const categorization = categorizationMap.get(tx.pluggy_transaction_id);
-      return {
-        user_id: accountData.user_id,
-        establishment_name: tx.description,
-        amount: Math.abs(tx.amount),
-        date: tx.date,
-        category: categorization.category,
-        subcategory: categorization.subcategory,
-        receipt_image_url: null,
-      };
-    });
+    // Buscar expenses existentes do usuário para verificar duplicidades
+    // (últimos 7 dias para cobrir possíveis transações pendentes)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // 🚀 INSERÇÃO EM LOTE de expenses
-    const { data: createdExpenses } = await supabase
+    const { data: existingExpenses } = await supabase
       .from('expenses')
-      .insert(expensesData)
-      .select();
+      .select('id, amount, date, establishment_name')
+      .eq('user_id', accountData.user_id)
+      .gte('date', sevenDaysAgo.toISOString().split('T')[0]);
 
-    // Vincular expenses às transações (em lote também!)
-    if (createdExpenses && createdExpenses.length > 0) {
-      const updates = transactionsNeedingExpenses.map((tx, index) => ({
-        id: tx.id,
-        expense_id: createdExpenses[index].id,
-        synced: true,
-      }));
+    const expensesToCreate: any[] = [];
+    const duplicatesFound: { txId: string; expenseId: string }[] = [];
 
-      // 🚀 ATUALIZAÇÃO EM LOTE usando Promise.all
+    for (const tx of transactionsNeedingExpenses) {
+      const txAmount = Math.abs(tx.amount);
+      const txDate = new Date(tx.date);
+
+      // Verificar se já existe um expense similar (possível duplicata)
+      const duplicate = existingExpenses?.find((exp: any) => {
+        const expAmount = parseFloat(exp.amount);
+        const expDate = new Date(exp.date);
+
+        // Critérios de duplicidade:
+        // 1. Valor similar (±5%)
+        const amountDiff = Math.abs(expAmount - txAmount) / txAmount;
+        const amountMatches = amountDiff <= 0.05;
+
+        // 2. Data similar (±1 dia)
+        const daysDiff = Math.abs(
+          (txDate.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const dateMatches = daysDiff <= 1;
+
+        return amountMatches && dateMatches;
+      });
+
+      if (duplicate) {
+        // Transação é duplicata - vincular ao expense existente
+        duplicatesFound.push({
+          txId: tx.id,
+          expenseId: duplicate.id,
+        });
+        console.log(
+          `[pluggy-webhook] Duplicate found: ${tx.description} (R$${txAmount}) matches expense ${duplicate.id}`
+        );
+      } else {
+        // Não é duplicata - criar novo expense
+        const categorization = categorizationMap.get(tx.pluggy_transaction_id);
+        expensesToCreate.push({
+          tx,
+          expenseData: {
+            user_id: accountData.user_id,
+            establishment_name: tx.description,
+            amount: txAmount,
+            date: tx.date,
+            category: categorization.category,
+            subcategory: categorization.subcategory,
+            receipt_image_url: null,
+          },
+        });
+      }
+    }
+
+    // Vincular duplicatas aos expenses existentes
+    if (duplicatesFound.length > 0) {
+      console.log(
+        `[pluggy-webhook] Linking ${duplicatesFound.length} duplicate transactions to existing expenses`
+      );
       await Promise.all(
-        updates.map((update) =>
+        duplicatesFound.map(({ txId, expenseId }) =>
           supabase
             .from('pluggy_transactions')
-            .update({ expense_id: update.expense_id, synced: true })
-            .eq('id', update.id)
+            .update({ expense_id: expenseId, synced: true })
+            .eq('id', txId)
         )
       );
-
-      console.log(
-        `[pluggy-webhook] ${createdExpenses.length} expenses created and linked`
-      );
     }
+
+    // Criar novos expenses para transações não duplicatas
+    if (expensesToCreate.length > 0) {
+      console.log(
+        `[pluggy-webhook] Creating ${expensesToCreate.length} new expenses`
+      );
+
+      const { data: createdExpenses } = await supabase
+        .from('expenses')
+        .insert(expensesToCreate.map((e) => e.expenseData))
+        .select();
+
+      if (createdExpenses && createdExpenses.length > 0) {
+        // Vincular expenses às transações
+        await Promise.all(
+          expensesToCreate.map((e, index) =>
+            supabase
+              .from('pluggy_transactions')
+              .update({ expense_id: createdExpenses[index].id, synced: true })
+              .eq('id', e.tx.id)
+          )
+        );
+
+        console.log(
+          `[pluggy-webhook] ${createdExpenses.length} expenses created and linked`
+        );
+      }
+    }
+
+    console.log(
+      `[pluggy-webhook] Summary: ${duplicatesFound.length} duplicates linked, ${expensesToCreate.length} new expenses created`
+    );
   }
-
-  console.log('[pluggy-webhook] Transactions created processed');
-}
-
-async function handleTransactionsDeleted(supabase: any, data: any) {
-  console.log(
-    '[pluggy-webhook] Transactions deleted for account:',
-    data.account.id
-  );
-
-  // Deletar transações que não existem mais
-  // (Pluggy não envia IDs das transações deletadas, então vamos reprocessar todas)
-  // Por enquanto, apenas logar o evento
-  console.log('[pluggy-webhook] Transactions deleted - manual sync required');
-}
-
-async function syncItemAccounts(supabase: any, pluggyItemId: string) {
-  console.log('[pluggy-webhook] Syncing accounts for item:', pluggyItemId);
-
-  // Gerar API Key
-  const apiKeyResponse = await fetch('https://api.pluggy.ai/auth', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      clientId: PLUGGY_CLIENT_ID,
-      clientSecret: PLUGGY_CLIENT_SECRET,
-    }),
-  });
-
-  if (!apiKeyResponse.ok) {
-    console.error('[pluggy-webhook] Failed to generate API key');
-    return;
-  }
-
-  const { apiKey } = await apiKeyResponse.json();
-
-  // Buscar contas do Item
-  const accountsResponse = await fetch(
-    `https://api.pluggy.ai/accounts?itemId=${pluggyItemId}`,
-    { headers: { 'X-API-KEY': apiKey } }
-  );
-
-  if (!accountsResponse.ok) {
-    console.error('[pluggy-webhook] Failed to fetch accounts');
-    return;
-  }
-
-  const { results: accounts } = await accountsResponse.json();
-  console.log(`[pluggy-webhook] Found ${accounts.length} accounts`);
-
-  // Buscar o UUID do item e user_id
-  const { data: itemData } = await supabase
-    .from('pluggy_items')
-    .select('id, user_id')
-    .eq('pluggy_item_id', pluggyItemId)
-    .single();
-
-  if (!itemData) {
-    console.error('[pluggy-webhook] Item not found in database');
-    return;
-  }
-
-  // 🚀 OTIMIZAÇÃO: Preparar todas as contas para inserção em lote
-  const accountsData = accounts.map((account) => ({
-    pluggy_account_id: account.id,
-    user_id: itemData.user_id,
-    item_id: itemData.id,
-    type: account.type,
-    subtype: account.subtype,
-    name: account.name,
-    number: account.number,
-    balance: account.balance,
-    currency_code: account.currencyCode || 'BRL',
-    credit_limit: account.creditData?.creditLimit,
-    available_credit_limit: account.creditData?.availableCreditLimit,
-  }));
-
-  // 🚀 INSERÇÃO EM LOTE (muito mais rápido!)
-  console.log(
-    `[pluggy-webhook] Inserting ${accountsData.length} accounts in batch`
-  );
-  await supabase
-    .from('pluggy_accounts')
-    .upsert(accountsData, { onConflict: 'pluggy_account_id' });
-
-  console.log('[pluggy-webhook] Accounts synced successfully');
 }

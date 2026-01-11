@@ -173,6 +173,7 @@ serve(async (req) => {
             currency_code: account.currencyCode || 'BRL',
             credit_limit: account.creditData?.creditLimit,
             available_credit_limit: account.creditData?.availableCreditLimit,
+            last_sync_at: new Date().toISOString(), // Registrar data da sincronização
           },
           { onConflict: 'pluggy_account_id' }
         );

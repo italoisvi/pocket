@@ -7,104 +7,92 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PieChart } from 'react-native-chart-kit';
-import Svg, { Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Rect, Line } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { GraficoCircularIcon } from '@/components/GraficoCircularIcon';
 import { GraficoBarrasIcon } from '@/components/GraficoBarrasIcon';
+import { RelogioTresIcon } from '@/components/RelogioTresIcon';
 import { useTheme } from '@/lib/theme';
-import { categorizeExpense, CATEGORIES } from '@/lib/categories';
-
-const screenWidth = Dimensions.get('window').width;
-
-type ComparisonType =
-  | null
-  | 'renda-custos'
-  | 'renda-fixos'
-  | 'renda-variaveis'
-  | 'renda-orcamentos'
-  | 'renda-custos-orcamentos';
-
-type ComparisonData = {
-  renda: number;
-  custosFixos: number;
-  custosVariaveis: number;
-  dividas: number;
-  investimentos: number;
-  orcamentos: number;
-  saldoRestante: number;
-};
+import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
+import {
+  calculateTotalBalance,
+  getBalanceSourceLabel,
+  type BalanceSource,
+} from '@/lib/calculateBalance';
 
 type ChartType = 'pie' | 'bar';
 
-export default function AnalisesWaltsScreen() {
+const screenWidth = Dimensions.get('window').width;
+
+type CategoryExpense = {
+  category: ExpenseCategory;
+  subcategory: string;
+  total: number;
+  count: number;
+};
+
+type MonthData = {
+  month: string;
+  year: number;
+  total: number;
+  byCategory: { [key: string]: number };
+};
+
+type LeakItem = {
+  subcategory: string;
+  category: ExpenseCategory;
+  total: number;
+  count: number;
+  avgPerTransaction: number;
+};
+
+type IncreaseItem = {
+  subcategory: string;
+  category: ExpenseCategory;
+  currentTotal: number;
+  previousTotal: number;
+  increase: number;
+  percentIncrease: number;
+};
+
+export default function RaioXFinanceiroScreen() {
   const { theme } = useTheme();
-  const [loading, setLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [comparisonType, setComparisonType] = useState<ComparisonType>(null);
-  const [chartType, setChartType] = useState<ChartType>('pie');
-  const [comparisonData, setComparisonData] = useState<ComparisonData | null>(
-    null
+  const [loading, setLoading] = useState(true);
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [currentMonthData, setCurrentMonthData] = useState<CategoryExpense[]>(
+    []
   );
-  const [waltsInsights, setWaltsInsights] = useState<string>('');
+  const [previousMonthData, setPreviousMonthData] = useState<CategoryExpense[]>(
+    []
+  );
+  const [threeMonthsTrend, setThreeMonthsTrend] = useState<MonthData[]>([]);
+  const [leaks, setLeaks] = useState<LeakItem[]>([]);
+  const [increases, setIncreases] = useState<IncreaseItem[]>([]);
+  const [topExpenses, setTopExpenses] = useState<CategoryExpense[]>([]);
+  const [trendChartType, setTrendChartType] = useState<ChartType>('bar');
+  const [monthsOfUsage, setMonthsOfUsage] = useState(0); // Quantos meses o usuário usa o app
+  const [waltsAnalysis, setWaltsAnalysis] = useState<string | null>(null);
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [balanceSource, setBalanceSource] = useState<BalanceSource>('manual');
+  const [calculatedBalance, setCalculatedBalance] = useState<number>(0);
 
-  useEffect(() => {
-    loadSavedState();
-  }, []);
-
-  // Recarregar dados sempre que a tela ganhar foco (para refletir mudanças do Open Finance)
   useFocusEffect(
     useCallback(() => {
-      setWaltsInsights('');
-      loadComparisonData();
+      loadData();
     }, [])
   );
 
-  // Carregar estado salvo
-  const loadSavedState = async () => {
-    try {
-      const savedType = await AsyncStorage.getItem(
-        '@analises_walts_comparison_type'
-      );
-      const savedChartType = await AsyncStorage.getItem(
-        '@analises_walts_chart_type'
-      );
-
-      if (savedType) {
-        setComparisonType(savedType as ComparisonType);
-      }
-      if (savedChartType) {
-        setChartType(savedChartType as ChartType);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar estado salvo:', error);
-    }
-  };
-
-  // Salvar estado quando mudar
-  useEffect(() => {
-    if (comparisonType) {
-      AsyncStorage.setItem(
-        '@analises_walts_comparison_type',
-        comparisonType
-      ).catch(console.error);
-    }
-  }, [comparisonType]);
-
-  useEffect(() => {
-    AsyncStorage.setItem('@analises_walts_chart_type', chartType).catch(
-      console.error
-    );
-  }, [chartType]);
-
-  const loadComparisonData = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       const {
@@ -113,17 +101,41 @@ export default function AnalisesWaltsScreen() {
 
       if (!user) return;
 
-      // Buscar dados do perfil (renda)
+      // Buscar renda e data de criação
       const { data: profile } = await supabase
         .from('profiles')
-        .select('income_cards, monthly_salary')
+        .select('income_cards, monthly_salary, created_at')
         .eq('id', user.id)
         .single();
 
-      // Calcular renda total
+      // Calcular quantos meses o usuário usa o app
+      if (profile?.created_at) {
+        const createdAt = new Date(profile.created_at);
+        const now = new Date();
+        const monthsDiff =
+          (now.getFullYear() - createdAt.getFullYear()) * 12 +
+          (now.getMonth() - createdAt.getMonth()) +
+          1; // +1 porque o mês de criação conta como 1
+        setMonthsOfUsage(monthsDiff);
+      } else {
+        setMonthsOfUsage(1); // Se não tem created_at, assume primeiro mês
+      }
+
+      // Tipo para income_cards
+      type IncomeCard = {
+        id: string;
+        salary: string;
+        paymentDay: string;
+        incomeSource: string;
+        linkedAccountId?: string;
+      };
+
       let totalIncome = 0;
+      let incomeCards: IncomeCard[] = [];
+
       if (profile?.income_cards && Array.isArray(profile.income_cards)) {
-        totalIncome = profile.income_cards.reduce((sum: number, card: any) => {
+        incomeCards = profile.income_cards as IncomeCard[];
+        totalIncome = incomeCards.reduce((sum: number, card: IncomeCard) => {
           const salary = parseFloat(
             card.salary.replace(/\./g, '').replace(',', '.')
           );
@@ -133,126 +145,240 @@ export default function AnalisesWaltsScreen() {
       if (totalIncome === 0 && profile?.monthly_salary) {
         totalIncome = profile.monthly_salary;
       }
+      setMonthlyIncome(totalIncome);
 
-      // Buscar gastos do mês atual
+      // Buscar saldos das contas vinculadas (para cálculo inteligente do saldo)
+      const linkedAccountIds = incomeCards
+        .filter((card) => card.linkedAccountId)
+        .map((card) => card.linkedAccountId as string);
+
+      let accountBalances: { id: string; balance: number | null }[] = [];
+      let lastSyncAt: string | null = null;
+
+      if (linkedAccountIds.length > 0) {
+        const { data: linkedAccounts } = await supabase
+          .from('pluggy_accounts')
+          .select('id, balance, last_sync_at')
+          .in('id', linkedAccountIds);
+
+        if (linkedAccounts) {
+          accountBalances = linkedAccounts;
+          // Usar a sincronização mais recente
+          const syncDates = linkedAccounts
+            .map((acc: any) => acc.last_sync_at)
+            .filter(Boolean);
+          if (syncDates.length > 0) {
+            lastSyncAt = syncDates.sort().pop() || null;
+          }
+        }
+      }
+
+      // Datas para os ultimos 3 meses
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
 
+      // Buscar gastos dos ultimos 3 meses
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category, subcategory')
+        .select('amount, category, subcategory, date, created_at')
         .eq('user_id', user.id)
-        .gte('date', startOfMonth.toISOString().split('T')[0])
-        .lte('date', endOfMonth.toISOString().split('T')[0]);
+        .gte('date', twoMonthsAgo.toISOString().split('T')[0])
+        .order('date', { ascending: false });
 
-      // Buscar transações do Open Finance
-      const { data: openFinanceTransactions } = await supabase
-        .from('pluggy_transactions')
-        .select('description, amount, date, type')
-        .eq('user_id', user.id)
-        .eq('type', 'DEBIT')
-        .gte('date', startOfMonth.toISOString().split('T')[0])
-        .lte('date', endOfMonth.toISOString().split('T')[0]);
+      if (!expensesData) {
+        setLoading(false);
+        return;
+      }
 
-      // Categorizar gastos por tipo
-      let custosFixos = 0;
-      let custosVariaveis = 0;
-      let dividas = 0;
-      let investimentos = 0;
-      let totalGastos = 0;
+      // Separar gastos por mes
+      const currentMonthExpenses: CategoryExpense[] = [];
+      const previousMonthExpenses: CategoryExpense[] = [];
+      const monthlyTotals: MonthData[] = [];
 
-      // Somar gastos de expenses (comprovantes)
+      // Agrupar por mes e categoria
+      const groupByMonth = (expenses: any[], monthStart: Date) => {
+        const monthEnd = new Date(
+          monthStart.getFullYear(),
+          monthStart.getMonth() + 1,
+          0
+        );
+        const filtered = expenses.filter((exp) => {
+          const expDate = new Date(exp.date);
+          return expDate >= monthStart && expDate <= monthEnd;
+        });
+
+        const grouped = new Map<string, CategoryExpense>();
+        filtered.forEach((exp) => {
+          const category = (exp.category as ExpenseCategory) || 'outros';
+          const subcategory = exp.subcategory || 'Outros';
+          const key = `${category}-${subcategory}`;
+
+          if (grouped.has(key)) {
+            const existing = grouped.get(key)!;
+            existing.total += exp.amount;
+            existing.count += 1;
+          } else {
+            grouped.set(key, {
+              category,
+              subcategory,
+              total: exp.amount,
+              count: 1,
+            });
+          }
+        });
+
+        return Array.from(grouped.values()).sort((a, b) => b.total - a.total);
+      };
+
+      const currentData = groupByMonth(expensesData, currentMonth);
+      const previousData = groupByMonth(expensesData, previousMonth);
+      const twoMonthsData = groupByMonth(expensesData, twoMonthsAgo);
+
+      setCurrentMonthData(currentData);
+      setPreviousMonthData(previousData);
+
+      // Calcular total de gastos do mês atual
+      const totalCurrentExpenses = currentData.reduce(
+        (sum, item) => sum + item.total,
+        0
+      );
+
+      // Calcular gastos RECENTES (após última sincronização)
+      let recentExpenses = 0;
       if (expensesData) {
-        expensesData.forEach((exp) => {
-          totalGastos += exp.amount; // Somar no total de gastos
+        // Se tiver data de sincronização, usa ela; senão, considera gastos das últimas 24h como recentes
+        const cutoffDate = lastSyncAt
+          ? new Date(lastSyncAt)
+          : new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 horas atrás
 
-          // Obter informações da categoria
-          const categoryInfo = exp.category
-            ? CATEGORIES[exp.category as keyof typeof CATEGORIES]
-            : undefined;
-          if (!categoryInfo) {
-            custosVariaveis += exp.amount;
-            return;
-          }
-
-          // Classificar por tipo
-          switch (categoryInfo.type) {
-            case 'essencial':
-              custosFixos += exp.amount;
-              break;
-            case 'nao_essencial':
-              custosVariaveis += exp.amount;
-              break;
-            case 'divida':
-              dividas += exp.amount;
-              break;
-            case 'investimento':
-              investimentos += exp.amount;
-              break;
-            default:
-              custosVariaveis += exp.amount;
-          }
-        });
+        // Filtrar gastos do mês atual que foram criados após o cutoff
+        const currentMonthStart = currentMonth;
+        const currentMonthEnd = new Date(
+          currentMonth.getFullYear(),
+          currentMonth.getMonth() + 1,
+          0
+        );
+        recentExpenses = expensesData
+          .filter((exp) => {
+            const expDate = new Date(exp.date);
+            const createdAt = new Date(exp.created_at);
+            return (
+              expDate >= currentMonthStart &&
+              expDate <= currentMonthEnd &&
+              createdAt > cutoffDate
+            );
+          })
+          .reduce((sum, exp) => sum + exp.amount, 0);
       }
 
-      // Somar gastos do Open Finance (transações DEBIT)
-      if (openFinanceTransactions) {
-        openFinanceTransactions.forEach((tx) => {
-          const amount = Math.abs(tx.amount);
-          totalGastos += amount; // Somar no total de gastos
+      // Calcular saldo usando lógica inteligente (menor entre manual e banco)
+      const balanceResult = calculateTotalBalance(
+        incomeCards,
+        accountBalances,
+        totalCurrentExpenses,
+        recentExpenses
+      );
 
-          const { category } = categorizeExpense(tx.description);
+      setCalculatedBalance(balanceResult.remainingBalance);
+      setBalanceSource(balanceResult.source);
 
-          // Obter informações da categoria
-          const categoryInfo = CATEGORIES[category];
-          if (!categoryInfo) {
-            custosVariaveis += amount;
-            return;
+      // Top 5 gastos do mes atual
+      setTopExpenses(currentData.slice(0, 5));
+
+      // Calcular vazamentos (gastos pequenos e frequentes)
+      const leakItems: LeakItem[] = currentData
+        .filter((item) => {
+          // Vazamentos: mais de 3 transacoes E valor medio < R$ 100
+          const avgPerTx = item.total / item.count;
+          return item.count >= 3 && avgPerTx < 100;
+        })
+        .map((item) => ({
+          ...item,
+          avgPerTransaction: item.total / item.count,
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
+      setLeaks(leakItems);
+
+      // Calcular aumentos (comparacao com mes anterior)
+      const increaseItems: IncreaseItem[] = [];
+      currentData.forEach((current) => {
+        const previous = previousData.find(
+          (p) =>
+            p.category === current.category &&
+            p.subcategory === current.subcategory
+        );
+        const previousTotal = previous?.total || 0;
+
+        if (previousTotal > 0) {
+          const increase = current.total - previousTotal;
+          const percentIncrease = (increase / previousTotal) * 100;
+
+          if (percentIncrease >= 20 && increase >= 50) {
+            increaseItems.push({
+              subcategory: current.subcategory,
+              category: current.category,
+              currentTotal: current.total,
+              previousTotal,
+              increase,
+              percentIncrease,
+            });
           }
-
-          // Classificar por tipo
-          switch (categoryInfo.type) {
-            case 'essencial':
-              custosFixos += amount;
-              break;
-            case 'nao_essencial':
-              custosVariaveis += amount;
-              break;
-            case 'divida':
-              dividas += amount;
-              break;
-            case 'investimento':
-              investimentos += amount;
-              break;
-            default:
-              custosVariaveis += amount;
-          }
-        });
-      }
-
-      // Buscar orçamentos
-      const { data: budgetsData } = await supabase
-        .from('budgets')
-        .select('amount')
-        .eq('user_id', user.id);
-
-      const totalBudgets = budgetsData
-        ? budgetsData.reduce((sum, b) => sum + Number(b.amount), 0)
-        : 0;
-
-      // Saldo = Renda Total - TODOS os gastos (igual à Home)
-      const saldoRestante = totalIncome - totalGastos;
-
-      setComparisonData({
-        renda: totalIncome,
-        custosFixos,
-        custosVariaveis,
-        dividas,
-        investimentos,
-        orcamentos: totalBudgets,
-        saldoRestante,
+        } else if (current.total >= 100) {
+          // Gasto novo significativo
+          increaseItems.push({
+            subcategory: current.subcategory,
+            category: current.category,
+            currentTotal: current.total,
+            previousTotal: 0,
+            increase: current.total,
+            percentIncrease: 100,
+          });
+        }
       });
+      setIncreases(
+        increaseItems
+          .sort((a, b) => b.percentIncrease - a.percentIncrease)
+          .slice(0, 5)
+      );
+
+      // Tendencia 3 meses
+      const monthNames = [
+        'Jan',
+        'Fev',
+        'Mar',
+        'Abr',
+        'Mai',
+        'Jun',
+        'Jul',
+        'Ago',
+        'Set',
+        'Out',
+        'Nov',
+        'Dez',
+      ];
+      setThreeMonthsTrend([
+        {
+          month: monthNames[twoMonthsAgo.getMonth()],
+          year: twoMonthsAgo.getFullYear(),
+          total: twoMonthsData.reduce((sum, item) => sum + item.total, 0),
+          byCategory: {},
+        },
+        {
+          month: monthNames[previousMonth.getMonth()],
+          year: previousMonth.getFullYear(),
+          total: previousData.reduce((sum, item) => sum + item.total, 0),
+          byCategory: {},
+        },
+        {
+          month: monthNames[currentMonth.getMonth()],
+          year: currentMonth.getFullYear(),
+          total: currentData.reduce((sum, item) => sum + item.total, 0),
+          byCategory: {},
+        },
+      ]);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     } finally {
@@ -260,411 +386,149 @@ export default function AnalisesWaltsScreen() {
     }
   };
 
-  const handleAnalyze = async () => {
-    if (!comparisonData || !comparisonType) return;
+  // Gerar análise do Walts
+  const generateWaltsAnalysis = async () => {
+    try {
+      setLoadingAnalysis(true);
+      setShowAnalysis(true);
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        Alert.alert('Erro', 'Sessão não encontrada');
+        return;
+      }
+
+      // Preparar contexto para o Walts
+      const context = {
+        monthlyIncome,
+        currentMonthTotal: currentMonthData.reduce(
+          (sum, item) => sum + item.total,
+          0
+        ),
+        topExpenses: topExpenses.slice(0, 5).map((exp) => ({
+          category: CATEGORIES[exp.category]?.name || exp.category,
+          subcategory: exp.subcategory,
+          total: exp.total,
+        })),
+        leaks: leaks.slice(0, 5).map((leak) => ({
+          subcategory: leak.subcategory,
+          total: leak.total,
+          count: leak.count,
+          avgPerTransaction: leak.avgPerTransaction,
+        })),
+        increases: increases.slice(0, 3).map((inc) => ({
+          subcategory: inc.subcategory,
+          currentTotal: inc.currentTotal,
+          previousTotal: inc.previousTotal,
+          percentIncrease: inc.percentIncrease,
+        })),
+        threeMonthsTrend: threeMonthsTrend.map((m) => ({
+          month: m.month,
+          total: m.total,
+        })),
+      };
+
+      const { data, error } = await supabase.functions.invoke('walts-agent', {
+        body: {
+          messages: [
+            {
+              role: 'user',
+              content: `Analise meu Raio-X Financeiro e me dê sugestões práticas e personalizadas.
+
+Aqui estão os dados:
+- Renda mensal: R$ ${monthlyIncome.toFixed(2)}
+- Gastos do mês atual: R$ ${context.currentMonthTotal.toFixed(2)}
+- Top 5 gastos: ${JSON.stringify(context.topExpenses)}
+- Vazamentos (pequenos gastos frequentes): ${JSON.stringify(context.leaks)}
+- Gastos que aumentaram: ${JSON.stringify(context.increases)}
+- Tendência 3 meses: ${JSON.stringify(context.threeMonthsTrend)}
+
+Faça uma análise detalhada e me dê:
+1. Um resumo da minha situação financeira
+2. Pontos de atenção específicos
+3. 3 sugestões práticas para melhorar
+4. Uma meta sugerida para o próximo mês
+
+Use formatação markdown para organizar a resposta.`,
+            },
+          ],
+        },
+      });
+
+      if (error) {
+        console.error('Error generating analysis:', error);
+        Alert.alert('Erro', 'Não foi possível gerar a análise');
+        return;
+      }
+
+      setWaltsAnalysis(data.response);
+    } catch (error) {
+      console.error('Error generating analysis:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao gerar a análise');
+    } finally {
+      setLoadingAnalysis(false);
+    }
+  };
+
+  // Salvar análise no histórico
+  const saveAnalysis = async () => {
+    if (!waltsAnalysis) return;
 
     try {
-      setAnalyzing(true);
-
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!user) return;
 
-      // Carregar contexto completo do usuário (igual ao chat)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('name, monthly_salary, income_cards')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { error } = await supabase.from('walts_analyses').insert({
+        user_id: user.id,
+        analysis_type: 'raio_x_financeiro',
+        content: waltsAnalysis,
+        context_data: {
+          monthlyIncome,
+          currentMonthTotal: currentMonthData.reduce(
+            (sum, item) => sum + item.total,
+            0
+          ),
+          topExpenses: topExpenses.slice(0, 5),
+          leaks: leaks.slice(0, 5),
+          increases: increases.slice(0, 3),
+        },
+      });
 
-      // Calcular renda total
-      let totalIncome = 0;
-      if (profile?.income_cards && Array.isArray(profile.income_cards)) {
-        totalIncome = profile.income_cards.reduce((sum: number, card: any) => {
-          const salary = parseFloat(
-            card.salary.replace(/\./g, '').replace(',', '.')
-          );
-          return sum + (isNaN(salary) ? 0 : salary);
-        }, 0);
-      }
-      if (totalIncome === 0 && profile?.monthly_salary) {
-        totalIncome = profile.monthly_salary;
-      }
-
-      // Buscar gastos do mês atual
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      const { data: expenses } = await supabase
-        .from('expenses')
-        .select('establishment_name, amount, category, subcategory, date')
-        .eq('user_id', user.id)
-        .gte('created_at', firstDayOfMonth.toISOString())
-        .order('created_at', { ascending: false });
-
-      // Buscar transações Open Finance
-      const { data: openFinanceTransactions } = await supabase
-        .from('pluggy_transactions')
-        .select('description, amount, date, type, status')
-        .eq('user_id', user.id)
-        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
-        .order('date', { ascending: false });
-
-      // Buscar contas Open Finance
-      const { data: openFinanceAccounts } = await supabase
-        .from('pluggy_accounts')
-        .select(
-          'id, name, type, subtype, balance, credit_limit, available_credit_limit'
-        )
-        .eq('user_id', user.id);
-
-      // Categorizar gastos
-      const categoryBreakdown: { [key: string]: number } = {};
-      const essentialExpenses: { [key: string]: number } = {};
-      const nonEssentialExpenses: { [key: string]: number } = {};
-
-      if (expenses) {
-        expenses.forEach((exp) => {
-          const category = exp.category || 'Outros';
-          const subcategory = exp.subcategory || 'Outros';
-          categoryBreakdown[category] =
-            (categoryBreakdown[category] || 0) + exp.amount;
-
-          const categoryInfo =
-            CATEGORIES[exp.category as keyof typeof CATEGORIES];
-          if (categoryInfo) {
-            const key = `${categoryInfo.name} - ${subcategory}`;
-            if (categoryInfo.type === 'essencial') {
-              essentialExpenses[key] =
-                (essentialExpenses[key] || 0) + exp.amount;
-            } else {
-              nonEssentialExpenses[key] =
-                (nonEssentialExpenses[key] || 0) + exp.amount;
-            }
-          }
-        });
+      if (error) {
+        console.error('Error saving analysis:', error);
+        Alert.alert('Erro', 'Não foi possível salvar a análise');
+        return;
       }
 
-      let comparisonDescription = '';
-      switch (comparisonType) {
-        case 'renda-custos':
-          comparisonDescription = 'Renda X Custos Fixos e Variáveis';
-          break;
-        case 'renda-fixos':
-          comparisonDescription = 'Renda X Custos Fixos';
-          break;
-        case 'renda-variaveis':
-          comparisonDescription = 'Renda X Custos Variáveis';
-          break;
-        case 'renda-orcamentos':
-          comparisonDescription = 'Renda X Orçamentos';
-          break;
-        case 'renda-custos-orcamentos':
-          comparisonDescription = 'Renda X Custos X Orçamentos';
-          break;
-      }
+      // Limpar análise da tela após salvar
+      setWaltsAnalysis(null);
+      setShowAnalysis(false);
 
-      const prompt = `Analise minha situação financeira focando em: ${comparisonDescription}
-
-📊 DADOS FINANCEIROS COMPLETOS:
-• Renda Total: ${formatCurrency(totalIncome)}
-• Custos Fixos (Essenciais): ${formatCurrency(comparisonData.custosFixos)} (${totalIncome > 0 ? ((comparisonData.custosFixos / totalIncome) * 100).toFixed(1) : '0'}% da renda)
-• Custos Variáveis (Não essenciais): ${formatCurrency(comparisonData.custosVariaveis)} (${totalIncome > 0 ? ((comparisonData.custosVariaveis / totalIncome) * 100).toFixed(1) : '0'}% da renda)
-• Orçamentos Planejados: ${formatCurrency(comparisonData.orcamentos)}
-• Saldo Restante: ${formatCurrency(comparisonData.saldoRestante)} (${totalIncome > 0 ? ((comparisonData.saldoRestante / totalIncome) * 100).toFixed(1) : '0'}% da renda)
-
-💳 CONTEXTO ADICIONAL:
-${
-  openFinanceAccounts && openFinanceAccounts.length > 0
-    ? `
-Contas bancárias conectadas:
-${openFinanceAccounts.map((acc) => `• ${acc.name} (${acc.type}): ${acc.balance ? formatCurrency(acc.balance) : 'N/A'}`).join('\n')}
-`
-    : ''
-}
-
-${
-  Object.keys(essentialExpenses).length > 0
-    ? `
-Detalhamento Gastos Essenciais:
-${Object.entries(essentialExpenses)
-  .slice(0, 10)
-  .map(([key, value]) => `• ${key}: ${formatCurrency(value)}`)
-  .join('\n')}
-`
-    : ''
-}
-
-${
-  Object.keys(nonEssentialExpenses).length > 0
-    ? `
-Detalhamento Gastos Não Essenciais:
-${Object.entries(nonEssentialExpenses)
-  .slice(0, 10)
-  .map(([key, value]) => `• ${key}: ${formatCurrency(value)}`)
-  .join('\n')}
-`
-    : ''
-}
-
-Forneça uma análise ESPECÍFICA sobre ${comparisonDescription}:
-1. Como estou gastando em relação à minha renda
-2. Se os valores estão adequados (use as regras 50-30-20 como referência)
-3. Pontos de atenção e alertas
-4. Recomendações práticas e ACIONÁVEIS
-
-Seja direto, objetivo e use markdown para destacar pontos importantes.`;
-
-      const session = await supabase.auth.getSession();
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/walts-analysis`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.data.session?.access_token}`,
-          },
-          body: JSON.stringify({ prompt }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[Walts Analysis] Error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText,
-        });
-        throw new Error(
-          `Erro ${response.status}: ${errorText || response.statusText}`
-        );
-      }
-
-      const { analysis } = await response.json();
-      setWaltsInsights(analysis);
+      Alert.alert('Sucesso', 'Análise salva no histórico!');
     } catch (error) {
-      console.error('Erro ao analisar:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
-      setWaltsInsights(
-        `Desculpe, não foi possível gerar a análise no momento.\n\n**Erro:** ${errorMessage}\n\nVerifique:\n- Se a Edge Function está configurada corretamente\n- Se a variável DEEPSEEK_API_KEY está definida no Supabase\n- Os logs da função no painel do Supabase`
-      );
-    } finally {
-      setAnalyzing(false);
+      console.error('Error saving analysis:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao salvar');
     }
   };
 
-  // Preparar dados baseado no tipo de comparação
-  const getChartData = () => {
-    if (!comparisonData || !comparisonType) return { pieData: [], barData: [] };
-
-    let pieData: any[] = [];
-    let barData: any[] = [];
-
-    switch (comparisonType) {
-      case 'renda-custos':
-        pieData = [
-          {
-            name: 'Custos Fixos',
-            population: comparisonData.custosFixos,
-            color: '#FF6B6B',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-          {
-            name: 'Custos Variáveis',
-            population: comparisonData.custosVariaveis,
-            color: '#FFD93D',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-          {
-            name: 'Saldo',
-            population: Math.max(
-              0,
-              comparisonData.renda -
-                comparisonData.custosFixos -
-                comparisonData.custosVariaveis
-            ),
-            color: '#4ECDC4',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-        ].filter((item) => item.population > 0); // Remover itens com valor zero
-        barData = [
-          { label: 'Renda', value: comparisonData.renda, color: '#4ECDC4' },
-          {
-            label: 'Fixos',
-            value: comparisonData.custosFixos,
-            color: '#FF6B6B',
-          },
-          {
-            label: 'Variáveis',
-            value: comparisonData.custosVariaveis,
-            color: '#FFD93D',
-          },
-        ].filter((item) => item.value > 0); // Remover itens com valor zero
-        break;
-
-      case 'renda-fixos':
-        pieData = [
-          {
-            name: 'Custos Fixos',
-            population: comparisonData.custosFixos,
-            color: '#FF6B6B',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-          {
-            name: 'Saldo Após Fixos',
-            population: Math.max(
-              0,
-              comparisonData.renda - comparisonData.custosFixos
-            ),
-            color: '#4ECDC4',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-        ];
-        barData = [
-          { label: 'Renda', value: comparisonData.renda, color: '#4ECDC4' },
-          {
-            label: 'Fixos',
-            value: comparisonData.custosFixos,
-            color: '#FF6B6B',
-          },
-        ];
-        break;
-
-      case 'renda-variaveis':
-        pieData = [
-          {
-            name: 'Custos Variáveis',
-            population: comparisonData.custosVariaveis,
-            color: '#FFD93D',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-          {
-            name: 'Saldo Após Variáveis',
-            population: Math.max(
-              0,
-              comparisonData.renda - comparisonData.custosVariaveis
-            ),
-            color: '#4ECDC4',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-        ];
-        barData = [
-          { label: 'Renda', value: comparisonData.renda, color: '#4ECDC4' },
-          {
-            label: 'Variáveis',
-            value: comparisonData.custosVariaveis,
-            color: '#FFD93D',
-          },
-        ];
-        break;
-
-      case 'renda-orcamentos':
-        pieData = [
-          {
-            name: 'Orçamentos',
-            population: comparisonData.orcamentos,
-            color: '#A8D8EA',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-          {
-            name: 'Saldo Após Orçamentos',
-            population: Math.max(
-              0,
-              comparisonData.renda - comparisonData.orcamentos
-            ),
-            color: '#4ECDC4',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-        ];
-        barData = [
-          { label: 'Renda', value: comparisonData.renda, color: '#4ECDC4' },
-          {
-            label: 'Orçamentos',
-            value: comparisonData.orcamentos,
-            color: '#A8D8EA',
-          },
-        ];
-        break;
-
-      case 'renda-custos-orcamentos':
-        pieData = [
-          {
-            name: 'Custos Fixos',
-            population: comparisonData.custosFixos,
-            color: '#FF6B6B',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-          {
-            name: 'Custos Variáveis',
-            population: comparisonData.custosVariaveis,
-            color: '#FFD93D',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-          {
-            name: 'Orçamentos',
-            population: comparisonData.orcamentos,
-            color: '#A8D8EA',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-          {
-            name: 'Saldo',
-            population: Math.max(0, comparisonData.saldoRestante),
-            color: '#4ECDC4',
-            legendFontColor: '#666',
-            legendFontSize: 0,
-          },
-        ];
-        barData = [
-          { label: 'Renda', value: comparisonData.renda, color: '#4ECDC4' },
-          {
-            label: 'Fixos',
-            value: comparisonData.custosFixos,
-            color: '#FF6B6B',
-          },
-          {
-            label: 'Variáveis',
-            value: comparisonData.custosVariaveis,
-            color: '#FFD93D',
-          },
-          {
-            label: 'Orçamentos',
-            value: comparisonData.orcamentos,
-            color: '#A8D8EA',
-          },
-        ];
-        break;
-    }
-
-    return { pieData, barData };
-  };
-
-  const { pieData, barData } = getChartData();
-
-  const maxBarValue = Math.max(...barData.map((d) => d.value), 0);
-  const chartHeight = 220;
-  const barWidth = 60;
-  const barSpacing = 30;
-  const chartWidth = Math.max(
-    screenWidth - 88,
-    barData.length * (barWidth + barSpacing) + barSpacing
+  const totalCurrentMonth = currentMonthData.reduce(
+    (sum, item) => sum + item.total,
+    0
   );
+  const totalLeaks = leaks.reduce((sum, item) => sum + item.total, 0);
+  const leaksPercent =
+    monthlyIncome > 0 ? (totalLeaks / monthlyIncome) * 100 : 0;
+
+  // Grafico de tendencia
+  const maxTrendValue = Math.max(...threeMonthsTrend.map((m) => m.total), 1);
+  const trendChartHeight = 120;
+  const trendChartWidth = screenWidth - 96;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -679,9 +543,14 @@ Seja direto, objetivo e use markdown para destacar pontos importantes.`;
           <ChevronLeftIcon size={20} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]}>
-          Análise Comparativa
+          Raio-X Financeiro
         </Text>
-        <View style={styles.placeholder} />
+        <TouchableOpacity
+          style={styles.historyButton}
+          onPress={() => router.push('/raio-x-history')}
+        >
+          <RelogioTresIcon size={24} color={theme.text} />
+        </TouchableOpacity>
       </SafeAreaView>
 
       <ScrollView style={styles.content}>
@@ -689,395 +558,639 @@ Seja direto, objetivo e use markdown para destacar pontos importantes.`;
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
             <Text style={[styles.loadingText, { color: theme.text }]}>
-              Carregando dados...
+              Analisando suas finanças...
             </Text>
           </View>
         ) : (
           <>
-            {/* Descrição */}
-            <Text style={[styles.description, { color: theme.textSecondary }]}>
-              Escolha o tipo de comparação que deseja visualizar e obtenha
-              insights inteligentes do Walts sobre suas finanças.
-            </Text>
-
-            {/* Seletores de Comparação com Scroll Horizontal */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.comparisonScrollView}
-              contentContainerStyle={styles.comparisonSelector}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.comparisonButton,
-                  {
-                    backgroundColor:
-                      comparisonType === 'renda-custos'
-                        ? theme.primary
-                        : theme.card,
-                    borderColor: theme.cardBorder,
-                  },
-                ]}
-                onPress={() => {
-                  setComparisonType('renda-custos');
-                  setWaltsInsights('');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.comparisonButtonText,
-                    {
-                      color:
-                        comparisonType === 'renda-custos'
-                          ? theme.background
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  Renda X Custos
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.comparisonButton,
-                  {
-                    backgroundColor:
-                      comparisonType === 'renda-fixos'
-                        ? theme.primary
-                        : theme.card,
-                    borderColor: theme.cardBorder,
-                  },
-                ]}
-                onPress={() => {
-                  setComparisonType('renda-fixos');
-                  setWaltsInsights('');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.comparisonButtonText,
-                    {
-                      color:
-                        comparisonType === 'renda-fixos'
-                          ? theme.background
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  Renda X Fixos
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.comparisonButton,
-                  {
-                    backgroundColor:
-                      comparisonType === 'renda-variaveis'
-                        ? theme.primary
-                        : theme.card,
-                    borderColor: theme.cardBorder,
-                  },
-                ]}
-                onPress={() => {
-                  setComparisonType('renda-variaveis');
-                  setWaltsInsights('');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.comparisonButtonText,
-                    {
-                      color:
-                        comparisonType === 'renda-variaveis'
-                          ? theme.background
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  Renda X Variáveis
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.comparisonButton,
-                  {
-                    backgroundColor:
-                      comparisonType === 'renda-orcamentos'
-                        ? theme.primary
-                        : theme.card,
-                    borderColor: theme.cardBorder,
-                  },
-                ]}
-                onPress={() => {
-                  setComparisonType('renda-orcamentos');
-                  setWaltsInsights('');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.comparisonButtonText,
-                    {
-                      color:
-                        comparisonType === 'renda-orcamentos'
-                          ? theme.background
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  Renda X Orçamentos
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.comparisonButton,
-                  {
-                    backgroundColor:
-                      comparisonType === 'renda-custos-orcamentos'
-                        ? theme.primary
-                        : theme.card,
-                    borderColor: theme.cardBorder,
-                  },
-                ]}
-                onPress={() => {
-                  setComparisonType('renda-custos-orcamentos');
-                  setWaltsInsights('');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.comparisonButtonText,
-                    {
-                      color:
-                        comparisonType === 'renda-custos-orcamentos'
-                          ? theme.background
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  Renda X Custos X Orçamentos
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-
-            {/* Gráficos (só aparecem após selecionar) */}
-            {comparisonType && comparisonData && (
+            {/* Card Vazamentos */}
+            {leaks.length > 0 && (
               <View
                 style={[
-                  styles.chartCard,
+                  styles.card,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: '#ef4444',
+                  },
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.cardTitle, { color: '#ef4444' }]}>
+                    Vazamentos do Mês
+                  </Text>
+                  <Text
+                    style={[
+                      styles.cardSubtitle,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Gastos pequenos que somaram muito
+                  </Text>
+                </View>
+
+                {leaks.map((item, index) => {
+                  const categoryInfo = CATEGORIES[item.category] || {
+                    name: 'Outros',
+                    color: '#B0BEC5',
+                  };
+                  return (
+                    <View key={index} style={styles.leakRow}>
+                      <View style={styles.leakLeft}>
+                        <CategoryIcon
+                          categoryInfo={categoryInfo as any}
+                          size={20}
+                        />
+                        <Text style={[styles.leakName, { color: theme.text }]}>
+                          {item.subcategory}
+                        </Text>
+                      </View>
+                      <View style={styles.leakRight}>
+                        <Text
+                          style={[styles.leakAmount, { color: theme.text }]}
+                        >
+                          {formatCurrency(item.total)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.leakCount,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {item.count}x
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+
+                <View
+                  style={[
+                    styles.leakSummary,
+                    { borderTopColor: theme.cardBorder },
+                  ]}
+                >
+                  <Text style={[styles.leakSummaryText, { color: theme.text }]}>
+                    Total em vazamentos:
+                  </Text>
+                  <Text style={[styles.leakSummaryValue, { color: '#ef4444' }]}>
+                    {formatCurrency(totalLeaks)} ({leaksPercent.toFixed(0)}% da
+                    renda)
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Card Gastos que Aumentaram - só aparece a partir do 2º mês */}
+            {increases.length > 0 && monthsOfUsage >= 2 && (
+              <View
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: '#f59e0b',
+                  },
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.cardTitle, { color: '#f59e0b' }]}>
+                    Gastos que Aumentaram
+                  </Text>
+                  <Text
+                    style={[
+                      styles.cardSubtitle,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Comparado com mês passado
+                  </Text>
+                </View>
+
+                {increases.map((item, index) => {
+                  const categoryInfo = CATEGORIES[item.category] || {
+                    name: 'Outros',
+                    color: '#B0BEC5',
+                  };
+                  return (
+                    <View key={index} style={styles.increaseRow}>
+                      <View style={styles.increaseLeft}>
+                        <CategoryIcon
+                          categoryInfo={categoryInfo as any}
+                          size={20}
+                        />
+                        <Text
+                          style={[styles.increaseName, { color: theme.text }]}
+                        >
+                          {item.subcategory}
+                        </Text>
+                      </View>
+                      <View style={styles.increaseRight}>
+                        <Text
+                          style={[styles.increasePercent, { color: '#f59e0b' }]}
+                        >
+                          +{item.percentIncrease.toFixed(0)}%
+                        </Text>
+                        <Text
+                          style={[
+                            styles.increaseAmount,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          +{formatCurrency(item.increase)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Card Top 5 Gastos */}
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  Top 5 - Onde Foi Seu Dinheiro
+                </Text>
+                <Text
+                  style={[styles.cardSubtitle, { color: theme.textSecondary }]}
+                >
+                  Maiores gastos deste mês
+                </Text>
+              </View>
+
+              {topExpenses.map((item, index) => {
+                const categoryInfo = CATEGORIES[item.category] || {
+                  name: 'Outros',
+                  color: '#B0BEC5',
+                };
+                const percent =
+                  monthlyIncome > 0 ? (item.total / monthlyIncome) * 100 : 0;
+
+                return (
+                  <View key={index} style={styles.topRow}>
+                    <View style={styles.topRank}>
+                      <Text
+                        style={[styles.topRankText, { color: theme.primary }]}
+                      >
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <View style={styles.topInfo}>
+                      <View style={styles.topInfoHeader}>
+                        <CategoryIcon
+                          categoryInfo={categoryInfo as any}
+                          size={18}
+                        />
+                        <Text style={[styles.topName, { color: theme.text }]}>
+                          {item.subcategory}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.topBar,
+                          { backgroundColor: theme.cardBorder },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.topBarFill,
+                            {
+                              backgroundColor: categoryInfo.color,
+                              width: `${Math.min(percent * 2, 100)}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.topValues}>
+                      <Text style={[styles.topAmount, { color: theme.text }]}>
+                        {formatCurrency(item.total)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.topPercent,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {percent.toFixed(0)}%
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+
+              {topExpenses.length === 0 && (
+                <Text
+                  style={[styles.emptyText, { color: theme.textSecondary }]}
+                >
+                  Nenhum gasto registrado este mês
+                </Text>
+              )}
+            </View>
+
+            {/* Card Tendência 3 Meses - só aparece a partir do 2º mês */}
+            {threeMonthsTrend.length > 0 && monthsOfUsage >= 2 && (
+              <View
+                style={[
+                  styles.card,
                   {
                     backgroundColor: theme.card,
                     borderColor: theme.cardBorder,
                   },
                 ]}
               >
-                <View style={styles.chartHeader}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                    Visualização
+                <View style={styles.trendHeader}>
+                  <Text style={[styles.cardTitle, { color: theme.text }]}>
+                    Tendência - Últimos 3 Meses
                   </Text>
                   <TouchableOpacity
                     style={styles.chartTypeButton}
                     onPress={() =>
-                      setChartType(chartType === 'pie' ? 'bar' : 'pie')
+                      setTrendChartType(
+                        trendChartType === 'bar' ? 'pie' : 'bar'
+                      )
                     }
                   >
-                    {chartType === 'pie' ? (
-                      <GraficoBarrasIcon size={24} color={theme.text} />
-                    ) : (
+                    {trendChartType === 'bar' ? (
                       <GraficoCircularIcon size={24} color={theme.text} />
+                    ) : (
+                      <GraficoBarrasIcon size={24} color={theme.text} />
                     )}
                   </TouchableOpacity>
                 </View>
 
-                {chartType === 'pie' ? (
-                  <View style={styles.chartWrapper}>
-                    <PieChart
-                      data={pieData}
-                      width={screenWidth - 88}
-                      height={220}
-                      chartConfig={{
-                        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                      }}
-                      accessor="population"
-                      backgroundColor="transparent"
-                      paddingLeft="75"
-                      absolute
-                      hasLegend={false}
-                    />
-                  </View>
-                ) : (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                    <Svg width={chartWidth} height={chartHeight + 60}>
-                      {/* Linhas de grade */}
-                      {[0, 1, 2, 3, 4, 5].map((i) => (
-                        <Rect
-                          key={`grid-${i}`}
-                          x={0}
-                          y={(chartHeight / 5) * i + 10}
-                          width={chartWidth}
-                          height={1}
-                          fill={
-                            theme.background === '#000'
-                              ? 'rgba(255, 255, 255, 0.15)'
-                              : 'rgba(0, 0, 0, 0.15)'
-                          }
-                        />
-                      ))}
-
-                      {/* Barras */}
-                      {barData.map((item, index) => {
-                        const barHeight =
-                          maxBarValue > 0
-                            ? (item.value / maxBarValue) * (chartHeight - 20)
-                            : 0;
-                        const x = barSpacing + index * (barWidth + barSpacing);
-                        const y = chartHeight - barHeight + 10;
-
-                        return (
-                          <React.Fragment key={`bar-${index}`}>
-                            <Rect
-                              x={x}
-                              y={y}
-                              width={barWidth}
-                              height={barHeight}
-                              fill={item.color}
-                              rx={4}
-                              ry={4}
-                            />
-                            <SvgText
-                              x={x + barWidth / 2}
-                              y={y - 8}
-                              fontSize={12}
-                              fontFamily="CormorantGaramond-SemiBold"
-                              fill={theme.text}
-                              textAnchor="middle"
-                            >
-                              {formatCurrency(item.value)}
-                            </SvgText>
-                            <SvgText
-                              x={x + barWidth / 2}
-                              y={chartHeight + 30}
-                              fontSize={14}
-                              fontFamily="CormorantGaramond-Regular"
-                              fill={theme.text}
-                              textAnchor="middle"
-                            >
-                              {item.label}
-                            </SvgText>
-                          </React.Fragment>
-                        );
-                      })}
-                    </Svg>
-                  </ScrollView>
-                )}
-
-                {/* Legendas */}
-                <View style={styles.legendsContainer}>
-                  {pieData.map((item, index) => (
-                    <View key={index} style={styles.legendItem}>
-                      <View
-                        style={[
-                          styles.legendColorBox,
-                          { backgroundColor: item.color },
-                        ]}
-                      />
-                      <Text style={[styles.legendText, { color: theme.text }]}>
-                        {item.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.legendValue,
-                          { color: theme.textSecondary },
-                        ]}
+                <View style={styles.trendChart}>
+                  {trendChartType === 'bar' ? (
+                    <>
+                      <Svg
+                        width={trendChartWidth}
+                        height={trendChartHeight + 40}
                       >
-                        {formatCurrency(item.population)}
-                      </Text>
-                    </View>
-                  ))}
+                        {/* Linhas de grade */}
+                        {[0, 1, 2].map((i) => (
+                          <Line
+                            key={`grid-${i}`}
+                            x1={0}
+                            y1={(trendChartHeight / 2) * i + 10}
+                            x2={trendChartWidth}
+                            y2={(trendChartHeight / 2) * i + 10}
+                            stroke={
+                              theme.background === '#000'
+                                ? 'rgba(255,255,255,0.1)'
+                                : 'rgba(0,0,0,0.1)'
+                            }
+                            strokeWidth={1}
+                          />
+                        ))}
+
+                        {/* Barras */}
+                        {threeMonthsTrend.map((month, index) => {
+                          const barWidth = (trendChartWidth - 60) / 3;
+                          const barHeight =
+                            (month.total / maxTrendValue) *
+                            (trendChartHeight - 20);
+                          const x = 30 + index * barWidth;
+                          const y = trendChartHeight - barHeight + 10;
+
+                          const isCurrentMonth = index === 2;
+                          const color = isCurrentMonth
+                            ? theme.primary
+                            : theme.textSecondary;
+
+                          return (
+                            <React.Fragment key={index}>
+                              <Rect
+                                x={x}
+                                y={y}
+                                width={barWidth - 20}
+                                height={barHeight}
+                                fill={color}
+                                rx={4}
+                              />
+                            </React.Fragment>
+                          );
+                        })}
+                      </Svg>
+
+                      {/* Labels abaixo do gráfico */}
+                      <View style={styles.trendLabels}>
+                        {threeMonthsTrend.map((month, index) => (
+                          <View key={index} style={styles.trendLabel}>
+                            <Text
+                              style={[
+                                styles.trendMonthText,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {month.month}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.trendValueText,
+                                {
+                                  color:
+                                    index === 2 ? theme.primary : theme.text,
+                                },
+                              ]}
+                            >
+                              {formatCurrency(month.total)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <PieChart
+                        data={threeMonthsTrend.map((month, index) => ({
+                          name: month.month,
+                          population: month.total,
+                          color:
+                            index === 2
+                              ? theme.primary
+                              : index === 1
+                                ? '#9CA3AF'
+                                : '#D1D5DB',
+                          legendFontColor: theme.text,
+                          legendFontSize: 0,
+                        }))}
+                        width={screenWidth - 88}
+                        height={180}
+                        chartConfig={{
+                          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                        }}
+                        accessor="population"
+                        backgroundColor="transparent"
+                        paddingLeft="60"
+                        absolute
+                        hasLegend={false}
+                      />
+
+                      {/* Legenda do gráfico pizza */}
+                      <View style={styles.pieLegend}>
+                        {threeMonthsTrend.map((month, index) => (
+                          <View key={index} style={styles.pieLegendItem}>
+                            <View
+                              style={[
+                                styles.pieLegendColor,
+                                {
+                                  backgroundColor:
+                                    index === 2
+                                      ? theme.primary
+                                      : index === 1
+                                        ? '#9CA3AF'
+                                        : '#D1D5DB',
+                                },
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                styles.pieLegendText,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {month.month}: {formatCurrency(month.total)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
             )}
 
-            {/* Insights do Walts (Card separado acima do botão) */}
-            {comparisonType && waltsInsights && (
-              <View
-                style={[
-                  styles.insightsCard,
-                  {
-                    backgroundColor: theme.card,
-                    borderColor: theme.cardBorder,
-                  },
-                ]}
-              >
-                <Text style={[styles.insightsTitle, { color: theme.text }]}>
-                  💡 Insights do Walts
-                </Text>
-                <Markdown
-                  style={{
-                    body: {
-                      color: theme.text,
-                      fontSize: 16,
-                      fontFamily: 'CormorantGaramond-Regular',
-                      lineHeight: 24,
-                    },
-                    heading1: {
-                      color: theme.text,
-                      fontSize: 22,
-                      fontFamily: 'CormorantGaramond-SemiBold',
-                      marginBottom: 8,
-                    },
-                    heading2: {
-                      color: theme.text,
-                      fontSize: 20,
-                      fontFamily: 'CormorantGaramond-SemiBold',
-                      marginBottom: 6,
-                    },
-                    strong: {
-                      color: theme.text,
-                      fontFamily: 'CormorantGaramond-SemiBold',
-                    },
-                    bullet_list: {
-                      marginBottom: 8,
-                    },
-                    bullet_list_icon: {
-                      color: theme.primary,
-                    },
-                    code_inline: {
-                      backgroundColor:
-                        theme.background === '#000'
-                          ? 'rgba(255, 255, 255, 0.1)'
-                          : 'rgba(0, 0, 0, 0.1)',
-                      color: theme.primary,
-                      fontFamily: 'monospace',
-                      paddingHorizontal: 4,
-                      paddingVertical: 2,
-                      borderRadius: 4,
-                    },
-                  }}
+            {/* Resumo */}
+            <View
+              style={[
+                styles.summaryCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+              ]}
+            >
+              <View style={styles.summaryRow}>
+                <Text
+                  style={[styles.summaryLabel, { color: theme.textSecondary }]}
                 >
-                  {waltsInsights}
-                </Markdown>
+                  Renda Mensal
+                </Text>
+                <Text style={[styles.summaryValue, { color: theme.text }]}>
+                  {formatCurrency(monthlyIncome)}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text
+                  style={[styles.summaryLabel, { color: theme.textSecondary }]}
+                >
+                  Total Gasto (mês atual)
+                </Text>
+                <Text style={[styles.summaryValue, { color: theme.text }]}>
+                  {formatCurrency(totalCurrentMonth)}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text
+                  style={[styles.summaryLabel, { color: theme.textSecondary }]}
+                >
+                  Saldo Restante
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    {
+                      color: calculatedBalance >= 0 ? '#10b981' : '#ef4444',
+                    },
+                  ]}
+                >
+                  {formatCurrency(calculatedBalance)}
+                </Text>
+              </View>
+              {/* Indicador da fonte do saldo */}
+              {balanceSource !== 'none' && (
+                <Text
+                  style={[
+                    styles.balanceSourceText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {getBalanceSourceLabel(balanceSource)}
+                </Text>
+              )}
+            </View>
+
+            {/* Área de análise do Walts (aparece acima dos botões) */}
+            {showAnalysis && (
+              <View style={styles.analysisContainer}>
+                {loadingAnalysis ? (
+                  <View style={styles.analysisLoading}>
+                    <ActivityIndicator size="small" color={theme.primary} />
+                    <Text
+                      style={[
+                        styles.analysisLoadingText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Walts está analisando suas finanças...
+                    </Text>
+                  </View>
+                ) : waltsAnalysis ? (
+                  <View
+                    style={[
+                      styles.analysisCard,
+                      {
+                        backgroundColor: theme.card,
+                        borderColor: theme.cardBorder,
+                      },
+                    ]}
+                  >
+                    <Markdown
+                      style={{
+                        body: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          fontSize: 16,
+                        },
+                        text: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          fontSize: 16,
+                        },
+                        heading1: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Bold',
+                          fontSize: 20,
+                          marginTop: 16,
+                          marginBottom: 8,
+                        },
+                        heading2: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-SemiBold',
+                          fontSize: 18,
+                          marginTop: 12,
+                          marginBottom: 6,
+                        },
+                        heading3: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-SemiBold',
+                          fontSize: 16,
+                          marginTop: 8,
+                          marginBottom: 4,
+                        },
+                        heading4: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-SemiBold',
+                          fontSize: 15,
+                          marginTop: 8,
+                          marginBottom: 4,
+                        },
+                        paragraph: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          fontSize: 16,
+                          lineHeight: 24,
+                          marginBottom: 8,
+                        },
+                        bullet_list: {
+                          marginBottom: 8,
+                        },
+                        ordered_list: {
+                          marginBottom: 8,
+                        },
+                        list_item: {
+                          flexDirection: 'row',
+                          marginBottom: 4,
+                        },
+                        bullet_list_icon: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          fontSize: 16,
+                        },
+                        ordered_list_icon: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          fontSize: 16,
+                        },
+                        bullet_list_content: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          fontSize: 16,
+                        },
+                        ordered_list_content: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          fontSize: 16,
+                        },
+                        strong: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Bold',
+                        },
+                        em: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Italic',
+                        },
+                        link: {
+                          color: theme.primary,
+                          fontFamily: 'CormorantGaramond-Regular',
+                        },
+                        blockquote: {
+                          color: theme.textSecondary,
+                          fontFamily: 'CormorantGaramond-Italic',
+                          borderLeftWidth: 3,
+                          borderLeftColor: theme.primary,
+                          paddingLeft: 12,
+                          marginVertical: 8,
+                        },
+                        code_inline: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          backgroundColor: theme.cardBorder,
+                          paddingHorizontal: 4,
+                          borderRadius: 4,
+                        },
+                        fence: {
+                          color: theme.text,
+                          fontFamily: 'CormorantGaramond-Regular',
+                          backgroundColor: theme.cardBorder,
+                          padding: 8,
+                          borderRadius: 8,
+                          marginVertical: 8,
+                        },
+                        hr: {
+                          backgroundColor: theme.cardBorder,
+                          height: 1,
+                          marginVertical: 12,
+                        },
+                      }}
+                    >
+                      {waltsAnalysis}
+                    </Markdown>
+                  </View>
+                ) : null}
               </View>
             )}
 
-            {/* Botão de Análise (fora do card) */}
-            {comparisonType && (
+            {/* Botões de análise */}
+            <View style={styles.analysisButtonsRow}>
               <TouchableOpacity
                 style={[
                   styles.analyzeButton,
-                  {
-                    backgroundColor: theme.primary,
-                    opacity: analyzing ? 0.5 : 1,
-                  },
+                  { backgroundColor: theme.primary },
+                  showAnalysis && waltsAnalysis && styles.analyzeButtonSmall,
                 ]}
-                onPress={handleAnalyze}
-                disabled={analyzing}
+                onPress={generateWaltsAnalysis}
+                disabled={loadingAnalysis}
               >
-                {analyzing ? (
-                  <ActivityIndicator color={theme.background} />
+                {loadingAnalysis ? (
+                  <ActivityIndicator size="small" color={theme.background} />
                 ) : (
                   <Text
                     style={[
@@ -1085,11 +1198,30 @@ Seja direto, objetivo e use markdown para destacar pontos importantes.`;
                       { color: theme.background },
                     ]}
                   >
-                    {waltsInsights ? 'Atualizar Análise' : 'Análise do Walts'}
+                    {showAnalysis && waltsAnalysis
+                      ? 'Nova Análise'
+                      : 'Analisar com o Walts'}
                   </Text>
                 )}
               </TouchableOpacity>
-            )}
+
+              {/* Botão Salvar (aparece ao lado quando tem análise) */}
+              {showAnalysis && waltsAnalysis && !loadingAnalysis && (
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    { backgroundColor: theme.primary },
+                  ]}
+                  onPress={saveAnalysis}
+                >
+                  <Text
+                    style={[styles.saveButtonText, { color: theme.background }]}
+                  >
+                    Salvar
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -1118,18 +1250,15 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
   },
-  placeholder: {
+  historyButton: {
     width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
     padding: 24,
-  },
-  description: {
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 24,
-    lineHeight: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -1142,89 +1271,289 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-Regular',
     marginTop: 16,
   },
-  comparisonScrollView: {
-    marginBottom: 24,
-  },
-  comparisonSelector: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingRight: 24,
-  },
-  comparisonButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-  },
-  comparisonButtonText: {
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
-  chartCard: {
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 2,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
-  chartTypeButton: {
-    padding: 8,
-  },
-  chartWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  legendsContainer: {
-    marginTop: 20,
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  legendColorBox: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-  },
-  legendText: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
-  legendValue: {
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
-  insightsCard: {
+  card: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
     borderWidth: 2,
   },
-  insightsTitle: {
+  cardHeader: {
+    marginBottom: 16,
+  },
+  cardTitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 12,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 4,
+  },
+  leakRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  leakLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  leakName: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  leakRight: {
+    alignItems: 'flex-end',
+  },
+  leakAmount: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  leakCount: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-Regular',
+  },
+  leakSummary: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 2,
+  },
+  leakSummaryText: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+  },
+  leakSummaryValue: {
+    fontSize: 20,
+    fontFamily: 'CormorantGaramond-Bold',
+    marginTop: 4,
+  },
+  increaseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  increaseLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  increaseName: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  increaseRight: {
+    alignItems: 'flex-end',
+  },
+  increasePercent: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-Bold',
+  },
+  increaseAmount: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-Regular',
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  topRank: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topRankText: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-Bold',
+  },
+  topInfo: {
+    flex: 1,
+  },
+  topInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  topName: {
+    fontSize: 15,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  topBar: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  topBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  topValues: {
+    alignItems: 'flex-end',
+  },
+  topAmount: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  topPercent: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-Regular',
+  },
+  trendHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  chartTypeButton: {
+    padding: 8,
+  },
+  trendChart: {
+    alignItems: 'center',
+  },
+  pieLegend: {
+    marginTop: 16,
+    gap: 8,
+  },
+  pieLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pieLegendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  pieLegendText: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  trendLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 8,
+  },
+  trendLabel: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  trendMonthText: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+  },
+  trendValueText: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    marginTop: 4,
+  },
+  summaryCard: {
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 40,
+    borderWidth: 2,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  summaryLabel: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-Regular',
+  },
+  summaryValue: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-Regular',
+    textAlign: 'center',
+    padding: 20,
+  },
+  analysisContainer: {
+    marginTop: 16,
+  },
+  analysisLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    gap: 12,
+  },
+  analysisLoadingText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-Regular',
+  },
+  analysisContent: {
+    marginBottom: 16,
   },
   analyzeButton: {
-    borderRadius: 12,
-    padding: 16,
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
   },
   analyzeButtonText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  saveButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonText: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  newAnalysisButton: {
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 2,
+  },
+  newAnalysisButtonText: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  analysisButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 40,
+  },
+  analyzeButtonSmall: {
+    flex: 1,
+  },
+  analysisCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  balanceSourceText: {
+    fontSize: 13,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 4,
+    textAlign: 'right',
   },
 });

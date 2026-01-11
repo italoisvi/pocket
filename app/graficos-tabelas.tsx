@@ -19,11 +19,7 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { GraficoCircularIcon } from '@/components/GraficoCircularIcon';
 import { GraficoBarrasIcon } from '@/components/GraficoBarrasIcon';
 import { ComparacaoSetaIcon } from '@/components/ComparacaoSetaIcon';
-import {
-  CATEGORIES,
-  type ExpenseCategory,
-  categorizeExpense,
-} from '@/lib/categories';
+import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
 
 const screenWidth = Dimensions.get('window').width;
@@ -32,6 +28,8 @@ type SubcategoryExpense = {
   category: ExpenseCategory;
   subcategory: string;
   total: number;
+  previousTotal?: number; // Total do periodo anterior para comparacao
+  change?: number; // Variacao percentual
 };
 
 type PeriodFilter = 'last7days' | 'last15days' | 'month';
@@ -48,17 +46,68 @@ export default function GraficosTabelasScreen() {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [chartType, setChartType] = useState<ChartType>('pie');
   const [availableMonths, setAvailableMonths] = useState<Date[]>([]);
+  const [monthsOfUsage, setMonthsOfUsage] = useState(0); // Quantos meses o usuário usa o app
   const monthScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    // Gerar últimos 12 meses
-    const months: Date[] = [];
-    const today = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      months.push(date);
-    }
-    setAvailableMonths(months);
+    // Gerar meses disponíveis baseado na data de criação do usuário
+    const generateMonths = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        // Buscar data de criação do perfil
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('created_at')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const today = new Date();
+        let startDate: Date;
+
+        if (profile?.created_at) {
+          // Começar do mês de criação do perfil
+          const createdAt = new Date(profile.created_at);
+          startDate = new Date(
+            createdAt.getFullYear(),
+            createdAt.getMonth(),
+            1
+          );
+        } else {
+          // Se não tem created_at, começar do mês atual
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        }
+
+        // Gerar meses desde a criação até hoje
+        const months: Date[] = [];
+        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        let iterDate = new Date(startDate);
+        while (iterDate <= currentMonth) {
+          months.push(new Date(iterDate));
+          iterDate.setMonth(iterDate.getMonth() + 1);
+        }
+
+        setAvailableMonths(months);
+
+        // Calcular quantos meses o usuário usa o app
+        const monthsDiff =
+          (today.getFullYear() - startDate.getFullYear()) * 12 +
+          (today.getMonth() - startDate.getMonth()) +
+          1; // +1 porque o mês de criação conta como 1
+        setMonthsOfUsage(monthsDiff);
+      } catch (error) {
+        console.error('Erro ao gerar meses disponíveis:', error);
+        // Fallback: apenas mês atual
+        setAvailableMonths([new Date()]);
+      }
+    };
+
+    generateMonths();
   }, []);
 
   // Scroll para o mês atual quando a tela ganhar foco ou quando availableMonths mudar
@@ -116,18 +165,30 @@ export default function GraficosTabelasScreen() {
 
       let startDate: Date;
       let endDate: Date;
+      let prevStartDate: Date;
+      let prevEndDate: Date;
       const now = new Date();
 
       switch (periodFilter) {
         case 'last7days':
           endDate = now;
           startDate = new Date(now);
-          startDate.setDate(startDate.getDate() - 6); // Últimos 7 dias incluindo hoje
+          startDate.setDate(startDate.getDate() - 6);
+          // Periodo anterior: 7 dias antes
+          prevEndDate = new Date(startDate);
+          prevEndDate.setDate(prevEndDate.getDate() - 1);
+          prevStartDate = new Date(prevEndDate);
+          prevStartDate.setDate(prevStartDate.getDate() - 6);
           break;
         case 'last15days':
           endDate = now;
           startDate = new Date(now);
-          startDate.setDate(startDate.getDate() - 14); // Últimos 15 dias incluindo hoje
+          startDate.setDate(startDate.getDate() - 14);
+          // Periodo anterior: 15 dias antes
+          prevEndDate = new Date(startDate);
+          prevEndDate.setDate(prevEndDate.getDate() - 1);
+          prevStartDate = new Date(prevEndDate);
+          prevStartDate.setDate(prevStartDate.getDate() - 14);
           break;
         case 'month':
           startDate = new Date(
@@ -140,9 +201,21 @@ export default function GraficosTabelasScreen() {
             selectedMonth.getMonth() + 1,
             0
           );
+          // Periodo anterior: mes anterior
+          prevStartDate = new Date(
+            selectedMonth.getFullYear(),
+            selectedMonth.getMonth() - 1,
+            1
+          );
+          prevEndDate = new Date(
+            selectedMonth.getFullYear(),
+            selectedMonth.getMonth(),
+            0
+          );
           break;
       }
 
+      // Buscar expenses do periodo atual
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, category, subcategory')
@@ -150,19 +223,31 @@ export default function GraficosTabelasScreen() {
         .gte('date', startDate.toISOString().split('T')[0])
         .lte('date', endDate.toISOString().split('T')[0]);
 
-      // Buscar transações do Open Finance
-      const { data: openFinanceTransactions } = await supabase
-        .from('pluggy_transactions')
-        .select('description, amount, date, type')
+      // Buscar expenses do periodo anterior para comparacao
+      const { data: prevExpensesData } = await supabase
+        .from('expenses')
+        .select('amount, category, subcategory')
         .eq('user_id', user.id)
-        .eq('type', 'DEBIT')
-        .gte('date', startDate.toISOString().split('T')[0])
-        .lte('date', endDate.toISOString().split('T')[0]);
+        .gte('date', prevStartDate.toISOString().split('T')[0])
+        .lte('date', prevEndDate.toISOString().split('T')[0]);
 
-      // Agrupar por categoria + subcategoria
+      // Agrupar periodo anterior por categoria + subcategoria
+      const prevSubcategoryMap = new Map<string, number>();
+      if (prevExpensesData) {
+        prevExpensesData.forEach((exp) => {
+          const category = (exp.category as ExpenseCategory) || 'outros';
+          const subcategory = exp.subcategory || 'Outros';
+          const key = `${category}-${subcategory}`;
+          prevSubcategoryMap.set(
+            key,
+            (prevSubcategoryMap.get(key) || 0) + exp.amount
+          );
+        });
+      }
+
+      // Agrupar periodo atual por categoria + subcategoria
       const subcategoryMap = new Map<string, SubcategoryExpense>();
 
-      // Processar despesas manuais
       if (expensesData) {
         expensesData.forEach((exp) => {
           const category = (exp.category as ExpenseCategory) || 'outros';
@@ -173,34 +258,37 @@ export default function GraficosTabelasScreen() {
             const existing = subcategoryMap.get(key)!;
             existing.total += exp.amount;
           } else {
+            const previousTotal = prevSubcategoryMap.get(key) || 0;
+            const total = exp.amount;
+            const change =
+              previousTotal > 0
+                ? ((total - previousTotal) / previousTotal) * 100
+                : total > 0
+                  ? 100
+                  : 0;
+
             subcategoryMap.set(key, {
               category,
               subcategory,
-              total: exp.amount,
+              total,
+              previousTotal,
+              change,
             });
           }
         });
       }
 
-      // Processar transações do Open Finance
-      if (openFinanceTransactions) {
-        openFinanceTransactions.forEach((tx) => {
-          const { category, subcategory } = categorizeExpense(tx.description);
-          const key = `${category}-${subcategory}`;
-          const amount = Math.abs(tx.amount);
-
-          if (subcategoryMap.has(key)) {
-            const existing = subcategoryMap.get(key)!;
-            existing.total += amount;
-          } else {
-            subcategoryMap.set(key, {
-              category,
-              subcategory,
-              total: amount,
-            });
-          }
-        });
-      }
+      // Atualizar change para itens que ja existiam
+      subcategoryMap.forEach((item, key) => {
+        const previousTotal = prevSubcategoryMap.get(key) || 0;
+        item.previousTotal = previousTotal;
+        item.change =
+          previousTotal > 0
+            ? ((item.total - previousTotal) / previousTotal) * 100
+            : item.total > 0
+              ? 100
+              : 0;
+      });
 
       // Calcular total combinado
       const total = Array.from(subcategoryMap.values()).reduce(
@@ -211,20 +299,6 @@ export default function GraficosTabelasScreen() {
 
       const subcategories: SubcategoryExpense[] = Array.from(
         subcategoryMap.values()
-      );
-
-      console.log(
-        '[GraficosTabel as] Total de subcategorias:',
-        subcategories.length
-      );
-      console.log(
-        '[GraficosTabel as] Subcategorias:',
-        subcategories.map((s) => ({
-          category: s.category,
-          subcategory: s.subcategory,
-          total: s.total,
-          exists: !!CATEGORIES[s.category],
-        }))
       );
 
       setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
@@ -735,6 +809,7 @@ export default function GraficosTabelasScreen() {
                     <Text
                       style={[
                         styles.tableHeaderText,
+                        styles.tableHeaderCategory,
                         { color: theme.textSecondary },
                       ]}
                     >
@@ -748,14 +823,6 @@ export default function GraficosTabelasScreen() {
                     >
                       Valor
                     </Text>
-                    <Text
-                      style={[
-                        styles.tableHeaderText,
-                        { color: theme.textSecondary },
-                      ]}
-                    >
-                      %
-                    </Text>
                   </View>
 
                   {categoryExpenses.map((item) => {
@@ -764,10 +831,21 @@ export default function GraficosTabelasScreen() {
                       color: '#B0BEC5',
                       icon: 'outros',
                     };
-                    const percentage =
-                      totalExpenses > 0
-                        ? (item.total / totalExpenses) * 100
-                        : 0;
+
+                    // Determinar cor e icone da variacao
+                    // Só mostrar comparação se o usuário estiver pelo menos no 2º mês
+                    const canShowComparison = monthsOfUsage >= 2;
+                    const hasChange =
+                      canShowComparison &&
+                      item.change !== undefined &&
+                      item.previousTotal !== undefined;
+                    const isIncrease = hasChange && item.change! > 0;
+                    const isDecrease = hasChange && item.change! < 0;
+                    const changeColor = isIncrease
+                      ? '#ef4444'
+                      : isDecrease
+                        ? '#10b981'
+                        : theme.textSecondary;
 
                     return (
                       <View
@@ -798,12 +876,24 @@ export default function GraficosTabelasScreen() {
                             </Text>
                           </View>
                         </View>
-                        <Text style={[styles.tableCell, { color: theme.text }]}>
-                          {formatCurrency(item.total)}
-                        </Text>
-                        <Text style={[styles.tableCell, { color: theme.text }]}>
-                          {percentage.toFixed(1)}%
-                        </Text>
+                        <View style={styles.tableValueCell}>
+                          <Text
+                            style={[styles.tableCell, { color: theme.text }]}
+                          >
+                            {formatCurrency(item.total)}
+                          </Text>
+                          {hasChange && item.change !== 0 && (
+                            <Text
+                              style={[
+                                styles.changeIndicator,
+                                { color: changeColor },
+                              ]}
+                            >
+                              {isIncrease ? '↑' : '↓'}{' '}
+                              {Math.abs(item.change!).toFixed(0)}%
+                            </Text>
+                          )}
+                        </View>
                       </View>
                     );
                   })}
@@ -825,11 +915,6 @@ export default function GraficosTabelasScreen() {
                       style={[styles.tableTotalValue, { color: theme.text }]}
                     >
                       {formatCurrency(totalExpenses)}
-                    </Text>
-                    <Text
-                      style={[styles.tableTotalValue, { color: theme.text }]}
-                    >
-                      100%
                     </Text>
                   </View>
                 </View>
@@ -986,10 +1071,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
   },
   tableHeaderText: {
-    flex: 1,
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
     textAlign: 'right',
+  },
+  tableHeaderCategory: {
+    flex: 1,
+    textAlign: 'left',
   },
   tableRow: {
     flexDirection: 'row',
@@ -1013,10 +1101,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tableCell: {
-    flex: 1,
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'right',
+  },
+  tableValueCell: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  changeIndicator: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    marginTop: 2,
   },
   tableDivider: {
     height: 2,

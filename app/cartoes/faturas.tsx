@@ -19,7 +19,7 @@ type CreditCardInvoice = {
   accountId: string;
   accountName: string;
   month: string; // YYYY-MM
-  total: number;
+  total: number; // Soma das compras do mês
   transactionCount: number;
 };
 
@@ -36,20 +36,64 @@ export default function FaturasScreen() {
   const monthScrollRef = useRef<ScrollView>(null);
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [currentBalance, setCurrentBalance] = useState<number>(0); // Saldo devedor atual
 
   useEffect(() => {
-    // Gerar últimos 12 meses
-    const months: Date[] = [];
-    const today = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      months.push(date);
-    }
-    setAvailableMonths(months);
+    // Gerar meses disponíveis baseado na data de criação do usuário
+    const generateMonths = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        // Buscar data de criação do perfil
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('created_at')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const today = new Date();
+        let startDate: Date;
+
+        if (profile?.created_at) {
+          const createdAt = new Date(profile.created_at);
+          startDate = new Date(
+            createdAt.getFullYear(),
+            createdAt.getMonth(),
+            1
+          );
+        } else {
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        }
+
+        const months: Date[] = [];
+        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        let iterDate = new Date(startDate);
+        while (iterDate <= currentMonth) {
+          months.push(new Date(iterDate));
+          iterDate.setMonth(iterDate.getMonth() + 1);
+        }
+
+        setAvailableMonths(months);
+      } catch (error) {
+        console.error('Erro ao gerar meses disponíveis:', error);
+        setAvailableMonths([new Date()]);
+      }
+    };
+
+    generateMonths();
   }, []);
 
+  // Resetar para o mês atual e fazer scroll quando a tela ganhar foco
   useFocusEffect(
     useCallback(() => {
+      // Resetar selectedMonth para o mês atual
+      setSelectedMonth(new Date());
+
       if (availableMonths.length > 0) {
         const currentMonthIndex = availableMonths.findIndex(
           (month) =>
@@ -92,13 +136,16 @@ export default function FaturasScreen() {
 
       if (!creditAccount) {
         setInvoices([]);
+        setCurrentBalance(0);
         setLoading(false);
         return;
       }
 
-      // Calcular o saldo devedor total do cartão (igual à lista de cartões)
+      // Calcular e salvar o saldo devedor ATUAL do cartão (para exibir separadamente)
       const usedCredit =
-        creditAccount.credit_limit - creditAccount.available_credit_limit;
+        (creditAccount.credit_limit || 0) -
+        (creditAccount.available_credit_limit || 0);
+      setCurrentBalance(usedCredit);
 
       // Calcular range do mês selecionado
       const startOfMonth = new Date(
@@ -117,26 +164,47 @@ export default function FaturasScreen() {
 
       const selectedMonthKey = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
 
-      // Buscar transações do mês selecionado para contar
-      const { data: transactions } = await supabase
+      // Buscar TODAS as transações do mês selecionado
+      // No Pluggy, transações de cartão de crédito:
+      // - type='CREDIT' = compras (aumenta a dívida)
+      // - type='DEBIT' = pagamentos (diminui a dívida)
+      const { data: monthTransactions } = await supabase
         .from('pluggy_transactions')
         .select('id, amount, date, type')
         .eq('account_id', creditAccount.id)
         .gte('date', startOfMonth.toISOString().split('T')[0])
         .lte('date', endOfMonth.toISOString().split('T')[0])
-        .eq('type', 'CREDIT') // Apenas compras para contar transações
         .order('date', { ascending: false });
+
+      // Separar compras e pagamentos
+      const purchases =
+        monthTransactions?.filter((tx) => tx.type === 'CREDIT') || [];
+      const payments =
+        monthTransactions?.filter((tx) => tx.type === 'DEBIT') || [];
+
+      // Calcular totais
+      const totalPurchases = purchases.reduce(
+        (sum, tx) => sum + Math.abs(tx.amount || 0),
+        0
+      );
+      const totalPayments = payments.reduce(
+        (sum, tx) => sum + Math.abs(tx.amount || 0),
+        0
+      );
+
+      // Saldo do mês = compras - pagamentos
+      const monthlyBalance = totalPurchases - totalPayments;
 
       const allInvoices: CreditCardInvoice[] = [];
 
-      // Se houver saldo devedor, criar a fatura
-      if (usedCredit > 0) {
+      // Criar fatura do mês se houver transações (compras ou pagamentos)
+      if (monthTransactions && monthTransactions.length > 0) {
         allInvoices.push({
           accountId: creditAccount.id,
           accountName: creditAccount.name,
           month: selectedMonthKey,
-          total: usedCredit, // Saldo devedor total do cartão
-          transactionCount: transactions?.length || 0, // Número de compras no mês
+          total: monthlyBalance, // Compras - pagamentos do mês
+          transactionCount: purchases.length, // Apenas número de compras
         });
       }
 
@@ -263,35 +331,79 @@ export default function FaturasScreen() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
           </View>
-        ) : invoices.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              Nenhuma fatura encontrada
-            </Text>
-            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
-              Não foram encontradas transações para este mês
-            </Text>
-          </View>
         ) : (
           <View style={styles.invoicesContainer}>
-            {/* Card Total */}
-            <View
-              style={[
-                styles.totalCard,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: theme.cardBorder,
-                },
-                getCardShadowStyle(isDark),
-              ]}
-            >
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>
-                Total da Fatura
-              </Text>
-              <Text style={[styles.totalValue, { color: theme.text }]}>
-                {formatCurrency(totalCards)}
-              </Text>
-            </View>
+            {/* Card Saldo Devedor Atual */}
+            {currentBalance > 0 && (
+              <View
+                style={[
+                  styles.balanceCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.cardBorder,
+                  },
+                  getCardShadowStyle(isDark),
+                ]}
+              >
+                <Text
+                  style={[styles.balanceLabel, { color: theme.textSecondary }]}
+                >
+                  Saldo Devedor Atual
+                </Text>
+                <Text style={[styles.balanceValue, { color: '#ef4444' }]}>
+                  {formatCurrency(currentBalance)}
+                </Text>
+                <Text
+                  style={[styles.balanceHint, { color: theme.textSecondary }]}
+                >
+                  Valor total a pagar no cartao
+                </Text>
+              </View>
+            )}
+
+            {/* Card Total de Compras do Mês */}
+            {invoices.length > 0 ? (
+              <View
+                style={[
+                  styles.totalCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.cardBorder,
+                  },
+                  getCardShadowStyle(isDark),
+                ]}
+              >
+                <Text
+                  style={[styles.totalLabel, { color: theme.textSecondary }]}
+                >
+                  Compras do Mes
+                </Text>
+                <Text style={[styles.totalValue, { color: theme.text }]}>
+                  {formatCurrency(totalCards)}
+                </Text>
+                <Text
+                  style={[styles.totalHint, { color: theme.textSecondary }]}
+                >
+                  {invoices[0]?.transactionCount || 0}{' '}
+                  {(invoices[0]?.transactionCount || 0) === 1
+                    ? 'transacao'
+                    : 'transacoes'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.emptyMonthContainer}>
+                <Text
+                  style={[styles.emptyText, { color: theme.textSecondary }]}
+                >
+                  Nenhuma compra neste mes
+                </Text>
+                <Text
+                  style={[styles.emptySubtext, { color: theme.textSecondary }]}
+                >
+                  Nao foram encontradas transacoes para este periodo
+                </Text>
+              </View>
+            )}
 
             {/* Faturas */}
             {invoices.map((invoice, index) => {
@@ -574,5 +686,35 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  balanceCard: {
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+  },
+  balanceLabel: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginBottom: 8,
+  },
+  balanceValue: {
+    fontSize: 28,
+    fontFamily: 'CormorantGaramond-Bold',
+  },
+  balanceHint: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 8,
+  },
+  totalHint: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 8,
+  },
+  emptyMonthContainer: {
+    padding: 40,
+    alignItems: 'center',
   },
 });

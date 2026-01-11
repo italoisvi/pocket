@@ -73,13 +73,7 @@ export default function CameraScreen() {
     }
   };
 
-  const handleTakePhoto = async () => {
-    // Mostrar instruções na primeira vez
-    if (!instructionsShown) {
-      setShowInstructionsModal(true);
-      return;
-    }
-
+  const openDocumentScanner = async () => {
     try {
       setProcessingImage(true);
 
@@ -114,6 +108,16 @@ export default function CameraScreen() {
         Alert.alert('Erro', 'Não foi possível escanear o documento.');
       }
     }
+  };
+
+  const handleTakePhoto = async () => {
+    // Mostrar instruções na primeira vez
+    if (!instructionsShown) {
+      setShowInstructionsModal(true);
+      return;
+    }
+
+    await openDocumentScanner();
   };
 
   const handlePickImage = async () => {
@@ -280,8 +284,8 @@ export default function CameraScreen() {
 
       Alert.alert('Sucesso', 'Gasto registrado com sucesso!');
 
-      // Navegar de volta para a home
-      router.push('/(tabs)/home');
+      // Navegar de volta para a home (replace para não acumular histórico)
+      router.replace('/(tabs)/home');
     } catch (error) {
       console.error('Erro ao salvar despesa:', error);
       Alert.alert('Erro', 'Não foi possível salvar a despesa.');
@@ -299,8 +303,8 @@ export default function CameraScreen() {
   const handleCloseInstructions = async () => {
     setShowInstructionsModal(false);
     await markInstructionsAsShown();
-    // Abrir a câmera automaticamente após fechar as instruções
-    handleTakePhoto();
+    // Abrir a câmera diretamente (sem passar pela verificação de instruções)
+    await openDocumentScanner();
   };
 
   return (

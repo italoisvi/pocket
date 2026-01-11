@@ -109,14 +109,16 @@ serve(async (req) => {
 
     // Disparar UPDATE do item na API da Pluggy
     // Isso faz a Pluggy sincronizar novamente com o banco
+    // Endpoint correto: PATCH /items/{id} (sem /update)
     const updateResponse = await fetch(
-      `https://api.pluggy.ai/items/${itemId}/update`,
+      `https://api.pluggy.ai/items/${itemId}`,
       {
         method: 'PATCH',
         headers: {
           'X-API-KEY': apiKey,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({}), // Body vazio para usar credenciais salvas
       }
     );
 

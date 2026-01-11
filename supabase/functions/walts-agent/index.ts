@@ -361,6 +361,61 @@ const WALTS_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'get_financial_patterns',
+      description:
+        'Busca padrões financeiros aprendidos sobre o usuário. Use para personalizar sugestões, detectar anomalias e entender os hábitos do usuário. SEMPRE use esta ferramenta antes de dar conselhos financeiros.',
+      parameters: {
+        type: 'object',
+        properties: {
+          pattern_type: {
+            type: 'string',
+            enum: [
+              'spending_habit',
+              'favorite_place',
+              'time_pattern',
+              'payment_cycle',
+              'category_trend',
+              'anomaly_threshold',
+              'all',
+            ],
+            description:
+              'Tipo de padrão a buscar. spending_habit = médias de gasto por categoria, favorite_place = lugares frequentes, time_pattern = padrões de horário/dia, payment_cycle = ciclo de pagamento, category_trend = tendências, anomaly_threshold = limiares para detectar gastos anormais. Use "all" para buscar todos.',
+            default: 'all',
+          },
+          category: {
+            type: 'string',
+            description:
+              'Categoria específica para filtrar padrões. Se não especificado, retorna de todas as categorias.',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'check_if_anomaly',
+      description:
+        'Verifica se um gasto específico é uma anomalia baseado nos padrões aprendidos do usuário. Use quando o usuário registrar um gasto e você quiser verificar se é fora do normal.',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: {
+            type: 'string',
+            description: 'Categoria do gasto a verificar',
+          },
+          amount: {
+            type: 'number',
+            description: 'Valor do gasto em reais',
+          },
+        },
+        required: ['category', 'amount'],
+      },
+    },
+  },
 ];
 
 // System prompt para o Walts Agent
@@ -386,6 +441,17 @@ Você pode executar ações reais para ajudar o usuário:
 10. Salvar preferências e contextos do usuário
 11. Buscar e usar contexto histórico para personalizar respostas
 12. Dar sugestões financeiras personalizadas baseadas em memória
+13. Buscar padrões financeiros aprendidos sobre o usuário
+14. Verificar se um gasto é uma anomalia baseado no histórico
+
+APRENDIZADO E PERSONALIZAÇÃO:
+Você tem acesso a padrões financeiros aprendidos sobre cada usuário. Use-os para:
+- Personalizar suas respostas (ex: "Você costuma gastar R$ 25 no Starbucks, mas hoje gastou R$ 40")
+- Detectar gastos fora do padrão (ex: "Esse gasto está 150% acima da sua média nessa categoria")
+- Dar sugestões baseadas em hábitos reais (ex: "Você gasta mais nos fins de semana, talvez evitar compras impulsivas no sábado")
+- Prever comportamentos (ex: "Você costuma gastar 60% do salário na primeira semana")
+
+IMPORTANTE: Quando o usuário registrar um gasto, use check_if_anomaly para verificar se é fora do padrão e comente se for.
 
 COMO USAR SUAS FERRAMENTAS:
 - "registra um gasto de R$ 50 no Subway" → create_expense_from_description
@@ -406,6 +472,14 @@ APRENDIZADO E MEMÓRIA:
 - Use get_user_context no início de análises ou sugestões para personalizar com base no histórico
 - Exemplos de preferências importantes: categorias favoritas, prioridades financeiras, metas pessoais, dias de pagamento especiais
 - SEMPRE busque contexto antes de dar sugestões importantes
+
+PADRÕES FINANCEIROS:
+- "me conhece bem?" ou "o que você sabe sobre mim?" → get_financial_patterns (type: all)
+- "quais meus lugares favoritos?" → get_financial_patterns (type: favorite_place)
+- "como gasto nas categorias?" → get_financial_patterns (type: spending_habit)
+- Quando usuário registrar gasto → check_if_anomaly para alertar sobre gastos fora do padrão
+- Use os padrões para personalizar TODAS as suas respostas e sugestões
+- Ao analisar gastos, mencione se está acima ou abaixo do padrão do usuário
 
 IMPORTANTE:
 - Seja preciso ao categorizar gastos
@@ -506,7 +580,10 @@ serve(async (req) => {
       conversationMessages.push(assistantMessage);
 
       // Se não há tool calls, retornar a resposta final
-      if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+      if (
+        !assistantMessage.tool_calls ||
+        assistantMessage.tool_calls.length === 0
+      ) {
         console.log('[walts-agent] No tool calls, returning final response');
         return new Response(
           JSON.stringify({
@@ -536,11 +613,7 @@ serve(async (req) => {
         try {
           // Executar a ferramenta apropriada
           if (functionName === 'create_expense_from_description') {
-            toolResult = await createExpense(
-              supabase,
-              user.id,
-              functionArgs
-            );
+            toolResult = await createExpense(supabase, user.id, functionArgs);
           } else if (functionName === 'sync_open_finance_transactions') {
             toolResult = await syncOpenFinanceTransactions(
               supabase,
@@ -572,11 +645,27 @@ serve(async (req) => {
           } else if (functionName === 'suggest_savings') {
             toolResult = await suggestSavings(supabase, user.id, functionArgs);
           } else if (functionName === 'forecast_month_end') {
-            toolResult = await forecastMonthEnd(supabase, user.id, functionArgs);
+            toolResult = await forecastMonthEnd(
+              supabase,
+              user.id,
+              functionArgs
+            );
           } else if (functionName === 'save_user_preference') {
-            toolResult = await saveUserPreference(supabase, user.id, functionArgs);
+            toolResult = await saveUserPreference(
+              supabase,
+              user.id,
+              functionArgs
+            );
           } else if (functionName === 'get_user_context') {
             toolResult = await getUserContext(supabase, user.id, functionArgs);
+          } else if (functionName === 'get_financial_patterns') {
+            toolResult = await getFinancialPatterns(
+              supabase,
+              user.id,
+              functionArgs
+            );
+          } else if (functionName === 'check_if_anomaly') {
+            toolResult = await checkIfAnomaly(supabase, user.id, functionArgs);
           } else {
             toolResult = {
               success: false,
@@ -656,16 +745,20 @@ async function createExpense(
       date: expenseDate,
     });
 
-    const { data, error } = await supabase.from('expenses').insert({
-      user_id: userId,
-      establishment_name: args.establishment_name,
-      amount: args.amount,
-      category: args.category,
-      subcategory: args.subcategory || null,
-      date: expenseDate,
-      image_url: pdfUrl, // Anexar PDF como comprovante
-      created_at: new Date().toISOString(),
-    }).select().single();
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert({
+        user_id: userId,
+        establishment_name: args.establishment_name,
+        amount: args.amount,
+        category: args.category,
+        subcategory: args.subcategory || null,
+        date: expenseDate,
+        image_url: pdfUrl, // Anexar PDF como comprovante
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
     if (error) {
       console.error('[createExpense] Error:', error);
@@ -735,7 +828,9 @@ async function syncOpenFinanceTransactions(
       };
     }
 
-    console.log(`[syncOpenFinanceTransactions] Found ${accounts.length} account(s)`);
+    console.log(
+      `[syncOpenFinanceTransactions] Found ${accounts.length} account(s)`
+    );
 
     // Buscar transações de todas as contas
     const accountIds = accounts.map((acc) => acc.id);
@@ -750,7 +845,10 @@ async function syncOpenFinanceTransactions(
       .is('synced', false); // Apenas transações não sincronizadas
 
     if (txError) {
-      console.error('[syncOpenFinanceTransactions] Error fetching transactions:', txError);
+      console.error(
+        '[syncOpenFinanceTransactions] Error fetching transactions:',
+        txError
+      );
       return {
         success: false,
         error: `Erro ao buscar transações: ${txError.message}`,
@@ -766,7 +864,9 @@ async function syncOpenFinanceTransactions(
       };
     }
 
-    console.log(`[syncOpenFinanceTransactions] Found ${transactions.length} transactions`);
+    console.log(
+      `[syncOpenFinanceTransactions] Found ${transactions.length} transactions`
+    );
 
     // Criar expense para cada transação (simplificado - categorização automática virá depois)
     let createdCount = 0;
@@ -1038,7 +1138,14 @@ async function checkBudgetStatus(
 
       if (budget.period_type === 'monthly') {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        endDate = new Date(
+          now.getFullYear(),
+          now.getMonth() + 1,
+          0,
+          23,
+          59,
+          59
+        );
       } else if (budget.period_type === 'weekly') {
         const dayOfWeek = now.getDay();
         startDate = new Date(now);
@@ -1233,7 +1340,9 @@ async function getBankStatement(
 
     // Agrupar por conta para resumo
     const accountSummaries = accounts.map((account) => {
-      const accountTxs = transactions.filter((tx) => tx.account_id === account.id);
+      const accountTxs = transactions.filter(
+        (tx) => tx.account_id === account.id
+      );
       const accountDebit = accountTxs
         .filter((tx) => tx.type === 'DEBIT')
         .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
@@ -1251,7 +1360,12 @@ async function getBankStatement(
     });
 
     // Formatar mensagem de resposta
-    const periodLabel = days === 7 ? 'última semana' : days === 30 ? 'último mês' : `últimos ${days} dias`;
+    const periodLabel =
+      days === 7
+        ? 'última semana'
+        : days === 30
+          ? 'último mês'
+          : `últimos ${days} dias`;
 
     let message = `💳 Extrato Bancário - ${periodLabel}\n\n`;
     message += `📊 RESUMO GERAL:\n`;
@@ -1399,7 +1513,10 @@ async function analyzeSpendingPattern(
 
       // Detectar tendência
       let trend = 'estável';
-      const changePercent = previousMonth > 0 ? ((currentMonth - previousMonth) / previousMonth) * 100 : 0;
+      const changePercent =
+        previousMonth > 0
+          ? ((currentMonth - previousMonth) / previousMonth) * 100
+          : 0;
 
       if (changePercent > 20) trend = 'crescente';
       else if (changePercent < -20) trend = 'decrescente';
@@ -1518,14 +1635,17 @@ async function suggestSavings(
     if (currentExpenses) {
       currentExpenses.forEach((expense) => {
         const cat = expense.category;
-        currentByCategory[cat] = (currentByCategory[cat] || 0) + parseFloat(expense.amount);
+        currentByCategory[cat] =
+          (currentByCategory[cat] || 0) + parseFloat(expense.amount);
       });
     }
 
     // Calcular média histórica por categoria
     const historicalAverage: { [key: string]: number } = {};
     if (historicalExpenses) {
-      const categoryTotals: { [key: string]: { total: number; months: Set<string> } } = {};
+      const categoryTotals: {
+        [key: string]: { total: number; months: Set<string> };
+      } = {};
 
       historicalExpenses.forEach((expense) => {
         const cat = expense.category;
@@ -1560,7 +1680,9 @@ async function suggestSavings(
           current_spending: current,
           average_spending: historical,
           potential_savings: potentialSavings,
-          priority: nonEssentialCategories.includes(category) ? 'high' : 'medium',
+          priority: nonEssentialCategories.includes(category)
+            ? 'high'
+            : 'medium',
           suggestion: `Você está gastando R$ ${potentialSavings.toFixed(2)} a mais em ${category} comparado à sua média. Tente reduzir para R$ ${historical.toFixed(2)}.`,
         });
       }
@@ -1627,7 +1749,12 @@ async function suggestSavings(
       message += `📋 TOP ${Math.min(5, suggestions.length)} SUGESTÕES:\n\n`;
 
       suggestions.slice(0, 5).forEach((suggestion, index) => {
-        const emoji = suggestion.priority === 'high' ? '🔴' : suggestion.priority === 'medium' ? '🟡' : '🟢';
+        const emoji =
+          suggestion.priority === 'high'
+            ? '🔴'
+            : suggestion.priority === 'medium'
+              ? '🟡'
+              : '🟢';
         message += `${index + 1}. ${emoji} ${suggestion.category}\n`;
         message += `   ${suggestion.suggestion}\n\n`;
       });
@@ -1639,7 +1766,9 @@ async function suggestSavings(
       success: true,
       suggestions,
       total_potential_savings: totalPotentialSavings,
-      target_achievable: targetAmount ? totalPotentialSavings >= targetAmount : null,
+      target_achievable: targetAmount
+        ? totalPotentialSavings >= targetAmount
+        : null,
       message,
     };
   } catch (error) {
@@ -1661,15 +1790,63 @@ async function forecastMonthEnd(
 
     console.log('[forecastMonthEnd] Generating month-end forecast');
 
-    // Buscar perfil do usuário
+    // Buscar perfil do usuário (incluindo income_cards)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('monthly_salary, salary_payment_day')
+      .select('monthly_salary, salary_payment_day, income_cards')
       .eq('id', userId)
       .single();
 
-    const monthlySalary = profile?.monthly_salary || 0;
-    const salaryPaymentDay = profile?.salary_payment_day || 1;
+    // Calcular total de rendas (priorizar income_cards se existir)
+    let monthlySalary = 0;
+    let salaryPaymentDay = profile?.salary_payment_day || 1;
+    let incomeCards: any[] = [];
+    let bankBalance: number | null = null;
+    let balanceSource: 'manual' | 'bank' = 'manual';
+
+    if (
+      profile?.income_cards &&
+      Array.isArray(profile.income_cards) &&
+      profile.income_cards.length > 0
+    ) {
+      incomeCards = profile.income_cards;
+      // Usar income_cards (sistema novo)
+      monthlySalary = incomeCards.reduce((sum: number, card: any) => {
+        const salary = parseFloat(
+          String(card.salary).replace(/\./g, '').replace(',', '.')
+        );
+        return sum + (isNaN(salary) ? 0 : salary);
+      }, 0);
+      // Usar o menor dia de pagamento para ser conservador
+      const paymentDays = incomeCards
+        .map((card: any) => parseInt(card.paymentDay))
+        .filter((day: number) => !isNaN(day) && day >= 1 && day <= 31);
+      if (paymentDays.length > 0) {
+        salaryPaymentDay = Math.min(...paymentDays);
+      }
+
+      // Buscar saldos das contas vinculadas (Open Finance)
+      const linkedAccountIds = incomeCards
+        .filter((card: any) => card.linkedAccountId)
+        .map((card: any) => card.linkedAccountId);
+
+      if (linkedAccountIds.length > 0) {
+        const { data: linkedAccounts } = await supabase
+          .from('pluggy_accounts')
+          .select('id, balance')
+          .in('id', linkedAccountIds);
+
+        if (linkedAccounts && linkedAccounts.length > 0) {
+          bankBalance = linkedAccounts.reduce(
+            (sum: number, acc: any) => sum + (acc.balance || 0),
+            0
+          );
+        }
+      }
+    } else if (profile?.monthly_salary) {
+      // Fallback para monthly_salary (sistema antigo)
+      monthlySalary = profile.monthly_salary;
+    }
 
     // Calcular período do mês atual
     const now = new Date();
@@ -1696,7 +1873,8 @@ async function forecastMonthEnd(
     const dailySpendingRate = daysElapsed > 0 ? totalSpent / daysElapsed : 0;
 
     // Projetar gasto total do mês
-    const projectedTotalSpending = totalSpent + dailySpendingRate * daysRemaining;
+    const projectedTotalSpending =
+      totalSpent + dailySpendingRate * daysRemaining;
 
     // Calcular saldo projetado
     const projectedBalance = monthlySalary - projectedTotalSpending;
@@ -1724,7 +1902,8 @@ async function forecastMonthEnd(
 
       expenses.forEach((expense) => {
         const cat = expense.category;
-        categorySpending[cat] = (categorySpending[cat] || 0) + parseFloat(expense.amount);
+        categorySpending[cat] =
+          (categorySpending[cat] || 0) + parseFloat(expense.amount);
       });
 
       budgets.forEach((budget) => {
@@ -1755,10 +1934,23 @@ async function forecastMonthEnd(
 
     let message = `${statusEmoji} Projeção para Fim do Mês\n\n`;
 
+    // Calcular saldo atual usando lógica conservadora (menor entre manual e banco)
+    const manualBalance = monthlySalary - totalSpent;
+    let currentBalance = manualBalance;
+
+    if (bankBalance !== null) {
+      // Usar o menor valor (mais conservador)
+      if (bankBalance < manualBalance) {
+        currentBalance = bankBalance;
+        balanceSource = 'bank';
+      }
+    }
+
     message += `📅 SITUAÇÃO ATUAL:\n`;
     message += `• Dia ${currentDay} de ${daysInMonth} (${((daysElapsed / daysInMonth) * 100).toFixed(0)}% do mês)\n`;
     message += `• Gasto até agora: R$ ${totalSpent.toFixed(2)}\n`;
     message += `• Renda mensal: R$ ${monthlySalary.toFixed(2)}\n`;
+    message += `• Saldo atual: R$ ${currentBalance.toFixed(2)} ${balanceSource === 'bank' ? '(🏦 saldo do banco)' : '(📝 gastos registrados)'}\n`;
     message += `• Taxa diária: R$ ${dailySpendingRate.toFixed(2)}/dia\n\n`;
 
     message += `🔮 PROJEÇÃO:\n`;
@@ -1784,7 +1976,10 @@ async function forecastMonthEnd(
       });
     }
 
-    if (includeRecommendations && (status === 'critical' || status === 'warning')) {
+    if (
+      includeRecommendations &&
+      (status === 'critical' || status === 'warning')
+    ) {
       message += `\n💡 RECOMENDAÇÕES:\n`;
       message += `• Meta diária máxima: R$ ${((monthlySalary - totalSpent) / daysRemaining).toFixed(2)}\n`;
       message += `• Reduza gastos não-essenciais (lazer, vestuário)\n`;
@@ -1830,9 +2025,7 @@ async function saveUserPreference(
     const confidence = args.confidence ?? 1.0;
     const source = args.source || 'Conversa com usuário';
 
-    console.log(
-      `[saveUserPreference] Saving ${args.memory_type}: ${args.key}`
-    );
+    console.log(`[saveUserPreference] Saving ${args.memory_type}: ${args.key}`);
 
     // Verificar se já existe memória com essa chave
     const { data: existing } = await supabase
@@ -2087,11 +2280,14 @@ async function generateExpenseReceipt(
     doc.setTextColor(...textColor);
 
     // Data do comprovante
-    const formattedDate = new Date(expenseData.date).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
+    const formattedDate = new Date(expenseData.date).toLocaleDateString(
+      'pt-BR',
+      {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      }
+    );
 
     doc.setFontSize(10);
     doc.text(`Data: ${formattedDate}`, 15, 55);
@@ -2138,12 +2334,9 @@ async function generateExpenseReceipt(
     doc.text('Comprovante gerado automaticamente pelo Walts Agent', 105, 280, {
       align: 'center',
     });
-    doc.text(
-      `Gerado em: ${new Date().toLocaleString('pt-BR')}`,
-      105,
-      285,
-      { align: 'center' }
-    );
+    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 105, 285, {
+      align: 'center',
+    });
 
     // Converter PDF para base64
     const pdfOutput = doc.output('arraybuffer');
@@ -2189,4 +2382,260 @@ function decode(base64: string): Uint8Array {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
+}
+
+// ==================== FUNÇÕES DE PADRÕES FINANCEIROS ====================
+
+async function getFinancialPatterns(
+  supabase: any,
+  userId: string,
+  args: { pattern_type?: string; category?: string }
+) {
+  try {
+    const patternType = args.pattern_type || 'all';
+    const categoryFilter = args.category;
+
+    console.log(
+      `[getFinancialPatterns] Fetching patterns: type=${patternType}, category=${categoryFilter || 'all'}`
+    );
+
+    // Construir query
+    let query = supabase
+      .from('user_financial_patterns')
+      .select('*')
+      .eq('user_id', userId)
+      .order('confidence', { ascending: false })
+      .order('occurrences', { ascending: false });
+
+    if (patternType !== 'all') {
+      query = query.eq('pattern_type', patternType);
+    }
+
+    if (categoryFilter) {
+      query = query.eq('category', categoryFilter);
+    }
+
+    const { data: patterns, error } = await query;
+
+    if (error) {
+      console.error('[getFinancialPatterns] Error:', error);
+      return {
+        success: false,
+        error: `Erro ao buscar padrões: ${error.message}`,
+      };
+    }
+
+    if (!patterns || patterns.length === 0) {
+      return {
+        success: true,
+        patterns: [],
+        message:
+          'Ainda não tenho padrões financeiros aprendidos sobre você. Continue usando o app que vou aprender seus hábitos!',
+      };
+    }
+
+    // Atualizar last_used_at para os padrões acessados
+    const patternIds = patterns.map((p: any) => p.id);
+    await supabase
+      .from('user_financial_patterns')
+      .update({ last_used_at: new Date().toISOString() })
+      .in('id', patternIds);
+
+    // Agrupar padrões por tipo
+    const grouped: Record<string, any[]> = {
+      spending_habits: [],
+      favorite_places: [],
+      time_patterns: [],
+      payment_cycle: [],
+      category_trends: [],
+      anomaly_thresholds: [],
+    };
+
+    patterns.forEach((pattern: any) => {
+      const item = {
+        key: pattern.pattern_key,
+        category: pattern.category,
+        value: pattern.pattern_value,
+        confidence: pattern.confidence,
+        occurrences: pattern.occurrences,
+        last_updated: pattern.last_updated_at,
+      };
+
+      switch (pattern.pattern_type) {
+        case 'spending_habit':
+          grouped.spending_habits.push(item);
+          break;
+        case 'favorite_place':
+          grouped.favorite_places.push(item);
+          break;
+        case 'time_pattern':
+          grouped.time_patterns.push(item);
+          break;
+        case 'payment_cycle':
+          grouped.payment_cycle.push(item);
+          break;
+        case 'category_trend':
+          grouped.category_trends.push(item);
+          break;
+        case 'anomaly_threshold':
+          grouped.anomaly_thresholds.push(item);
+          break;
+      }
+    });
+
+    // Formatar mensagem para o LLM usar nas respostas
+    let message = `📊 Padrões Financeiros do Usuário:\n\n`;
+
+    if (grouped.spending_habits.length > 0) {
+      message += `💰 HÁBITOS DE GASTO:\n`;
+      grouped.spending_habits.forEach((h) => {
+        const val = h.value;
+        message += `• ${h.category}: média R$ ${val.average_per_transaction?.toFixed(2) || '?'}/compra, R$ ${val.average_per_week?.toFixed(2) || '?'}/semana (${h.occurrences} transações)\n`;
+      });
+      message += '\n';
+    }
+
+    if (grouped.favorite_places.length > 0) {
+      message += `🏪 LUGARES FAVORITOS:\n`;
+      grouped.favorite_places.forEach((p) => {
+        const val = p.value;
+        message += `• ${val.establishment_name}: ${val.visit_count}x visitas, ticket médio R$ ${val.average_ticket?.toFixed(2) || '?'}\n`;
+      });
+      message += '\n';
+    }
+
+    if (grouped.time_patterns.length > 0) {
+      message += `⏰ PADRÕES DE TEMPO:\n`;
+      grouped.time_patterns.forEach((t) => {
+        const val = t.value;
+        if (t.key.includes('weekend_spender')) {
+          message += `• Gasta ${val.weekend_increase_percent}% a mais nos fins de semana\n`;
+        } else if (val.day_name) {
+          message += `• ${val.day_name}: gasta ${val.above_average_by}% acima da média\n`;
+        } else if (val.period_name) {
+          message += `• Pico de gastos: ${val.period_name} (${val.percentage_of_total}% das transações)\n`;
+        }
+      });
+      message += '\n';
+    }
+
+    if (grouped.payment_cycle.length > 0) {
+      message += `📅 CICLO DE PAGAMENTO:\n`;
+      grouped.payment_cycle.forEach((c) => {
+        const val = c.value;
+        message += `• Gasta ${val.first_week_percent}% do salário na primeira semana do mês\n`;
+      });
+      message += '\n';
+    }
+
+    if (grouped.category_trends.length > 0) {
+      message += `📈 TENDÊNCIAS:\n`;
+      grouped.category_trends.forEach((t) => {
+        const val = t.value;
+        const arrow = val.trend === 'increasing' ? '↗️' : '↘️';
+        message += `• ${t.category}: ${arrow} ${Math.abs(val.change_percent)}% ${val.trend === 'increasing' ? 'aumento' : 'redução'}\n`;
+      });
+      message += '\n';
+    }
+
+    if (grouped.anomaly_thresholds.length > 0) {
+      message += `⚠️ LIMIARES DE ANOMALIA (gastos acima são incomuns):\n`;
+      grouped.anomaly_thresholds.slice(0, 5).forEach((a) => {
+        const val = a.value;
+        message += `• ${a.category}: R$ ${val.anomaly_threshold?.toFixed(2) || '?'} (média: R$ ${val.mean?.toFixed(2) || '?'})\n`;
+      });
+    }
+
+    return {
+      success: true,
+      patterns: grouped,
+      total_count: patterns.length,
+      message: message.trim(),
+    };
+  } catch (error) {
+    console.error('[getFinancialPatterns] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro desconhecido',
+    };
+  }
+}
+
+async function checkIfAnomaly(
+  supabase: any,
+  userId: string,
+  args: { category: string; amount: number }
+) {
+  try {
+    const { category, amount } = args;
+
+    console.log(
+      `[checkIfAnomaly] Checking if R$ ${amount} in ${category} is anomaly`
+    );
+
+    // Buscar limiar de anomalia para a categoria
+    const { data: pattern, error } = await supabase
+      .from('user_financial_patterns')
+      .select('pattern_value, confidence, occurrences')
+      .eq('user_id', userId)
+      .eq('pattern_type', 'anomaly_threshold')
+      .eq('category', category)
+      .single();
+
+    if (error || !pattern) {
+      // Sem dados suficientes para determinar anomalia
+      return {
+        success: true,
+        is_anomaly: false,
+        has_data: false,
+        message: `Ainda não tenho dados suficientes sobre seus gastos em ${category} para detectar anomalias.`,
+      };
+    }
+
+    const threshold = pattern.pattern_value.anomaly_threshold;
+    const mean = pattern.pattern_value.mean;
+    const stdDev = pattern.pattern_value.std_dev;
+
+    const isAnomaly = amount > threshold;
+    const percentAboveMean = mean > 0 ? ((amount - mean) / mean) * 100 : 0;
+
+    let message: string;
+    let severity: 'normal' | 'attention' | 'warning' | 'critical';
+
+    if (!isAnomaly) {
+      severity = 'normal';
+      message = `✅ R$ ${amount.toFixed(2)} em ${category} está dentro do normal (média: R$ ${mean.toFixed(2)})`;
+    } else if (percentAboveMean < 150) {
+      severity = 'attention';
+      message = `⚠️ R$ ${amount.toFixed(2)} em ${category} está ${Math.round(percentAboveMean)}% acima da sua média (R$ ${mean.toFixed(2)}). Gasto um pouco alto, mas não alarmante.`;
+    } else if (percentAboveMean < 300) {
+      severity = 'warning';
+      message = `🟡 R$ ${amount.toFixed(2)} em ${category} está ${Math.round(percentAboveMean)}% acima da sua média! Isso é bem acima do seu padrão usual (média: R$ ${mean.toFixed(2)}).`;
+    } else {
+      severity = 'critical';
+      message = `🔴 R$ ${amount.toFixed(2)} em ${category} está ${Math.round(percentAboveMean)}% acima da sua média! Este é um gasto muito fora do seu padrão (média: R$ ${mean.toFixed(2)}). Verifique se está correto.`;
+    }
+
+    return {
+      success: true,
+      is_anomaly: isAnomaly,
+      has_data: true,
+      severity,
+      amount,
+      category,
+      threshold: Math.round(threshold * 100) / 100,
+      mean: Math.round(mean * 100) / 100,
+      std_dev: Math.round(stdDev * 100) / 100,
+      percent_above_mean: Math.round(percentAboveMean),
+      sample_size: pattern.occurrences,
+      confidence: pattern.confidence,
+      message,
+    };
+  } catch (error) {
+    console.error('[checkIfAnomaly] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro desconhecido',
+    };
+  }
 }

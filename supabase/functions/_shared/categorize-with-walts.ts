@@ -22,7 +22,7 @@ export type ExpenseCategory =
   | 'cartao_credito'
   | 'emprestimos'
   | 'financiamentos'
-  | 'dividas_pessoais'
+  | 'transferencias'
   | 'outros';
 
 export interface CategorizeOptions {
@@ -69,13 +69,13 @@ Sua tarefa é categorizar gastos com MÁXIMA PRECISÃO.
 - cartao_credito: [Cartão]
 - emprestimos: [Empréstimo]
 - financiamentos: [Veículo, Imóvel, Financiamento]
-- dividas_pessoais: [PIX Pessoa Física, Transferência Pessoa Física]
+- transferencias: [PIX Pessoa Fisica, TED/DOC]
 
 ## OUTROS:
 - outros: [Outros]
 
 # REGRAS DE PRIORIDADE:
-1. PIX/Transferências para pessoas físicas → dividas_pessoais
+1. PIX/Transferências para pessoas físicas → transferencias
 2. Pagamentos de cartão/fatura → cartao_credito
 3. Contexto é rei: analise o nome completo, não apenas palavras isoladas
 4. Em caso de dúvida entre 2 categorias, escolha a mais específica
@@ -145,7 +145,7 @@ function isValidCategory(category: string): category is ExpenseCategory {
     'cartao_credito',
     'emprestimos',
     'financiamentos',
-    'dividas_pessoais',
+    'transferencias',
     'outros',
   ];
 

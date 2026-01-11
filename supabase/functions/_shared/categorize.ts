@@ -103,7 +103,7 @@ export function categorizePluggyTransaction(transaction: {
       );
 
       return {
-        category: 'dividas_pessoais',
+        category: 'transferencias',
         subcategory: 'PIX Pessoa Física',
       };
     }
@@ -119,7 +119,7 @@ export function categorizePluggyTransaction(transaction: {
       );
 
       return {
-        category: 'dividas_pessoais',
+        category: 'transferencias',
         subcategory: 'PIX Pessoa Física',
       };
     }
@@ -141,7 +141,7 @@ export function categorizePluggyTransaction(transaction: {
     );
 
     return {
-      category: 'dividas_pessoais',
+      category: 'transferencias',
       subcategory,
     };
   }

@@ -13,10 +13,12 @@ import {
   Keyboard,
   Alert,
 } from 'react-native';
+import { BankLogo } from '@/components/BankLogo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
+import { getApiKey } from '@/lib/pluggy';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { EyeIcon } from '@/components/EyeIcon';
@@ -42,6 +44,18 @@ type IncomeCard = {
   salary: string;
   paymentDay: string;
   incomeSource: string;
+  linkedAccountId?: string; // UUID da conta bancária vinculada (Open Finance)
+  lastKnownBalance?: number; // Saldo persistido quando desvincula o banco
+};
+
+type BankAccount = {
+  id: string;
+  name: string;
+  number: string | null;
+  balance: number | null;
+  item_id: string;
+  imageUrl?: string;
+  primaryColor?: string;
 };
 
 export default function PainelFinanceiroScreen() {
@@ -57,6 +71,10 @@ export default function PainelFinanceiroScreen() {
   const [salary, setSalary] = useState('');
   const [paymentDay, setPaymentDay] = useState('');
   const [incomeSource, setIncomeSource] = useState('');
+  const [linkedAccountId, setLinkedAccountId] = useState<string | null>(null);
+
+  // Bank accounts from Open Finance
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
   useEffect(() => {
     loadFinancialData();
@@ -73,6 +91,7 @@ export default function PainelFinanceiroScreen() {
         return;
       }
 
+      // Carregar income_cards
       const { data: profile } = await supabase
         .from('profiles')
         .select('income_cards')
@@ -81,6 +100,85 @@ export default function PainelFinanceiroScreen() {
 
       if (profile?.income_cards && Array.isArray(profile.income_cards)) {
         setIncomeCards(profile.income_cards);
+      }
+
+      // Carregar contas bancárias do Open Finance (apenas tipo BANK)
+      // Incluir dados do pluggy_items para pegar connector_id
+      const { data: accounts } = await supabase
+        .from('pluggy_accounts')
+        .select(
+          `
+          id, name, number, balance, item_id,
+          pluggy_items!inner(connector_id)
+        `
+        )
+        .eq('user_id', user.id)
+        .eq('type', 'BANK')
+        .order('name');
+
+      if (accounts && accounts.length > 0) {
+        // Tipo para o resultado do Supabase (pluggy_items é objeto, não array, com !inner)
+        type AccountWithItem = {
+          id: string;
+          name: string;
+          number: string | null;
+          balance: number | null;
+          item_id: string;
+          pluggy_items: { connector_id: number };
+        };
+
+        // Buscar logos dos connectors
+        const typedAccounts = accounts as unknown as AccountWithItem[];
+        const connectorIds = [
+          ...new Set(typedAccounts.map((acc) => acc.pluggy_items.connector_id)),
+        ];
+
+        // Obter API key para autenticar na Pluggy
+        const apiKey = await getApiKey();
+
+        const connectorsInfo = await Promise.all(
+          connectorIds.map(async (connectorId) => {
+            try {
+              const response = await fetch(
+                `https://api.pluggy.ai/connectors/${connectorId}`,
+                {
+                  headers: {
+                    'X-API-KEY': apiKey,
+                  },
+                }
+              );
+              if (response.ok) {
+                const connector = await response.json();
+                return {
+                  id: connector.id,
+                  imageUrl: connector.imageUrl,
+                  primaryColor: connector.primaryColor,
+                };
+              }
+            } catch (error) {
+              console.error(`Error fetching connector ${connectorId}:`, error);
+            }
+            return null;
+          })
+        );
+
+        const connectorsMap = new Map(
+          connectorsInfo.filter((c) => c !== null).map((c) => [c!.id, c])
+        );
+
+        // Mapear contas com logos
+        const accountsWithLogos: BankAccount[] = typedAccounts.map((acc) => ({
+          id: acc.id,
+          name: acc.name,
+          number: acc.number,
+          balance: acc.balance,
+          item_id: acc.item_id,
+          imageUrl: connectorsMap.get(acc.pluggy_items.connector_id)?.imageUrl,
+          primaryColor: connectorsMap.get(acc.pluggy_items.connector_id)
+            ?.primaryColor,
+        }));
+
+        setBankAccounts(accountsWithLogos);
       }
     } catch (error) {
       console.error('Error loading financial data:', error);
@@ -93,6 +191,7 @@ export default function PainelFinanceiroScreen() {
     setSalary('');
     setPaymentDay('');
     setIncomeSource('');
+    setLinkedAccountId(null);
     setEditingCardId(null);
     setIsEditing(true);
   };
@@ -101,6 +200,7 @@ export default function PainelFinanceiroScreen() {
     setSalary(card.salary);
     setPaymentDay(card.paymentDay);
     setIncomeSource(card.incomeSource);
+    setLinkedAccountId(card.linkedAccountId || null);
     setEditingCardId(card.id);
     setIsEditing(true);
   };
@@ -193,9 +293,38 @@ export default function PainelFinanceiroScreen() {
 
       if (editingCardId) {
         // Editing existing card
+        const currentCard = incomeCards.find((c) => c.id === editingCardId);
+
+        // Verificar se está desvinculando o banco (tinha conta e agora não tem)
+        let lastKnownBalance: number | undefined =
+          currentCard?.lastKnownBalance;
+
+        if (currentCard?.linkedAccountId && !linkedAccountId) {
+          // Está desvinculando - persistir o saldo atual do banco
+          const linkedAccount = bankAccounts.find(
+            (acc) => acc.id === currentCard.linkedAccountId
+          );
+          if (
+            linkedAccount?.balance !== null &&
+            linkedAccount?.balance !== undefined
+          ) {
+            lastKnownBalance = linkedAccount.balance;
+          }
+        } else if (linkedAccountId) {
+          // Está vinculando uma nova conta - limpar saldo persistido
+          lastKnownBalance = undefined;
+        }
+
         updatedCards = incomeCards.map((card) =>
           card.id === editingCardId
-            ? { ...card, salary, paymentDay, incomeSource }
+            ? {
+                ...card,
+                salary,
+                paymentDay,
+                incomeSource,
+                linkedAccountId: linkedAccountId || undefined,
+                lastKnownBalance,
+              }
             : card
         );
       } else {
@@ -205,6 +334,7 @@ export default function PainelFinanceiroScreen() {
           salary,
           paymentDay,
           incomeSource,
+          linkedAccountId: linkedAccountId || undefined,
         };
         updatedCards = [...incomeCards, newCard];
       }
@@ -242,6 +372,32 @@ export default function PainelFinanceiroScreen() {
     setSalary('');
     setPaymentDay('');
     setIncomeSource('');
+    setLinkedAccountId(null);
+  };
+
+  // Formatar número da conta para exibição
+  const formatAccountNumber = (number: string | null) => {
+    if (!number) return '';
+    // Mostrar apenas últimos 4 dígitos
+    const digits = number.replace(/\D/g, '');
+    if (digits.length <= 4) return digits;
+    return `****${digits.slice(-4)}`;
+  };
+
+  // Buscar conta vinculada completa
+  const getLinkedAccount = (accountId: string | undefined) => {
+    if (!accountId) return null;
+    return bankAccounts.find((acc) => acc.id === accountId) || null;
+  };
+
+  // Buscar nome da conta vinculada (formatado)
+  const getLinkedAccountName = (accountId: string | undefined) => {
+    const account = getLinkedAccount(accountId);
+    if (!account) return null;
+    const numberPart = account.number
+      ? ` - ${formatAccountNumber(account.number)}`
+      : '';
+    return `${account.name}${numberPart}`;
   };
 
   const formatCurrency = (value: string) => {
@@ -354,25 +510,13 @@ export default function PainelFinanceiroScreen() {
                           </Text>
                           <View style={styles.cardActions}>
                             <TouchableOpacity
-                              style={[
-                                styles.iconButton,
-                                {
-                                  backgroundColor: theme.background,
-                                  borderColor: theme.cardBorder,
-                                },
-                              ]}
+                              style={styles.iconButton}
                               onPress={() => handleEdit(card)}
                             >
                               <LapisIcon size={18} color={theme.text} />
                             </TouchableOpacity>
                             <TouchableOpacity
-                              style={[
-                                styles.iconButton,
-                                {
-                                  backgroundColor: theme.background,
-                                  borderColor: theme.cardBorder,
-                                },
-                              ]}
+                              style={styles.iconButton}
                               onPress={() => handleDelete(card.id)}
                             >
                               <TrashIcon size={18} color={theme.text} />
@@ -397,6 +541,35 @@ export default function PainelFinanceiroScreen() {
                         >
                           Dia de recebimento: {card.paymentDay}
                         </Text>
+                        {card.linkedAccountId &&
+                          getLinkedAccount(card.linkedAccountId) && (
+                            <View style={styles.linkedAccountRow}>
+                              <BankLogo
+                                imageUrl={
+                                  getLinkedAccount(card.linkedAccountId)
+                                    ?.imageUrl
+                                }
+                                bankName={
+                                  getLinkedAccount(card.linkedAccountId)
+                                    ?.name || ''
+                                }
+                                primaryColor={
+                                  getLinkedAccount(card.linkedAccountId)
+                                    ?.primaryColor
+                                }
+                                size={20}
+                                backgroundColor={theme.primary}
+                              />
+                              <Text
+                                style={[
+                                  styles.displayCardSubtitle,
+                                  { color: theme.primary, marginLeft: 8 },
+                                ]}
+                              >
+                                {getLinkedAccountName(card.linkedAccountId)}
+                              </Text>
+                            </View>
+                          )}
                       </View>
                     ))
                   )}
@@ -508,6 +681,134 @@ export default function PainelFinanceiroScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
+
+                  {/* Seletor de conta bancária (Open Finance) */}
+                  {bankAccounts.length > 0 && (
+                    <View style={styles.section}>
+                      <Text style={[styles.label, { color: theme.text }]}>
+                        Conta que Recebe (Open Finance)
+                      </Text>
+                      <Text
+                        style={[
+                          styles.helperText,
+                          { color: theme.textSecondary, marginBottom: 12 },
+                        ]}
+                      >
+                        Vincule a conta bancária onde você recebe esta renda
+                        para um cálculo mais preciso do seu saldo
+                      </Text>
+
+                      {/* Opção: Não vincular */}
+                      <TouchableOpacity
+                        style={[
+                          styles.sourceOption,
+                          {
+                            backgroundColor: theme.card,
+                            borderColor:
+                              linkedAccountId === null
+                                ? theme.primary
+                                : theme.cardBorder,
+                          },
+                        ]}
+                        onPress={() => setLinkedAccountId(null)}
+                      >
+                        <View
+                          style={[
+                            styles.radio,
+                            {
+                              borderColor:
+                                linkedAccountId === null
+                                  ? theme.primary
+                                  : theme.cardBorder,
+                            },
+                          ]}
+                        >
+                          {linkedAccountId === null && (
+                            <View
+                              style={[
+                                styles.radioInner,
+                                { backgroundColor: theme.primary },
+                              ]}
+                            />
+                          )}
+                        </View>
+                        <Text
+                          style={[styles.sourceLabel, { color: theme.text }]}
+                        >
+                          Não vincular conta
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* Lista de contas bancárias */}
+                      {bankAccounts.map((account) => (
+                        <TouchableOpacity
+                          key={account.id}
+                          style={[
+                            styles.sourceOption,
+                            {
+                              backgroundColor: theme.card,
+                              borderColor:
+                                linkedAccountId === account.id
+                                  ? theme.primary
+                                  : theme.cardBorder,
+                            },
+                          ]}
+                          onPress={() => setLinkedAccountId(account.id)}
+                        >
+                          <View
+                            style={[
+                              styles.radio,
+                              {
+                                borderColor:
+                                  linkedAccountId === account.id
+                                    ? theme.primary
+                                    : theme.cardBorder,
+                              },
+                            ]}
+                          >
+                            {linkedAccountId === account.id && (
+                              <View
+                                style={[
+                                  styles.radioInner,
+                                  { backgroundColor: theme.primary },
+                                ]}
+                              />
+                            )}
+                          </View>
+                          {/* Logo do banco */}
+                          <View style={styles.bankLogoWrapper}>
+                            <BankLogo
+                              imageUrl={account.imageUrl}
+                              bankName={account.name}
+                              primaryColor={account.primaryColor}
+                              size={32}
+                              backgroundColor={theme.primary}
+                            />
+                          </View>
+                          <View style={styles.accountInfo}>
+                            <Text
+                              style={[
+                                styles.sourceLabel,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {account.name}
+                            </Text>
+                            {account.number && (
+                              <Text
+                                style={[
+                                  styles.accountNumber,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                Conta {formatAccountNumber(account.number)}
+                              </Text>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
 
                   <View style={styles.buttonRow}>
                     <TouchableOpacity
@@ -706,6 +1007,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
   },
+  accountInfo: {
+    flex: 1,
+  },
+  accountNumber: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 2,
+  },
+  bankLogoWrapper: {
+    marginRight: 12,
+  },
+  linkedAccountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
@@ -760,10 +1077,8 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
   },
   displayCardValue: {
     fontSize: 32,

@@ -21,6 +21,11 @@ import { KangarooIcon } from '@/components/KangarooIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
 import { sendMessageToDeepSeek } from '@/lib/deepseek';
+import {
+  calculateTotalBalance,
+  getBalanceSourceLabel,
+  type BalanceSource,
+} from '@/lib/calculateBalance';
 
 type CategoryExpense = {
   category: ExpenseCategory;
@@ -45,8 +50,6 @@ export default function FinancialOverviewScreen() {
   );
   const [loading, setLoading] = useState(true);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
-  const [totalDebt, setTotalDebt] = useState<number>(0);
-  const [debtCount, setDebtCount] = useState<number>(0);
   const [creditCardAccounts, setCreditCardAccounts] = useState<
     CreditCardAccount[]
   >([]);
@@ -58,21 +61,69 @@ export default function FinancialOverviewScreen() {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [availableMonths, setAvailableMonths] = useState<Date[]>([]);
   const monthScrollRef = useRef<ScrollView>(null);
+  const [balanceSource, setBalanceSource] = useState<BalanceSource>('manual');
+  const [calculatedBalance, setCalculatedBalance] = useState<number>(0);
 
   useEffect(() => {
-    // Gerar últimos 12 meses
-    const months: Date[] = [];
-    const today = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      months.push(date);
-    }
-    setAvailableMonths(months);
+    // Gerar meses disponíveis baseado na data de criação do usuário
+    const generateMonths = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        // Buscar data de criação do perfil
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('created_at')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const today = new Date();
+        let startDate: Date;
+
+        if (profile?.created_at) {
+          // Começar do mês de criação do perfil
+          const createdAt = new Date(profile.created_at);
+          startDate = new Date(
+            createdAt.getFullYear(),
+            createdAt.getMonth(),
+            1
+          );
+        } else {
+          // Se não tem created_at, começar do mês atual
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        }
+
+        // Gerar meses desde a criação até hoje
+        const months: Date[] = [];
+        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        let iterDate = new Date(startDate);
+        while (iterDate <= currentMonth) {
+          months.push(new Date(iterDate));
+          iterDate.setMonth(iterDate.getMonth() + 1);
+        }
+
+        setAvailableMonths(months);
+      } catch (error) {
+        console.error('Erro ao gerar meses disponíveis:', error);
+        // Fallback: apenas mês atual
+        setAvailableMonths([new Date()]);
+      }
+    };
+
+    generateMonths();
   }, []);
 
-  // Scroll para o mês atual quando a tela ganhar foco ou quando availableMonths mudar
+  // Resetar para o mês atual e fazer scroll quando a tela ganhar foco
   useFocusEffect(
     useCallback(() => {
+      // Resetar selectedMonth para o mês atual
+      setSelectedMonth(new Date());
+
       if (availableMonths.length > 0) {
         const currentMonthIndex = availableMonths.findIndex(
           (month) =>
@@ -123,9 +174,15 @@ export default function FinancialOverviewScreen() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const stored = await AsyncStorage.getItem(`walts_suggestion_${user.id}`);
+      // Carregar sugestão específica do mês selecionado
+      const monthKey = `${selectedMonth.getFullYear()}_${selectedMonth.getMonth()}`;
+      const stored = await AsyncStorage.getItem(
+        `walts_suggestion_${user.id}_${monthKey}`
+      );
       if (stored) {
         setWaltsSuggestion(JSON.parse(stored));
+      } else {
+        setWaltsSuggestion(null);
       }
     } catch (error) {
       console.error('Erro ao carregar sugestão do Walts:', error);
@@ -158,27 +215,65 @@ export default function FinancialOverviewScreen() {
 
       if (!user) return;
 
-      // Carregar salário e dia de pagamento
+      // Carregar salário, dia de pagamento e income_cards
       const { data: profileData } = await supabase
         .from('profiles')
         .select('monthly_salary, salary_payment_day, income_cards')
         .eq('id', user.id)
         .maybeSingle();
 
-      // Calcular total de rendas
+      // Tipo para income_cards
+      type IncomeCard = {
+        id: string;
+        salary: string;
+        paymentDay: string;
+        incomeSource: string;
+        linkedAccountId?: string;
+      };
+
+      // Calcular total de rendas e próximo dia de pagamento
       let totalIncome = 0;
+      let nextPaymentDay = profileData?.salary_payment_day || 1;
+      let incomeCards: IncomeCard[] = [];
 
       // Verificar se há income_cards (novo sistema)
       if (
         profileData?.income_cards &&
-        Array.isArray(profileData.income_cards)
+        Array.isArray(profileData.income_cards) &&
+        profileData.income_cards.length > 0
       ) {
-        totalIncome = profileData.income_cards.reduce((sum, card) => {
+        incomeCards = profileData.income_cards as IncomeCard[];
+
+        // Calcular total de todas as rendas
+        totalIncome = incomeCards.reduce((sum: number, card: IncomeCard) => {
           const salary = parseFloat(
             card.salary.replace(/\./g, '').replace(',', '.')
           );
           return sum + (isNaN(salary) ? 0 : salary);
         }, 0);
+
+        // Encontrar o próximo dia de pagamento (o mais próximo)
+        const today = new Date();
+        const currentDay = today.getDate();
+
+        // Extrair todos os dias de pagamento válidos
+        const paymentDays = incomeCards
+          .map((card: IncomeCard) => parseInt(card.paymentDay))
+          .filter((day: number) => !isNaN(day) && day >= 1 && day <= 31);
+
+        if (paymentDays.length > 0) {
+          // Encontrar o próximo pagamento (considerando que pode ser neste mês ou no próximo)
+          const upcomingThisMonth = paymentDays.filter(
+            (day: number) => day > currentDay
+          );
+          if (upcomingThisMonth.length > 0) {
+            // Próximo pagamento é neste mês
+            nextPaymentDay = Math.min(...upcomingThisMonth);
+          } else {
+            // Todos os pagamentos deste mês já passaram, próximo é o menor do próximo mês
+            nextPaymentDay = Math.min(...paymentDays);
+          }
+        }
       } else if (profileData?.monthly_salary) {
         // Só usar monthly_salary se income_cards não existir (sistema antigo)
         totalIncome = profileData.monthly_salary;
@@ -186,32 +281,76 @@ export default function FinancialOverviewScreen() {
 
       if (totalIncome > 0) {
         setMonthlySalary(totalIncome);
-        setSalaryPaymentDay(profileData?.salary_payment_day || 1);
+        setSalaryPaymentDay(nextPaymentDay);
+      }
+
+      // Buscar saldos das contas vinculadas (para cálculo inteligente do saldo)
+      const linkedAccountIds = incomeCards
+        .filter((card) => card.linkedAccountId)
+        .map((card) => card.linkedAccountId as string);
+
+      let accountBalances: { id: string; balance: number | null }[] = [];
+      let lastSyncAt: string | null = null;
+
+      if (linkedAccountIds.length > 0) {
+        const { data: linkedAccounts } = await supabase
+          .from('pluggy_accounts')
+          .select('id, balance, last_sync_at')
+          .in('id', linkedAccountIds);
+
+        if (linkedAccounts) {
+          accountBalances = linkedAccounts;
+          // Usar a sincronização mais recente
+          const syncDates = linkedAccounts
+            .map((acc: any) => acc.last_sync_at)
+            .filter(Boolean);
+          if (syncDates.length > 0) {
+            lastSyncAt = syncDates.sort().pop() || null;
+          }
+        }
       }
 
       // Carregar gastos do mês selecionado
-      const firstDayOfMonth = new Date(
-        selectedMonth.getFullYear(),
-        selectedMonth.getMonth(),
-        1
-      );
-      const lastDayOfMonth = new Date(
-        selectedMonth.getFullYear(),
-        selectedMonth.getMonth() + 1,
-        0
-      );
+      // Formatar datas diretamente para evitar problemas de timezone
+      const year = selectedMonth.getFullYear();
+      const month = selectedMonth.getMonth();
+      const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, category, date, created_at')
         .eq('user_id', user.id)
-        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
-        .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
+        .gte('date', startDateStr)
+        .lte('date', endDateStr);
 
       if (expensesData) {
         // Calcular total de gastos
         const total = expensesData.reduce((sum, exp) => sum + exp.amount, 0);
         setTotalExpenses(total);
+
+        // Calcular gastos RECENTES (após última sincronização)
+        let recentExpenses = 0;
+        // Se tiver data de sincronização, usa ela; senão, considera gastos das últimas 24h como recentes
+        const cutoffDate = lastSyncAt
+          ? new Date(lastSyncAt)
+          : new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 horas atrás
+
+        recentExpenses = expensesData
+          .filter((exp) => new Date(exp.created_at) > cutoffDate)
+          .reduce((sum, exp) => sum + exp.amount, 0);
+
+        // Calcular saldo usando lógica inteligente (menor entre manual e banco)
+        const balanceResult = calculateTotalBalance(
+          incomeCards,
+          accountBalances,
+          total,
+          recentExpenses
+        );
+
+        setCalculatedBalance(balanceResult.remainingBalance);
+        setBalanceSource(balanceResult.source);
 
         // Agrupar por categoria
         const categoryMap = new Map<ExpenseCategory, number>();
@@ -229,6 +368,16 @@ export default function FinancialOverviewScreen() {
         }));
 
         setCategoryExpenses(categories.sort((a, b) => b.total - a.total));
+      } else {
+        // Se não há gastos, calcular saldo apenas com income_cards
+        const balanceResult = calculateTotalBalance(
+          incomeCards,
+          accountBalances,
+          0
+        );
+
+        setCalculatedBalance(balanceResult.remainingBalance);
+        setBalanceSource(balanceResult.source);
       }
 
       // Carregar cartões de crédito do Open Finance
@@ -238,26 +387,6 @@ export default function FinancialOverviewScreen() {
         .eq('user_id', user.id)
         .eq('type', 'CREDIT');
 
-      // Buscar contas bancárias (não cartões de crédito)
-      const { data: bankAccounts } = await supabase
-        .from('pluggy_accounts')
-        .select('id')
-        .eq('user_id', user.id)
-        .in('type', ['BANK', 'CHECKING']);
-
-      const bankAccountIds = bankAccounts?.map((acc) => acc.id) || [];
-
-      // Buscar transações pendentes ATRASADAS de contas bancárias
-      const { data: pendingTransactions } = await supabase
-        .from('pluggy_transactions')
-        .select('id, description, amount, date, status, account_id')
-        .eq('user_id', user.id)
-        .eq('status', 'PENDING')
-        .eq('type', 'DEBIT')
-        .lt('date', new Date().toISOString().split('T')[0]);
-
-      let debtTotal = 0;
-      let debtCounter = 0;
       const creditCards: CreditCardAccount[] = [];
 
       // Analisar cartões de crédito
@@ -279,30 +408,6 @@ export default function FinancialOverviewScreen() {
         });
       }
 
-      // Analisar transações pendentes ATRASADAS de contas bancárias
-      if (pendingTransactions && bankAccountIds.length > 0) {
-        pendingTransactions.forEach((tx) => {
-          // Apenas considerar transações de contas bancárias (não cartões)
-          if (!bankAccountIds.includes(tx.account_id)) {
-            return;
-          }
-
-          const dueDate = new Date(tx.date);
-          const today = new Date();
-          const daysOverdue = Math.floor(
-            (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
-          );
-
-          // Apenas contas ATRASADAS são dívidas
-          if (daysOverdue > 0) {
-            debtTotal += Math.abs(tx.amount);
-            debtCounter++;
-          }
-        });
-      }
-
-      setTotalDebt(debtTotal);
-      setDebtCount(debtCounter);
       setCreditCardAccounts(creditCards);
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error);
@@ -311,39 +416,63 @@ export default function FinancialOverviewScreen() {
     }
   };
 
-  const remainingBalance = monthlySalary - totalExpenses;
+  // Usar o saldo calculado (que considera contas vinculadas) ou fallback para cálculo manual
+  const remainingBalance =
+    balanceSource !== 'none'
+      ? calculatedBalance
+      : monthlySalary - totalExpenses;
   const spentPercentage =
     monthlySalary > 0 ? (totalExpenses / monthlySalary) * 100 : 0;
 
-  // Calcular dias restantes até o próximo pagamento e saldo diário
+  // Verificar se o mês selecionado é o mês atual
   const now = new Date();
+  const isCurrentMonth =
+    selectedMonth.getMonth() === now.getMonth() &&
+    selectedMonth.getFullYear() === now.getFullYear();
+
+  // Calcular dias no mês selecionado
+  const daysInSelectedMonth = new Date(
+    selectedMonth.getFullYear(),
+    selectedMonth.getMonth() + 1,
+    0
+  ).getDate();
+
+  // Para meses passados: calcular gasto médio diário
+  const averageDailySpent =
+    daysInSelectedMonth > 0 ? totalExpenses / daysInSelectedMonth : 0;
+
+  // Calcular dias restantes até o próximo pagamento (apenas para mês atual)
   const currentDay = now.getDate();
+  let daysUntilNextPayment = 0;
+  let dailyBudget = 0;
 
-  // Calcular a data do próximo pagamento
-  let nextPaymentDate: Date;
-  if (currentDay < salaryPaymentDay) {
-    // Próximo pagamento é neste mês
-    nextPaymentDate = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      salaryPaymentDay
+  if (isCurrentMonth) {
+    // Calcular a data do próximo pagamento
+    let nextPaymentDate: Date;
+    if (currentDay < salaryPaymentDay) {
+      // Próximo pagamento é neste mês
+      nextPaymentDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        salaryPaymentDay
+      );
+    } else {
+      // Próximo pagamento é no próximo mês
+      nextPaymentDate = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        salaryPaymentDay
+      );
+    }
+
+    // Calcular dias restantes até o próximo pagamento
+    daysUntilNextPayment = Math.ceil(
+      (nextPaymentDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
     );
-  } else {
-    // Próximo pagamento é no próximo mês
-    nextPaymentDate = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      salaryPaymentDay
-    );
+
+    dailyBudget =
+      daysUntilNextPayment > 0 ? remainingBalance / daysUntilNextPayment : 0;
   }
-
-  // Calcular dias restantes até o próximo pagamento
-  const daysUntilNextPayment = Math.ceil(
-    (nextPaymentDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  const dailyBudget =
-    daysUntilNextPayment > 0 ? remainingBalance / daysUntilNextPayment : 0;
 
   const getWaltsSuggestion = async () => {
     setLoadingWaltsSuggestion(true);
@@ -363,19 +492,31 @@ export default function FinancialOverviewScreen() {
       });
 
       // Calcular total de cartões de crédito
-      const totalCreditCards = creditCards.reduce((sum, card) => sum + card.usedCredit, 0);
+      const totalCreditCards = creditCardAccounts.reduce(
+        (sum: number, card: CreditCardAccount) => sum + card.usedCredit,
+        0
+      );
 
       // Formatar dados detalhados para o Walts
       const essentialExpensesStr = Object.entries(essentialExpenses)
-        .map(([cat, val]) => `  - ${CATEGORIES[cat as ExpenseCategory].name}: R$ ${val.toFixed(2)}`)
+        .map(
+          ([cat, val]) =>
+            `  - ${CATEGORIES[cat as ExpenseCategory].name}: R$ ${val.toFixed(2)}`
+        )
         .join('\n');
 
       const nonEssentialExpensesStr = Object.entries(nonEssentialExpenses)
-        .map(([cat, val]) => `  - ${CATEGORIES[cat as ExpenseCategory].name}: R$ ${val.toFixed(2)}`)
+        .map(
+          ([cat, val]) =>
+            `  - ${CATEGORIES[cat as ExpenseCategory].name}: R$ ${val.toFixed(2)}`
+        )
         .join('\n');
 
-      const creditCardsStr = creditCards
-        .map(card => `  - ${card.name}: R$ ${card.usedCredit.toFixed(2)} / R$ ${card.creditLimit.toFixed(2)}`)
+      const creditCardsStr = creditCardAccounts
+        .map(
+          (card: CreditCardAccount) =>
+            `  - ${card.name}: R$ ${card.usedCredit.toFixed(2)} / R$ ${card.creditLimit.toFixed(2)}`
+        )
         .join('\n');
 
       const prompt = `Você é o Walts, assistente financeiro pessoal. Analise esta situação financeira completa e sugira uma meta diária inteligente:
@@ -388,20 +529,23 @@ export default function FinancialOverviewScreen() {
 - Dias até próximo pagamento: ${daysUntilNextPayment}
 - Meta diária simples: R$ ${dailyBudget.toFixed(2)}
 
-💰 CARTÕES DE CRÉDITO (${creditCards.length} cartão(ões)):
+💰 CARTÕES DE CRÉDITO (${creditCardAccounts.length} cartão(ões)):
 Total em uso: R$ ${totalCreditCards.toFixed(2)}
 ${creditCardsStr || '  (Nenhum cartão com saldo devedor)'}
 
-💸 DÍVIDAS ATRASADAS:
-Total: R$ ${totalDebt.toFixed(2)}
-Quantidade: ${debtCount} conta(s) atrasada(s)
+💸 PENDÊNCIAS:
+(Verificar na tela de Alertas e Pendencias)
 
 🏠 CUSTOS FIXOS (Essenciais):
-Total: R$ ${Object.values(essentialExpenses).reduce((sum, val) => sum + val, 0).toFixed(2)}
+Total: R$ ${Object.values(essentialExpenses)
+        .reduce((sum, val) => sum + val, 0)
+        .toFixed(2)}
 ${essentialExpensesStr || '  (Nenhum custo fixo registrado)'}
 
 🛒 CUSTOS VARIÁVEIS (Não-Essenciais):
-Total: R$ ${Object.values(nonEssentialExpenses).reduce((sum, val) => sum + val, 0).toFixed(2)}
+Total: R$ ${Object.values(nonEssentialExpenses)
+        .reduce((sum, val) => sum + val, 0)
+        .toFixed(2)}
 ${nonEssentialExpensesStr || '  (Nenhum custo variável registrado)'}
 
 🎯 SUA MISSÃO:
@@ -448,13 +592,14 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
       };
       setWaltsSuggestion(suggestionData);
 
-      // Persistir no AsyncStorage
+      // Persistir no AsyncStorage (por mês)
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
+        const monthKey = `${selectedMonth.getFullYear()}_${selectedMonth.getMonth()}`;
         await AsyncStorage.setItem(
-          `walts_suggestion_${user.id}`,
+          `walts_suggestion_${user.id}_${monthKey}`,
           JSON.stringify(suggestionData)
         );
       }
@@ -566,7 +711,7 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
               </View>
             </TouchableOpacity>
 
-            {/* Card Dívidas */}
+            {/* Card Alertas e Pendências */}
             <TouchableOpacity
               style={[
                 styles.card,
@@ -576,31 +721,11 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
-              onPress={() => router.push('/dividas')}
+              onPress={() => router.push('/alertas-pendencias')}
             >
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
-                  Dívidas
-                </Text>
-                <ChevronRightIcon size={20} color={theme.text} />
-              </View>
-            </TouchableOpacity>
-
-            {/* Card Dívidas Pessoais */}
-            <TouchableOpacity
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: theme.cardBorder,
-                },
-                getCardShadowStyle(theme.background === '#000'),
-              ]}
-              onPress={() => router.push('/dividas-pessoais')}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={[styles.cardTitle, { color: theme.text }]}>
-                  Dívidas Pessoais
+                  Alertas e Pendencias
                 </Text>
                 <ChevronRightIcon size={20} color={theme.text} />
               </View>
@@ -659,19 +784,6 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                     </Text>
                   </View>
 
-                  {totalDebt > 0 && (
-                    <View style={styles.row}>
-                      <Text
-                        style={[styles.label, { color: theme.textSecondary }]}
-                      >
-                        Total Dívidas Ativas
-                      </Text>
-                      <Text style={[styles.value, { color: '#dc2626' }]}>
-                        {formatCurrency(totalDebt)}
-                      </Text>
-                    </View>
-                  )}
-
                   <View
                     style={[styles.divider, { backgroundColor: theme.border }]}
                   />
@@ -684,6 +796,18 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                       {formatCurrency(remainingBalance)}
                     </Text>
                   </View>
+
+                  {/* Indicador da fonte do saldo */}
+                  {balanceSource !== 'none' && (
+                    <Text
+                      style={[
+                        styles.balanceSourceText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {getBalanceSourceLabel(balanceSource)}
+                    </Text>
+                  )}
 
                   <View
                     style={[
@@ -713,7 +837,7 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
               )}
             </TouchableOpacity>
 
-            {/* Card Meta Diária */}
+            {/* Card Meta Diária / Gasto Médio */}
             <TouchableOpacity
               style={[
                 styles.card,
@@ -727,7 +851,7 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
             >
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
-                  Meta Diária
+                  {isCurrentMonth ? 'Meta Diaria' : 'Gasto Medio Diario'}
                 </Text>
                 <View
                   style={{
@@ -742,42 +866,65 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
 
               {expandedCard === 'daily' && (
                 <View style={styles.cardContent}>
-                  <Text style={[styles.dailyAmount, { color: theme.text }]}>
-                    {formatCurrency(
-                      waltsSuggestion
-                        ? waltsSuggestion.dailyBudget
-                        : dailyBudget
-                    )}
-                  </Text>
-                  <Text
-                    style={[styles.dailyText, { color: theme.textSecondary }]}
-                  >
-                    {waltsSuggestion
-                      ? waltsSuggestion.reasoning
-                      : daysUntilNextPayment > 0
-                        ? `Você pode gastar até esse valor por dia pelos próximos ${daysUntilNextPayment} dias até o próximo pagamento`
-                        : 'Dia do pagamento'}
-                  </Text>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.waltsButton,
-                      {
-                        backgroundColor: '#f7c359',
-                        borderColor: '#f7c359',
-                      },
-                    ]}
-                    onPress={getWaltsSuggestion}
-                    disabled={loadingWaltsSuggestion}
-                  >
-                    {loadingWaltsSuggestion ? (
-                      <ActivityIndicator size="small" color="#000" />
-                    ) : (
-                      <Text style={styles.waltsButtonText}>
-                        O Walts sugere...
+                  {isCurrentMonth ? (
+                    <>
+                      <Text style={[styles.dailyAmount, { color: theme.text }]}>
+                        {formatCurrency(
+                          waltsSuggestion
+                            ? waltsSuggestion.dailyBudget
+                            : dailyBudget
+                        )}
                       </Text>
-                    )}
-                  </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.dailyText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {waltsSuggestion
+                          ? waltsSuggestion.reasoning
+                          : daysUntilNextPayment > 0
+                            ? `Voce pode gastar ate esse valor por dia pelos proximos ${daysUntilNextPayment} dias ate o proximo pagamento`
+                            : 'Dia do pagamento'}
+                      </Text>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.waltsButton,
+                          {
+                            backgroundColor: '#f7c359',
+                            borderColor: '#f7c359',
+                          },
+                        ]}
+                        onPress={getWaltsSuggestion}
+                        disabled={loadingWaltsSuggestion}
+                      >
+                        {loadingWaltsSuggestion ? (
+                          <ActivityIndicator size="small" color="#000" />
+                        ) : (
+                          <Text style={styles.waltsButtonText}>
+                            O Walts sugere...
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={[styles.dailyAmount, { color: theme.text }]}>
+                        {formatCurrency(averageDailySpent)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.dailyText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {totalExpenses > 0
+                          ? `Media de gasto por dia neste mes (${daysInSelectedMonth} dias)`
+                          : 'Nenhum gasto registrado neste mes'}
+                      </Text>
+                    </>
+                  )}
                 </View>
               )}
             </TouchableOpacity>
@@ -814,7 +961,15 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
-              onPress={() => router.push('/custos-fixos')}
+              onPress={() =>
+                router.push({
+                  pathname: '/custos-fixos',
+                  params: {
+                    year: selectedMonth.getFullYear().toString(),
+                    month: selectedMonth.getMonth().toString(),
+                  },
+                })
+              }
             >
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
@@ -834,7 +989,15 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
-              onPress={() => router.push('/custos-variaveis')}
+              onPress={() =>
+                router.push({
+                  pathname: '/custos-variaveis',
+                  params: {
+                    year: selectedMonth.getFullYear().toString(),
+                    month: selectedMonth.getMonth().toString(),
+                  },
+                })
+              }
             >
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
@@ -1024,6 +1187,13 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-Regular',
     marginTop: 8,
     textAlign: 'center',
+  },
+  balanceSourceText: {
+    fontSize: 13,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 4,
+    marginBottom: 8,
+    textAlign: 'right',
   },
   dailyAmount: {
     fontSize: 36,

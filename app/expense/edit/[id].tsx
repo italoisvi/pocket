@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { categorizeExpense, CATEGORIES } from '@/lib/categories';
+import { categorizeWithWalts } from '@/lib/categorize-with-walts';
 
 type Expense = {
   id: string;
@@ -84,8 +84,10 @@ export default function EditExpenseScreen() {
 
     setSaving(true);
     try {
-      // Recategorizar com base no novo nome do estabelecimento
-      const { category, subcategory } = categorizeExpense(establishmentName);
+      // Recategorizar com Walts (IA) com base no novo nome do estabelecimento
+      const categorization = await categorizeWithWalts(establishmentName, {
+        amount: parsedAmount,
+      });
 
       const { error } = await supabase
         .from('expenses')
@@ -93,8 +95,8 @@ export default function EditExpenseScreen() {
           establishment_name: establishmentName.trim(),
           amount: parsedAmount,
           notes: notes.trim() || null,
-          category,
-          subcategory,
+          category: categorization.category,
+          subcategory: categorization.subcategory,
         })
         .eq('id', id);
 

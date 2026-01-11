@@ -22,7 +22,8 @@ export type ExpenseCategory =
   | 'cartao_credito' // Fatura do cartão de crédito
   | 'emprestimos' // Empréstimos pessoais
   | 'financiamentos' // Financiamento de veículo, imóvel
-  | 'dividas_pessoais' // Transferências/PIX para pessoas físicas
+  // TRANSFERÊNCIAS
+  | 'transferencias' // PIX/TED/DOC para pessoas físicas
   // OUTROS
   | 'outros'; // Gastos não categorizados
 
@@ -31,6 +32,7 @@ export type CategoryType =
   | 'nao_essencial'
   | 'investimento'
   | 'divida'
+  | 'transferencia'
   | 'outro';
 
 export interface SubcategoryInfo {
@@ -1038,21 +1040,21 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     ],
   },
 
-  dividas_pessoais: {
-    name: 'Dívidas Pessoais',
-    type: 'divida',
-    description: 'Transferências e PIX para pessoas físicas',
-    icon: 'dividas_pessoais',
+  transferencias: {
+    name: 'Transferencias',
+    type: 'transferencia',
+    description: 'PIX, TED e DOC para pessoas fisicas',
+    icon: 'transferencias',
     iconType: 'component',
-    color: '#FF6F61',
+    color: '#26C6DA',
     subcategories: [
       {
-        name: 'PIX Pessoa Física',
+        name: 'PIX Pessoa Fisica',
         keywords: [], // Detectado via lógica especial
       },
       {
-        name: 'Transferência Pessoa Física',
-        keywords: [], // Detectado via lógica especial
+        name: 'TED/DOC',
+        keywords: ['ted', 'doc', 'transferencia bancaria'],
       },
     ],
   },
@@ -1100,29 +1102,29 @@ export function categorizeExpense(
   if (options?.pluggyCategory?.toLowerCase() === 'pix') {
     // PIX enviado: verifica se o receiver é pessoa física
     if (options.receiverName && isPessoaFisica(options.receiverName)) {
-      console.log('[categorizeExpense] PIX enviado para pessoa física:', {
-        category: 'dividas_pessoais',
-        subcategory: 'PIX Pessoa Física',
+      console.log('[categorizeExpense] PIX enviado para pessoa fisica:', {
+        category: 'transferencias',
+        subcategory: 'PIX Pessoa Fisica',
         receiverName: options.receiverName,
       });
 
       return {
-        category: 'dividas_pessoais',
-        subcategory: 'PIX Pessoa Física',
+        category: 'transferencias',
+        subcategory: 'PIX Pessoa Fisica',
       };
     }
 
-    // PIX recebido: verifica se o payer é pessoa física (dívida paga)
+    // PIX recebido: verifica se o payer é pessoa física
     if (options.payerName && isPessoaFisica(options.payerName)) {
-      console.log('[categorizeExpense] PIX recebido de pessoa física:', {
-        category: 'dividas_pessoais',
-        subcategory: 'PIX Pessoa Física',
+      console.log('[categorizeExpense] PIX recebido de pessoa fisica:', {
+        category: 'transferencias',
+        subcategory: 'PIX Pessoa Fisica',
         payerName: options.payerName,
       });
 
       return {
-        category: 'dividas_pessoais',
-        subcategory: 'PIX Pessoa Física',
+        category: 'transferencias',
+        subcategory: 'PIX Pessoa Fisica',
       };
     }
   }
@@ -1130,16 +1132,16 @@ export function categorizeExpense(
   // Caso 2: Detecção pelo nome do estabelecimento (fallback para quando não há dados da Pluggy)
   if (isPessoaFisica(establishmentName)) {
     const subcategory = nameLower.includes('pix')
-      ? 'PIX Pessoa Física'
-      : 'Transferência Pessoa Física';
+      ? 'PIX Pessoa Fisica'
+      : 'TED/DOC';
 
-    console.log('[categorizeExpense] Detectado como pessoa física pelo nome:', {
-      category: 'dividas_pessoais',
+    console.log('[categorizeExpense] Detectado como pessoa fisica pelo nome:', {
+      category: 'transferencias',
       subcategory,
     });
 
     return {
-      category: 'dividas_pessoais',
+      category: 'transferencias',
       subcategory,
     };
   }

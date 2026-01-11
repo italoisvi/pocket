@@ -8,16 +8,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
-import {
-  CATEGORIES,
-  type ExpenseCategory,
-  categorizeExpense,
-} from '@/lib/categories';
+import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
 
 type SubcategoryExpense = {
@@ -28,6 +24,15 @@ type SubcategoryExpense = {
 
 export default function CustosVariaveisScreen() {
   const { theme } = useTheme();
+  const params = useLocalSearchParams<{ year?: string; month?: string }>();
+
+  // Usar mês passado por parâmetro ou mês atual como fallback
+  const selectedYear = params.year
+    ? parseInt(params.year)
+    : new Date().getFullYear();
+  const selectedMonth =
+    params.month !== undefined ? parseInt(params.month) : new Date().getMonth();
+
   const [categoryExpenses, setCategoryExpenses] = useState<
     SubcategoryExpense[]
   >([]);
@@ -36,7 +41,7 @@ export default function CustosVariaveisScreen() {
 
   useEffect(() => {
     loadVariableExpenses();
-  }, []);
+  }, [selectedYear, selectedMonth]);
 
   const loadVariableExpenses = async () => {
     try {
@@ -70,10 +75,13 @@ export default function CustosVariaveisScreen() {
       }
       setTotalIncome(income);
 
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      // Usar mês selecionado (passado por parâmetro)
+      const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1);
+      const lastDayOfMonth = new Date(selectedYear, selectedMonth + 1, 0);
 
+      // Buscar expenses (inclui tanto manuais quanto do Open Finance)
+      // As transações do Open Finance são convertidas em expenses pelo webhook
+      // com categorização inteligente via Walts (IA)
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, category, subcategory')
@@ -81,27 +89,20 @@ export default function CustosVariaveisScreen() {
         .gte('date', firstDayOfMonth.toISOString().split('T')[0])
         .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
 
-      // Buscar transações do Open Finance
-      const { data: openFinanceTransactions } = await supabase
-        .from('pluggy_transactions')
-        .select('description, amount, date, type')
-        .eq('user_id', user.id)
-        .eq('type', 'DEBIT')
-        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
-        .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
-
-      // Agrupar por categoria + subcategoria
+      // Agrupar por categoria + subcategoria (apenas não essenciais)
       const subcategoryMap = new Map<string, SubcategoryExpense>();
 
-      // Processar despesas manuais
       if (expensesData) {
         expensesData
-          .filter(
-            (exp) =>
-              CATEGORIES[exp.category as ExpenseCategory] &&
-              CATEGORIES[exp.category as ExpenseCategory].type ===
-                'nao_essencial'
-          )
+          .filter((exp) => {
+            const categoryInfo = CATEGORIES[exp.category as ExpenseCategory];
+            // Custos variáveis: não essenciais + transferências (PIX para pessoas)
+            return (
+              categoryInfo &&
+              (categoryInfo.type === 'nao_essencial' ||
+                categoryInfo.type === 'transferencia')
+            );
+          })
           .forEach((exp) => {
             const category = (exp.category as ExpenseCategory) || 'outros';
             const subcategory = exp.subcategory || 'Outros';
@@ -118,30 +119,6 @@ export default function CustosVariaveisScreen() {
               });
             }
           });
-      }
-
-      // Processar transações do Open Finance
-      if (openFinanceTransactions) {
-        openFinanceTransactions.forEach((tx) => {
-          const { category, subcategory } = categorizeExpense(tx.description);
-
-          // Filtrar apenas despesas não essenciais
-          if (CATEGORIES[category].type === 'nao_essencial') {
-            const key = `${category}-${subcategory}`;
-            const amount = Math.abs(tx.amount);
-
-            if (subcategoryMap.has(key)) {
-              const existing = subcategoryMap.get(key)!;
-              existing.total += amount;
-            } else {
-              subcategoryMap.set(key, {
-                category,
-                subcategory,
-                total: amount,
-              });
-            }
-          }
-        });
       }
 
       const subcategories: SubcategoryExpense[] = Array.from(
@@ -173,9 +150,17 @@ export default function CustosVariaveisScreen() {
         >
           <ChevronLeftIcon size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.text }]}>
-          Custos Não Essenciais
-        </Text>
+        <View style={styles.titleContainer}>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Custos Não Essenciais
+          </Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+            {new Date(selectedYear, selectedMonth).toLocaleDateString('pt-BR', {
+              month: 'long',
+              year: 'numeric',
+            })}
+          </Text>
+        </View>
         <View style={styles.placeholder} />
       </SafeAreaView>
 
@@ -303,9 +288,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  titleContainer: {
+    alignItems: 'center',
+  },
   title: {
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  subtitle: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    textTransform: 'capitalize',
   },
   placeholder: {
     width: 40,

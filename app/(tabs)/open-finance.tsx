@@ -24,6 +24,8 @@ import {
 } from '@/lib/pluggy';
 import { MFAModal } from '@/components/MFAModal';
 import { OAuthModal } from '@/components/OAuthModal';
+import { PaywallModal } from '@/components/PaywallModal';
+import { usePremium } from '@/lib/usePremium';
 
 type PluggyItem = {
   id: string;
@@ -169,6 +171,11 @@ function BankLogo({ imageUrl, bankName, primaryColor, theme }: BankLogoProps) {
 
 export default function OpenFinanceScreen() {
   const { theme } = useTheme();
+  const {
+    isPremium,
+    loading: premiumLoading,
+    refresh: refreshPremium,
+  } = usePremium();
   const [items, setItems] = useState<PluggyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -179,6 +186,11 @@ export default function OpenFinanceScreen() {
   const [oauthVisible, setOauthVisible] = useState(false);
   const [oauthUrl, setOauthUrl] = useState<string>('');
   const [oauthConnectorName, setOauthConnectorName] = useState<string>('');
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  const handlePaywallSuccess = async () => {
+    await refreshPremium();
+  };
 
   const loadConnectedBanks = async () => {
     try {
@@ -251,6 +263,10 @@ export default function OpenFinanceScreen() {
   };
 
   const handleConnectBank = () => {
+    if (!isPremium) {
+      setShowPaywall(true);
+      return;
+    }
     router.push('/open-finance/connect');
   };
 
@@ -634,6 +650,15 @@ export default function OpenFinanceScreen() {
           onSuccess={handleMFASuccess}
         />
       )}
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onSuccess={handlePaywallSuccess}
+        title="Open Finance Premium"
+        subtitle="Conecte seus bancos e sincronize transações automaticamente"
+      />
     </SafeAreaView>
   );
 }

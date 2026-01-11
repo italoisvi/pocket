@@ -255,7 +255,23 @@ export default function SubscriptionScreen() {
                   •
                 </Text>
                 <Text style={[styles.featureText, { color: theme.text }]}>
-                  Análises financeiras avançadas com IA
+                  Open Finance - Conexão com seus bancos
+                </Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Text style={[styles.featureBullet, { color: theme.primary }]}>
+                  •
+                </Text>
+                <Text style={[styles.featureText, { color: theme.text }]}>
+                  Walts - Assistente financeiro com IA
+                </Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Text style={[styles.featureBullet, { color: theme.primary }]}>
+                  •
+                </Text>
+                <Text style={[styles.featureText, { color: theme.text }]}>
+                  Raio-X Financeiro - Análises avançadas
                 </Text>
               </View>
               <View style={styles.featureItem}>
@@ -264,22 +280,6 @@ export default function SubscriptionScreen() {
                 </Text>
                 <Text style={[styles.featureText, { color: theme.text }]}>
                   Gráficos e relatórios detalhados
-                </Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Text style={[styles.featureBullet, { color: theme.primary }]}>
-                  •
-                </Text>
-                <Text style={[styles.featureText, { color: theme.text }]}>
-                  Acesso ilimitado ao chat financeiro
-                </Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Text style={[styles.featureBullet, { color: theme.primary }]}>
-                  •
-                </Text>
-                <Text style={[styles.featureText, { color: theme.text }]}>
-                  Suporte prioritário
                 </Text>
               </View>
             </View>
@@ -463,15 +463,15 @@ export default function SubscriptionScreen() {
 
             <View style={styles.modalFeaturesContainer}>
               <Text style={[styles.modalFeaturesTitle, { color: theme.text }]}>
-                Recursos Incluídos:
+                Recursos Premium:
               </Text>
               {[
-                'Análises financeiras avançadas com IA',
+                'Open Finance - Conexão com seus bancos',
+                'Walts - Assistente financeiro com IA',
+                'Raio-X Financeiro - Análises avançadas',
                 'Gráficos e relatórios detalhados',
-                'Acesso ilimitado ao chat financeiro',
-                'Suporte prioritário',
                 'Sincronização em todos os dispositivos',
-                'Exportação de dados',
+                'Suporte prioritário',
               ].map((feature, index) => (
                 <View key={index} style={styles.modalFeatureItem}>
                   <CheckIcon size={20} color={theme.primary} />

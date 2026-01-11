@@ -20,6 +20,7 @@ Usuário → Chat → walts-agent (Edge Function) → DeepSeek + Tools → Açõ
 ```
 
 O Walts Agent usa **function calling** do DeepSeek para:
+
 1. Entender a intenção do usuário
 2. Decidir quais ferramentas usar
 3. Executar as ações necessárias
@@ -28,9 +29,11 @@ O Walts Agent usa **function calling** do DeepSeek para:
 ### Ferramentas Disponíveis
 
 #### 1. `create_expense_from_description`
+
 Cria um comprovante na Home do usuário com **comprovante PDF gerado automaticamente**.
 
 **Exemplo de uso:**
+
 ```
 Usuário: "Walts, registra um gasto de R$ 50 no Subway"
 Walts: [Executa create_expense_from_description]
@@ -40,9 +43,11 @@ Walts: "✅ Comprovante criado: Subway - R$ 50,00 (com comprovante PDF)"
 **✨ Novidade:** Agora o Walts gera automaticamente um PDF bonito e profissional do comprovante, que fica disponível em "Detalhes" do comprovante, assim como acontece quando você bate uma foto!
 
 #### 2. `sync_open_finance_transactions`
+
 Busca transações do Open Finance e cria comprovantes automaticamente.
 
 **Exemplo de uso:**
+
 ```
 Usuário: "Pega meus gastos do Nubank dos últimos 7 dias"
 Walts: [Executa sync_open_finance_transactions]
@@ -50,9 +55,11 @@ Walts: "✅ Sincronizadas 8 transações dos últimos 7 dias!"
 ```
 
 #### 3. `create_budget` ✨ NOVO - Fase 2
+
 Cria um novo orçamento para uma categoria específica.
 
 **Exemplo de uso:**
+
 ```
 Usuário: "Walts, cria um orçamento de R$ 500 para alimentação"
 Walts: [Executa create_budget]
@@ -60,9 +67,11 @@ Walts: "✅ Orçamento mensal criado para alimentacao: R$ 500,00"
 ```
 
 #### 4. `update_budget` ✨ NOVO - Fase 2
+
 Atualiza um orçamento existente (valor, período ou notificações).
 
 **Exemplo de uso:**
+
 ```
 Usuário: "Aumenta o orçamento de transporte para R$ 300"
 Walts: [Executa update_budget]
@@ -70,6 +79,7 @@ Walts: "✅ Orçamento de transporte atualizado (valor: R$ 300,00)"
 ```
 
 #### 5. `check_budget_status` ✨ NOVO - Fase 2
+
 Verifica o status de todos os orçamentos ou de uma categoria específica.
 
 **Exemplo de uso:**
@@ -84,6 +94,7 @@ Walts: "📊 Status dos Orçamentos:
 ```
 
 #### 6. `get_bank_statement` ✨ NOVO - Fase 2
+
 Busca o extrato bancário das contas conectadas via Open Finance.
 
 **Exemplo de uso:**
@@ -114,6 +125,7 @@ Walts: "💳 Extrato Bancário - último mês
 ```
 
 #### 7. `analyze_spending_pattern` ✨ NOVO - Fase 3
+
 Analisa padrões de gastos e detecta anomalias.
 
 **Exemplo de uso:**
@@ -138,6 +150,7 @@ Walts: "📈 Análise de Padrões de Gastos (3 meses)
 ```
 
 #### 8. `suggest_savings` ✨ NOVO - Fase 3
+
 Sugere onde economizar com base em análise de gastos.
 
 **Exemplo de uso:**
@@ -167,6 +180,7 @@ Walts: "💰 Sugestões de Economia
 ```
 
 #### 9. `forecast_month_end` ✨ NOVO - Fase 3
+
 Prevê como será o fim do mês com base nos gastos atuais.
 
 **Exemplo de uso:**
@@ -197,6 +211,7 @@ Walts: "🟡 Projeção para Fim do Mês
 ```
 
 #### 10. `save_user_preference` ✨ NOVO - Fase 4
+
 Salva preferências e contextos do usuário para personalização futura.
 
 **Exemplo de uso:**
@@ -218,6 +233,7 @@ Perfeito! Vou acompanhar sua meta de economizar R$ 1.000 por mês e te ajudar a 
 ```
 
 #### 11. `get_user_context` ✨ NOVO - Fase 4
+
 Busca preferências e contextos salvos do usuário para personalizar respostas.
 
 **Exemplo de uso:**
@@ -260,6 +276,7 @@ pocket/
 ### 1. Variáveis de Ambiente
 
 Certifique-se de ter no `.env`:
+
 ```bash
 DEEPSEEK_API_KEY=sk-...
 SUPABASE_URL=https://...
@@ -275,6 +292,7 @@ supabase functions deploy walts-agent
 ### 3. Ativar no Chat
 
 O modo agente está **ativado por padrão** no chat. Para desativar:
+
 ```typescript
 setUseAgent(false); // Volta para chat read-only
 ```
@@ -282,6 +300,7 @@ setUseAgent(false); // Volta para chat read-only
 ## 💡 Exemplos de Uso
 
 ### Criar gastos manualmente
+
 ```
 🧑 "Walts, cria um gasto de R$ 35 no iFood de hoje"
 🤖 "✅ Comprovante criado: iFood - R$ 35,00"
@@ -291,6 +310,7 @@ setUseAgent(false); // Volta para chat read-only
 ```
 
 ### Sincronizar Open Finance
+
 ```
 🧑 "Pega meus gastos do Inter dos últimos 15 dias"
 🤖 "✅ Sincronizadas 12 transações dos últimos 15 dias!"
@@ -300,6 +320,7 @@ setUseAgent(false); // Volta para chat read-only
 ```
 
 ### Conversas complexas
+
 ```
 🧑 "Walts, registra um almoço de R$ 45 no Outback e depois me diz quanto gastei em alimentação este mês"
 🤖 [Cria o comprovante e analisa gastos]
@@ -320,17 +341,20 @@ setUseAgent(false); // Volta para chat read-only
 ## 🛠️ Próximas Ferramentas (Roadmap)
 
 ### ✅ Fase 2 - Orçamentos (COMPLETA)
+
 - ✅ `create_budget` - Criar orçamento para categoria
 - ✅ `update_budget` - Atualizar orçamento existente
 - ✅ `check_budget_status` - Verificar status dos orçamentos
 - ✅ `get_bank_statement` - Consultar extrato bancário do Open Finance
 
 ### ✅ Fase 3 - Análises Preditivas (COMPLETA)
+
 - ✅ `analyze_spending_pattern` - Detectar padrões anormais e tendências
 - ✅ `suggest_savings` - Sugerir onde economizar com base em análise
 - ✅ `forecast_month_end` - Prever fim do mês e projetar saldo
 
 ### ✅ Fase 4 - Memória (COMPLETA)
+
 - ✅ `save_user_preference` - Salvar preferências e contextos do usuário
 - ✅ `get_user_context` - Buscar contexto histórico para personalização
 - ✅ Sistema de aprendizado contínuo com rastreamento de uso
@@ -338,17 +362,21 @@ setUseAgent(false); // Volta para chat read-only
 ## 🐛 Debugging
 
 ### Ver logs da Edge Function
+
 ```bash
 supabase functions logs walts-agent --tail
 ```
 
 ### Testar localmente
+
 ```bash
 supabase functions serve walts-agent
 ```
 
 ### Verificar no chat
+
 Os logs aparecem no console do app:
+
 ```
 [chat] Using Walts Agent mode
 [walts-agent] Sending messages to agent...
@@ -363,22 +391,22 @@ Os logs aparecem no console do app:
 
 ## 🎨 Diferenças: Chat Normal vs Walts Agent
 
-| Recurso | Chat Normal | Walts Agent |
-|---------|-------------|-------------|
-| Responder perguntas | ✅ | ✅ |
-| Criar comprovantes | ❌ | ✅ |
-| Sincronizar Open Finance | ❌ | ✅ |
-| Criar orçamentos | ❌ | ✅ |
-| Atualizar orçamentos | ❌ | ✅ |
-| Consultar extrato bancário | ❌ | ✅ |
-| Verificar status de orçamentos | ❌ | ✅ |
-| Analisar padrões de gastos | ❌ | ✅ |
-| Sugerir onde economizar | ❌ | ✅ |
-| Prever fim do mês | ❌ | ✅ |
-| Análises complexas | ✅ | ✅ |
-| Memória de preferências | ❌ | ✅ |
-| Personalização baseada em contexto | ❌ | ✅ |
-| Aprendizado contínuo | ❌ | ✅ |
+| Recurso                            | Chat Normal | Walts Agent |
+| ---------------------------------- | ----------- | ----------- |
+| Responder perguntas                | ✅          | ✅          |
+| Criar comprovantes                 | ❌          | ✅          |
+| Sincronizar Open Finance           | ❌          | ✅          |
+| Criar orçamentos                   | ❌          | ✅          |
+| Atualizar orçamentos               | ❌          | ✅          |
+| Consultar extrato bancário         | ❌          | ✅          |
+| Verificar status de orçamentos     | ❌          | ✅          |
+| Analisar padrões de gastos         | ❌          | ✅          |
+| Sugerir onde economizar            | ❌          | ✅          |
+| Prever fim do mês                  | ❌          | ✅          |
+| Análises complexas                 | ✅          | ✅          |
+| Memória de preferências            | ❌          | ✅          |
+| Personalização baseada em contexto | ❌          | ✅          |
+| Aprendizado contínuo               | ❌          | ✅          |
 
 ## 📖 Referências
 
