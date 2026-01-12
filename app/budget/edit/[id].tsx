@@ -7,14 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ActivityIndicator,
-  Switch,
-} from 'react-native';
+  Switch} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
@@ -60,8 +59,7 @@ export default function EditBudgetScreen() {
         const amountNumber = parseFloat(data.amount);
         const formatted = amountNumber.toLocaleString('pt-BR', {
           minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
+          maximumFractionDigits: 2});
         setAmount(formatted);
       }
     } catch (error) {
@@ -81,8 +79,7 @@ export default function EditBudgetScreen() {
 
     return numberValue.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+      maximumFractionDigits: 2});
   };
 
   const handleAmountChange = (text: string) => {
@@ -126,8 +123,7 @@ export default function EditBudgetScreen() {
           category_id: selectedCategory,
           amount: amountValue,
           period_type: periodType,
-          notifications_enabled: notificationsEnabled,
-        })
+          notifications_enabled: notificationsEnabled})
         .eq('id', id);
 
       if (error) {
@@ -145,8 +141,7 @@ export default function EditBudgetScreen() {
       Alert.alert('Sucesso', 'Orçamento atualizado com sucesso!', [
         {
           text: 'OK',
-          onPress: () => router.back(),
-        },
+          onPress: () => router.back()},
       ]);
     } catch (error) {
       console.error('Erro ao atualizar orçamento:', error);
@@ -161,8 +156,7 @@ export default function EditBudgetScreen() {
     .map(([key, info]) => ({
       key: key as ExpenseCategory,
       name: info.name,
-      color: info.color,
-    }));
+      color: info.color}));
 
   if (loading) {
     return (
@@ -183,7 +177,7 @@ export default function EditBudgetScreen() {
           <View style={styles.placeholder} />
         </SafeAreaView>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
+          <LoadingKangaroo size={80} />
         </View>
       </View>
     );
@@ -215,8 +209,7 @@ export default function EditBudgetScreen() {
               styles.input,
               {
                 backgroundColor: theme.surface,
-                borderColor: theme.border,
-              },
+                borderColor: theme.border},
               getCardShadowStyle(isDark),
             ]}
             onPress={() => setShowCategoryPicker(!showCategoryPicker)}
@@ -226,8 +219,7 @@ export default function EditBudgetScreen() {
                 styles.inputText,
                 {
                   color: selectedCategory ? theme.text : theme.textSecondary,
-                  flex: 1,
-                },
+                  flex: 1},
               ]}
             >
               {selectedCategory
@@ -247,8 +239,7 @@ export default function EditBudgetScreen() {
                 styles.categoryPicker,
                 {
                   backgroundColor: theme.surface,
-                  borderColor: theme.border,
-                },
+                  borderColor: theme.border},
                 getCardShadowStyle(isDark),
               ]}
             >
@@ -262,8 +253,7 @@ export default function EditBudgetScreen() {
                         backgroundColor:
                           selectedCategory === category.key
                             ? theme.border
-                            : 'transparent',
-                      },
+                            : 'transparent'},
                     ]}
                     onPress={() => {
                       setSelectedCategory(category.key);
@@ -293,8 +283,7 @@ export default function EditBudgetScreen() {
               styles.input,
               {
                 backgroundColor: theme.surface,
-                borderColor: theme.border,
-              },
+                borderColor: theme.border},
               getCardShadowStyle(isDark),
             ]}
           >
@@ -321,8 +310,7 @@ export default function EditBudgetScreen() {
                   {
                     backgroundColor:
                       periodType === period ? theme.primary : theme.surface,
-                    borderColor: theme.border,
-                  },
+                    borderColor: theme.border},
                   getCardShadowStyle(isDark),
                 ]}
                 onPress={() => setPeriodType(period)}
@@ -332,8 +320,7 @@ export default function EditBudgetScreen() {
                     styles.periodText,
                     {
                       color:
-                        periodType === period ? theme.background : theme.text,
-                    },
+                        periodType === period ? theme.background : theme.text},
                   ]}
                 >
                   {getPeriodLabel(period)}
@@ -375,15 +362,14 @@ export default function EditBudgetScreen() {
           style={[
             styles.updateButton,
             {
-              backgroundColor: theme.primary,
-            },
+              backgroundColor: theme.primary},
             getCardShadowStyle(isDark),
           ]}
           onPress={handleUpdate}
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator color={theme.background} />
+            <LoadingKangaroo size={80} />
           ) : (
             <Text
               style={[styles.updateButtonText, { color: theme.background }]}
@@ -399,127 +385,100 @@ export default function EditBudgetScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   placeholder: {
-    width: 40,
-  },
+    width: 40},
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   content: {
     flex: 1,
-    padding: 24,
-  },
+    padding: 24},
   form: {
-    gap: 16,
-  },
+    gap: 16},
   label: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 8,
-  },
+    marginBottom: 8},
   input: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    gap: 12,
-  },
+    gap: 12},
   inputText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   currencyPrefix: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   categoryPicker: {
     borderRadius: 12,
     borderWidth: 2,
     maxHeight: 300,
-    marginTop: 8,
-  },
+    marginTop: 8},
   categoryList: {
-    padding: 8,
-  },
+    padding: 8},
   categoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderRadius: 8,
-    gap: 12,
-  },
+    gap: 12},
   categoryColor: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-  },
+    borderRadius: 12},
   categoryName: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   periodContainer: {
     flexDirection: 'row',
-    gap: 12,
-  },
+    gap: 12},
   periodButton: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   periodText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   footer: {
-    padding: 24,
-  },
+    padding: 24},
   updateButton: {
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   updateButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Bold',
-  },
+    fontFamily: 'CormorantGaramond-Bold'},
   notificationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
-    marginTop: 8,
-  },
+    marginTop: 8},
   notificationTextContainer: {
-    flex: 1,
-  },
+    flex: 1},
   notificationDescription: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     marginTop: 4,
-    lineHeight: 20,
-  },
-});
+    lineHeight: 20}});

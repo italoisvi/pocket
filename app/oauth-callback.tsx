@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert, ActivityIndicator, View, StyleSheet } from 'react-native';
+import { Alert, View, StyleSheet } from 'react-native';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { syncItem } from '@/lib/pluggy';
 import * as Sentry from '@sentry/react-native';
 
@@ -22,10 +23,8 @@ export default function OAuthCallback() {
         data: {
           itemId: params.itemId as string,
           success: params.success as string,
-          error: params.error as string,
-        },
-        level: 'info',
-      });
+          error: params.error as string},
+        level: 'info'});
 
       // Pluggy redireciona com esses parâmetros após OAuth bem-sucedido
       const { itemId, success, error } = params;
@@ -50,10 +49,8 @@ export default function OAuthCallback() {
           category: 'open-finance',
           message: 'OAuth completed successfully',
           data: {
-            itemId: itemId as string,
-          },
-          level: 'info',
-        });
+            itemId: itemId as string},
+          level: 'info'});
 
         // ✅ NÃO chamar syncItem() aqui!
         // O webhook item/updated vai sincronizar automaticamente quando status = UPDATED
@@ -77,8 +74,7 @@ export default function OAuthCallback() {
               [
                 {
                   text: 'OK',
-                  onPress: () => router.replace('/(tabs)/open-finance'),
-                },
+                  onPress: () => router.replace('/(tabs)/open-finance')},
               ]
             );
             return;
@@ -94,8 +90,7 @@ export default function OAuthCallback() {
           [
             {
               text: 'OK',
-              onPress: () => router.replace('/(tabs)/open-finance'),
-            },
+              onPress: () => router.replace('/(tabs)/open-finance')},
           ]
         );
       } else {
@@ -122,7 +117,7 @@ export default function OAuthCallback() {
   // Tela de loading durante processamento
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color="#4ade80" />
+      <LoadingKangaroo size={80} />
     </View>
   );
 }
@@ -132,6 +127,4 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
-  },
-});
+    backgroundColor: '#000'}});

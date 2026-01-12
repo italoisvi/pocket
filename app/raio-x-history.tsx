@@ -5,14 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+  Alert} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
 import { supabase } from '@/lib/supabase';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { TrashIcon } from '@/components/TrashIcon';
 import { useTheme } from '@/lib/theme';
 
@@ -42,8 +41,7 @@ export default function RaioXHistoryScreen() {
     try {
       setLoading(true);
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { user }} = await supabase.auth.getUser();
 
       if (!user) return;
 
@@ -92,8 +90,7 @@ export default function RaioXHistoryScreen() {
             } catch (error) {
               Alert.alert('Erro', 'Ocorreu um erro ao excluir');
             }
-          },
-        },
+          }},
       ]
     );
   };
@@ -105,8 +102,7 @@ export default function RaioXHistoryScreen() {
       month: 'long',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit',
-    });
+      minute: '2-digit'});
   };
 
   const toggleExpand = (id: string) => {
@@ -134,7 +130,7 @@ export default function RaioXHistoryScreen() {
       <ScrollView style={styles.content}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
+            <LoadingKangaroo size={80} />
             <Text style={[styles.loadingText, { color: theme.text }]}>
               Carregando análises...
             </Text>
@@ -157,8 +153,7 @@ export default function RaioXHistoryScreen() {
                 styles.card,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder,
-                },
+                  borderColor: theme.cardBorder},
               ]}
             >
               <TouchableOpacity
@@ -185,119 +180,97 @@ export default function RaioXHistoryScreen() {
                       body: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Regular',
-                        fontSize: 16,
-                      },
+                        fontSize: 16},
                       text: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Regular',
-                        fontSize: 16,
-                      },
+                        fontSize: 16},
                       heading1: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Bold',
                         fontSize: 20,
                         marginTop: 16,
-                        marginBottom: 8,
-                      },
+                        marginBottom: 8},
                       heading2: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-SemiBold',
                         fontSize: 18,
                         marginTop: 12,
-                        marginBottom: 6,
-                      },
+                        marginBottom: 6},
                       heading3: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-SemiBold',
                         fontSize: 16,
                         marginTop: 8,
-                        marginBottom: 4,
-                      },
+                        marginBottom: 4},
                       heading4: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-SemiBold',
                         fontSize: 15,
                         marginTop: 8,
-                        marginBottom: 4,
-                      },
+                        marginBottom: 4},
                       paragraph: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Regular',
                         fontSize: 16,
                         lineHeight: 24,
-                        marginBottom: 8,
-                      },
+                        marginBottom: 8},
                       bullet_list: {
-                        marginBottom: 8,
-                      },
+                        marginBottom: 8},
                       ordered_list: {
-                        marginBottom: 8,
-                      },
+                        marginBottom: 8},
                       list_item: {
                         flexDirection: 'row',
-                        marginBottom: 4,
-                      },
+                        marginBottom: 4},
                       bullet_list_icon: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Regular',
-                        fontSize: 16,
-                      },
+                        fontSize: 16},
                       ordered_list_icon: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Regular',
-                        fontSize: 16,
-                      },
+                        fontSize: 16},
                       bullet_list_content: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Regular',
-                        fontSize: 16,
-                      },
+                        fontSize: 16},
                       ordered_list_content: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Regular',
-                        fontSize: 16,
-                      },
+                        fontSize: 16},
                       strong: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Bold',
-                      },
+                        fontFamily: 'CormorantGaramond-Bold'},
                       em: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Italic',
-                      },
+                        fontFamily: 'CormorantGaramond-Italic'},
                       link: {
                         color: theme.primary,
-                        fontFamily: 'CormorantGaramond-Regular',
-                      },
+                        fontFamily: 'CormorantGaramond-Regular'},
                       blockquote: {
                         color: theme.textSecondary,
                         fontFamily: 'CormorantGaramond-Italic',
                         borderLeftWidth: 3,
                         borderLeftColor: theme.primary,
                         paddingLeft: 12,
-                        marginVertical: 8,
-                      },
+                        marginVertical: 8},
                       code_inline: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Regular',
                         backgroundColor: theme.cardBorder,
                         paddingHorizontal: 4,
-                        borderRadius: 4,
-                      },
+                        borderRadius: 4},
                       fence: {
                         color: theme.text,
                         fontFamily: 'CormorantGaramond-Regular',
                         backgroundColor: theme.cardBorder,
                         padding: 8,
                         borderRadius: 8,
-                        marginVertical: 8,
-                      },
+                        marginVertical: 8},
                       hr: {
                         backgroundColor: theme.cardBorder,
                         height: 1,
-                        marginVertical: 12,
-                      },
-                    }}
+                        marginVertical: 12}}}
                   >
                     {analysis.content}
                   </Markdown>
@@ -322,95 +295,76 @@ export default function RaioXHistoryScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   placeholder: {
-    width: 40,
-  },
+    width: 40},
   content: {
     flex: 1,
-    padding: 24,
-  },
+    padding: 24},
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
-  },
+    padding: 40},
   loadingText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 16,
-  },
+    marginTop: 16},
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
-    gap: 16,
-  },
+    gap: 16},
   emptyTitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginTop: 16,
-  },
+    marginTop: 16},
   emptyText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    lineHeight: 24,
-  },
+    lineHeight: 24},
   card: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 1,
-  },
+    borderWidth: 1},
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    flex: 1,
-  },
+    flex: 1},
   cardDate: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   deleteButton: {
-    padding: 8,
-  },
+    padding: 8},
   cardContent: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
+    borderTopColor: 'rgba(0,0,0,0.1)'},
   previewText: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     marginTop: 12,
-    lineHeight: 20,
-  },
-});
+    lineHeight: 20}});

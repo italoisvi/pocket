@@ -1,12 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,6 +9,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import DocumentScanner from 'react-native-document-scanner-plugin';
 import { useTheme } from '@/lib/theme';
 import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CarregarIcon } from '@/components/CarregarIcon';
 import { ExpenseConfirmModal } from '@/components/ExpenseConfirmModal';
 import { CameraInstructionsModal } from '@/components/CameraInstructionsModal';
@@ -283,7 +277,11 @@ export default function CameraScreen() {
 
       // VERIFICAR DUPLICAÇÃO: Buscar gastos similares antes de criar
       // Tolerância maior: ±5 dias (transações podem aparecer com datas diferentes no extrato)
-      console.log('[Camera] Verificando duplicatas para:', editedData.amount, editedData.date);
+      console.log(
+        '[Camera] Verificando duplicatas para:',
+        editedData.amount,
+        editedData.date
+      );
       const dateMinus5 = new Date(editedData.date);
       dateMinus5.setDate(dateMinus5.getDate() - 5);
       const datePlus5 = new Date(editedData.date);
@@ -334,7 +332,12 @@ export default function CameraScreen() {
 
       // 2. Verificar duplicatas no EXTRATO BANCÁRIO (pluggy_transactions)
       // Busca apenas por VALOR similar - não compara nome pois extratos têm descrições diferentes
-      console.log('[Camera] Buscando no extrato de', dateMinus5.toISOString().split('T')[0], 'a', datePlus5.toISOString().split('T')[0]);
+      console.log(
+        '[Camera] Buscando no extrato de',
+        dateMinus5.toISOString().split('T')[0],
+        'a',
+        datePlus5.toISOString().split('T')[0]
+      );
       const { data: similarTransactions, error: txError } = await supabase
         .from('pluggy_transactions')
         .select('id, description, description_raw, amount, date')
@@ -343,19 +346,33 @@ export default function CameraScreen() {
         .gte('date', dateMinus5.toISOString().split('T')[0])
         .lte('date', datePlus5.toISOString().split('T')[0]);
 
-      console.log('[Camera] Transações encontradas:', similarTransactions?.length || 0, txError ? `Erro: ${txError.message}` : '');
+      console.log(
+        '[Camera] Transações encontradas:',
+        similarTransactions?.length || 0,
+        txError ? `Erro: ${txError.message}` : ''
+      );
 
       if (similarTransactions && similarTransactions.length > 0) {
         // Encontrar transação com valor igual ou muito próximo (tolerância de R$1)
         const extractDuplicate = similarTransactions.find((tx) => {
           const txAmount = Math.abs(tx.amount);
           const diff = Math.abs(txAmount - editedData.amount);
-          console.log('[Camera] Comparando:', txAmount, 'vs', editedData.amount, 'diff:', diff);
+          console.log(
+            '[Camera] Comparando:',
+            txAmount,
+            'vs',
+            editedData.amount,
+            'diff:',
+            diff
+          );
           return diff < 1; // Tolerância de R$1
         });
 
         if (extractDuplicate) {
-          console.log('[Camera] Possível duplicata no extrato:', extractDuplicate);
+          console.log(
+            '[Camera] Possível duplicata no extrato:',
+            extractDuplicate
+          );
           setSaving(false);
           Alert.alert(
             'Possível duplicata no extrato',
@@ -462,7 +479,7 @@ export default function CameraScreen() {
       <View style={styles.content}>
         {processingImage ? (
           <View style={styles.processingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
+            <LoadingKangaroo size={80} />
             <Text style={[styles.processingText, { color: theme.text }]}>
               Processando comprovante...
             </Text>

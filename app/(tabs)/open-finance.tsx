@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  ActivityIndicator,
   RefreshControl,
   Image,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { OpenFinanceIcon } from '@/components/OpenFinanceIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { LixoIcon } from '@/components/LixoIcon';
 import {
   getConnectedItems,
@@ -523,11 +523,9 @@ export default function OpenFinanceScreen() {
         }
       >
         {loading ? (
-          <ActivityIndicator
-            size="large"
-            color={theme.primary}
-            style={styles.loader}
-          />
+          <View style={styles.loader}>
+            <LoadingKangaroo size={80} />
+          </View>
         ) : items.length > 0 ? (
           items.map((item) => (
             <View
@@ -698,6 +696,7 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 40,
+    alignItems: 'center',
   },
   card: {
     borderRadius: 12,

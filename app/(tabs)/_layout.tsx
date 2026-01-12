@@ -5,7 +5,6 @@ import { DividirContaIcon } from '@/components/DividirContaIcon';
 import { DividirContaIconFilled } from '@/components/DividirContaIconFilled';
 import { OpenFinanceIcon } from '@/components/OpenFinanceIcon';
 import { OpenFinanceIconFilled } from '@/components/OpenFinanceIconFilled';
-import { KangarooIcon } from '@/components/KangarooIcon';
 import { CameraIcon } from '@/components/CameraIcon';
 import { CameraIconFilled } from '@/components/CameraIconFilled';
 import { useTheme } from '@/lib/theme';
@@ -99,22 +98,6 @@ export default function TabsLayout() {
         }}
         listeners={{
           tabPress: handleTabPress('open-finance'),
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: 'Walts',
-          tabBarIcon: ({ color, size }) => (
-            <KangarooIcon
-              size={size + 4}
-              color={color}
-              inverted={theme.background !== '#000'}
-            />
-          ),
-        }}
-        listeners={{
-          tabPress: handleTabPress('chat'),
         }}
       />
       <Tabs.Screen

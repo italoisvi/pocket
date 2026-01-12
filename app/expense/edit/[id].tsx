@@ -4,18 +4,17 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   TouchableOpacity,
   TextInput,
   Alert,
   Keyboard,
-  TouchableWithoutFeedback,
-} from 'react-native';
+  TouchableWithoutFeedback} from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { categorizeWithWalts } from '@/lib/categorize-with-walts';
 
 type Expense = {
@@ -86,8 +85,7 @@ export default function EditExpenseScreen() {
     try {
       // Recategorizar com Walts (IA) com base no novo nome do estabelecimento
       const categorization = await categorizeWithWalts(establishmentName, {
-        amount: parsedAmount,
-      });
+        amount: parsedAmount});
 
       const { error } = await supabase
         .from('expenses')
@@ -96,8 +94,7 @@ export default function EditExpenseScreen() {
           amount: parsedAmount,
           notes: notes.trim() || null,
           category: categorization.category,
-          subcategory: categorization.subcategory,
-        })
+          subcategory: categorization.subcategory})
         .eq('id', id);
 
       if (error) throw error;
@@ -118,7 +115,7 @@ export default function EditExpenseScreen() {
       <View
         style={[styles.loadingContainer, { backgroundColor: theme.background }]}
       >
-        <ActivityIndicator size="large" color={theme.primary} />
+        <LoadingKangaroo size={80} />
       </View>
     );
   }
@@ -148,8 +145,7 @@ export default function EditExpenseScreen() {
               styles.card,
               {
                 backgroundColor: theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
             ]}
           >
             <Text style={[styles.label, { color: theme.text }]}>
@@ -161,8 +157,7 @@ export default function EditExpenseScreen() {
                 {
                   backgroundColor: theme.background,
                   borderColor: theme.cardBorder,
-                  color: theme.text,
-                },
+                  color: theme.text},
               ]}
               value={establishmentName}
               onChangeText={setEstablishmentName}
@@ -176,8 +171,7 @@ export default function EditExpenseScreen() {
               styles.card,
               {
                 backgroundColor: theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
             ]}
           >
             <Text style={[styles.label, { color: theme.text }]}>Valor</Text>
@@ -187,8 +181,7 @@ export default function EditExpenseScreen() {
                 {
                   backgroundColor: theme.background,
                   borderColor: theme.cardBorder,
-                  color: theme.text,
-                },
+                  color: theme.text},
               ]}
               value={amount}
               onChangeText={setAmount}
@@ -203,8 +196,7 @@ export default function EditExpenseScreen() {
               styles.card,
               {
                 backgroundColor: theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
             ]}
           >
             <Text style={[styles.label, { color: theme.text }]}>
@@ -217,8 +209,7 @@ export default function EditExpenseScreen() {
                 {
                   backgroundColor: theme.background,
                   borderColor: theme.cardBorder,
-                  color: theme.text,
-                },
+                  color: theme.text},
               ]}
               value={notes}
               onChangeText={setNotes}
@@ -240,25 +231,20 @@ export default function EditExpenseScreen() {
                 borderColor:
                   theme.background === '#000'
                     ? theme.cardBorder
-                    : theme.primary,
-              },
+                    : theme.primary},
               saving && styles.saveButtonDisabled,
             ]}
             onPress={handleSave}
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator
-                size="small"
-                color={theme.background === '#000' ? theme.text : '#FFF'}
-              />
+              <LoadingKangaroo size={80} />
             ) : (
               <Text
                 style={[
                   styles.saveButtonText,
                   {
-                    color: theme.background === '#000' ? theme.text : '#FFF',
-                  },
+                    color: theme.background === '#000' ? theme.text : '#FFF'},
                 ]}
               >
                 Salvar Alterações
@@ -273,70 +259,55 @@ export default function EditExpenseScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   placeholder: {
-    width: 40,
-  },
+    width: 40},
   content: {
     flex: 1,
-    padding: 24,
-  },
+    padding: 24},
   card: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   label: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 12,
-  },
+    marginBottom: 12},
   input: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
     padding: 16,
     borderRadius: 8,
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   textArea: {
-    minHeight: 120,
-  },
+    minHeight: 120},
   saveButton: {
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 32,
-  },
+    marginBottom: 32},
   saveButtonDisabled: {
-    opacity: 0.6,
-  },
+    opacity: 0.6},
   saveButtonText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#FFF',
-  },
-});
+    color: '#FFF'}});

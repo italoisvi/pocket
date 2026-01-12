@@ -72,7 +72,9 @@
       "Bash(del \"C:\\\\Users\\\\italo\\\\source\\\\repo\\\\pocket\\\\app\\\\dividas-settings.tsx\")",
       "WebSearch",
       "WebFetch(domain:supabase.com)",
-      "Bash(deno check:*)"
+      "Bash(deno check:*)",
+      "Bash(grep:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

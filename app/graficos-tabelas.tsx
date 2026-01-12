@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
-  ActivityIndicator,
-} from 'react-native';
+  Dimensions} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
@@ -15,6 +13,7 @@ import Svg, { Rect, Text as SvgText, Line, G } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { GraficoCircularIcon } from '@/components/GraficoCircularIcon';
 import { GraficoBarrasIcon } from '@/components/GraficoBarrasIcon';
@@ -54,8 +53,7 @@ export default function GraficosTabelasScreen() {
     const generateMonths = async () => {
       try {
         const {
-          data: { user },
-        } = await supabase.auth.getUser();
+          data: { user }} = await supabase.auth.getUser();
 
         if (!user) return;
 
@@ -144,8 +142,7 @@ export default function GraficosTabelasScreen() {
         setTimeout(() => {
           monthScrollRef.current?.scrollTo({
             x: currentMonthIndex * 88,
-            animated: true,
-          });
+            animated: true});
         }, 100);
       }
     }
@@ -158,8 +155,7 @@ export default function GraficosTabelasScreen() {
   const loadExpenses = async () => {
     try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { user }} = await supabase.auth.getUser();
 
       if (!user) return;
 
@@ -272,8 +268,7 @@ export default function GraficosTabelasScreen() {
               subcategory,
               total,
               previousTotal,
-              change,
-            });
+              change});
           }
         });
       }
@@ -314,16 +309,14 @@ export default function GraficosTabelasScreen() {
     const categoryInfo = CATEGORIES[item.category] || {
       name: item.category,
       color: '#B0BEC5', // Cor cinza padrão para categorias desconhecidas
-      icon: 'outros',
-    };
+      icon: 'outros'};
 
     return {
       name: item.subcategory,
       population: item.total,
       color: categoryInfo.color,
       legendFontColor: '#666',
-      legendFontSize: 0,
-    };
+      legendFontSize: 0};
   });
 
   // Mostrar todas as categorias no gráfico de barras com scroll
@@ -373,8 +366,7 @@ export default function GraficosTabelasScreen() {
         labelX,
         labelY,
         isRightSide,
-        index,
-      };
+        index};
     });
 
     // Separar por lado e ordenar por Y
@@ -446,8 +438,7 @@ export default function GraficosTabelasScreen() {
               {
                 backgroundColor:
                   periodFilter === 'last7days' ? theme.primary : theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
             ]}
             onPress={() => setPeriodFilter('last7days')}
           >
@@ -458,8 +449,7 @@ export default function GraficosTabelasScreen() {
                   color:
                     periodFilter === 'last7days'
                       ? theme.background
-                      : theme.text,
-                },
+                      : theme.text},
               ]}
             >
               Últimos 7 dias
@@ -472,8 +462,7 @@ export default function GraficosTabelasScreen() {
               {
                 backgroundColor:
                   periodFilter === 'last15days' ? theme.primary : theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
             ]}
             onPress={() => setPeriodFilter('last15days')}
           >
@@ -484,8 +473,7 @@ export default function GraficosTabelasScreen() {
                   color:
                     periodFilter === 'last15days'
                       ? theme.background
-                      : theme.text,
-                },
+                      : theme.text},
               ]}
             >
               Últimos 15 dias
@@ -498,8 +486,7 @@ export default function GraficosTabelasScreen() {
               {
                 backgroundColor:
                   periodFilter === 'month' ? theme.primary : theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
             ]}
             onPress={() => setPeriodFilter('month')}
           >
@@ -508,8 +495,7 @@ export default function GraficosTabelasScreen() {
                 styles.filterButtonText,
                 {
                   color:
-                    periodFilter === 'month' ? theme.background : theme.text,
-                },
+                    periodFilter === 'month' ? theme.background : theme.text},
               ]}
             >
               Mês
@@ -532,8 +518,7 @@ export default function GraficosTabelasScreen() {
                 month.getFullYear() === selectedMonth.getFullYear();
               const monthLabel = month.toLocaleDateString('pt-BR', {
                 month: 'short',
-                year: '2-digit',
-              });
+                year: '2-digit'});
               const formattedLabel =
                 monthLabel.charAt(0).toUpperCase() +
                 monthLabel.slice(1).replace('.', '');
@@ -545,8 +530,7 @@ export default function GraficosTabelasScreen() {
                     styles.monthButton,
                     {
                       backgroundColor: isSelected ? theme.primary : theme.card,
-                      borderColor: theme.cardBorder,
-                    },
+                      borderColor: theme.cardBorder},
                   ]}
                   onPress={() => setSelectedMonth(month)}
                 >
@@ -554,8 +538,7 @@ export default function GraficosTabelasScreen() {
                     style={[
                       styles.monthButtonText,
                       {
-                        color: isSelected ? theme.background : theme.text,
-                      },
+                        color: isSelected ? theme.background : theme.text},
                     ]}
                   >
                     {formattedLabel}
@@ -570,7 +553,7 @@ export default function GraficosTabelasScreen() {
           <View
             style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
           >
-            <ActivityIndicator size="large" color={theme.primary} />
+            <LoadingKangaroo size={80} />
           </View>
         ) : (
           <>
@@ -582,8 +565,7 @@ export default function GraficosTabelasScreen() {
                     styles.chartCard,
                     {
                       backgroundColor: theme.card,
-                      borderColor: theme.cardBorder,
-                    },
+                      borderColor: theme.cardBorder},
                   ]}
                 >
                   <View style={styles.chartHeader}>
@@ -611,8 +593,7 @@ export default function GraficosTabelasScreen() {
                         width={screenWidth - 48}
                         height={220}
                         chartConfig={{
-                          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                        }}
+                          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`}}
                         accessor="population"
                         backgroundColor="transparent"
                         paddingLeft="75"
@@ -648,8 +629,7 @@ export default function GraficosTabelasScreen() {
                           const categoryInfo = CATEGORIES[item.category] || {
                             name: item.category,
                             color: '#B0BEC5',
-                            icon: 'outros',
-                          };
+                            icon: 'outros'};
                           const barHeight =
                             maxValue > 0
                               ? (item.total / maxValue) * (chartHeight - 20)
@@ -731,8 +711,7 @@ export default function GraficosTabelasScreen() {
                             const categoryInfo = CATEGORIES[item.category] || {
                               name: item.category,
                               color: '#B0BEC5',
-                              icon: 'outros',
-                            };
+                              icon: 'outros'};
                             const percentage =
                               totalExpenses > 0
                                 ? (item.total / totalExpenses) * 100
@@ -787,8 +766,7 @@ export default function GraficosTabelasScreen() {
                     styles.tableCard,
                     {
                       backgroundColor: theme.card,
-                      borderColor: theme.cardBorder,
-                    },
+                      borderColor: theme.cardBorder},
                   ]}
                 >
                   <Text
@@ -829,8 +807,7 @@ export default function GraficosTabelasScreen() {
                     const categoryInfo = CATEGORIES[item.category] || {
                       name: item.category,
                       color: '#B0BEC5',
-                      icon: 'outros',
-                    };
+                      icon: 'outros'};
 
                     // Determinar cor e icone da variacao
                     // Só mostrar comparação se o usuário estiver pelo menos no 2º mês
@@ -937,241 +914,191 @@ export default function GraficosTabelasScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   compareButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   content: {
     flex: 1,
-    padding: 24,
-  },
+    padding: 24},
   filtersContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
-  },
+    marginBottom: 16},
   filterButton: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 2,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   filterButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   monthSelectorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 24,
-    paddingHorizontal: 16,
-  },
+    paddingHorizontal: 16},
   monthArrow: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   monthArrowText: {
     fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
-  },
+    fontFamily: 'CormorantGaramond-Bold'},
   monthText: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    textTransform: 'capitalize',
-  },
+    textTransform: 'capitalize'},
   monthsScroll: {
-    marginBottom: 24,
-  },
+    marginBottom: 24},
   monthsScrollContent: {
     paddingHorizontal: 0,
-    gap: 8,
-  },
+    gap: 8},
   monthButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 2,
-    marginRight: 8,
-  },
+    marginRight: 8},
   monthButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   loadingContainer: {
     padding: 40,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   chartCard: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   chartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-  },
+    marginBottom: 16},
   chartTypeButton: {
-    padding: 8,
-  },
+    padding: 8},
   chartWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-  },
+    width: '100%'},
   barChartScrollView: {
-    width: '100%',
-  },
+    width: '100%'},
   chartDivider: {
     height: 2,
     width: '100%',
-    marginVertical: 16,
-  },
+    marginVertical: 16},
   tableCard: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   sectionTitle: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   tableHeader: {
     flexDirection: 'row',
     paddingVertical: 12,
-    borderBottomWidth: 2,
-  },
+    borderBottomWidth: 2},
   tableHeaderText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
-    textAlign: 'right',
-  },
+    textAlign: 'right'},
   tableHeaderCategory: {
     flex: 1,
-    textAlign: 'left',
-  },
+    textAlign: 'left'},
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
+    borderBottomWidth: 1},
   tableCategoryCell: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
+    gap: 8},
   subcategoryName: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   categoryLabel: {
     fontSize: 13,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 2,
-  },
+    marginTop: 2},
   tableCell: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
-    textAlign: 'right',
-  },
+    textAlign: 'right'},
   tableValueCell: {
     flex: 1,
-    alignItems: 'flex-end',
-  },
+    alignItems: 'flex-end'},
   changeIndicator: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginTop: 2,
-  },
+    marginTop: 2},
   tableDivider: {
     height: 2,
-    marginTop: 8,
-  },
+    marginTop: 8},
   tableTotalLabel: {
     flex: 1,
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   tableTotalValue: {
     flex: 1,
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    textAlign: 'right',
-  },
+    textAlign: 'right'},
   emptyContainer: {
     padding: 40,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   emptyText: {
     fontSize: 22,
     fontFamily: 'CormorantGaramond-Regular',
-    textAlign: 'center',
-  },
+    textAlign: 'center'},
   legendScrollView: {
-    width: '100%',
-  },
+    width: '100%'},
   legendScrollContent: {
-    paddingHorizontal: 4,
-  },
+    paddingHorizontal: 4},
   legendColumn: {
     flexDirection: 'column',
     gap: 12,
-    marginRight: 16,
-  },
+    marginRight: 16},
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    width: (screenWidth - 88) / 2,
-  },
+    width: (screenWidth - 88) / 2},
   legendColorBox: {
     width: 16,
     height: 16,
     borderRadius: 4,
-    flexShrink: 0,
-  },
+    flexShrink: 0},
   legendTextContainer: {
     flex: 1,
-    minWidth: 0,
-  },
+    minWidth: 0},
   legendText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   legendSubtext: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 2,
-  },
-});
+    marginTop: 2}});

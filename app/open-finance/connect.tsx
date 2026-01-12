@@ -7,14 +7,13 @@ import {
   ScrollView,
   TextInput,
   Alert,
-  ActivityIndicator,
-  Image,
-} from 'react-native';
+  Image} from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { getApiKey, getConnectToken } from '@/lib/pluggy';
 
 type BankLogoProps = {
@@ -219,8 +218,7 @@ export default function ConnectBankScreen() {
         {
           headers: {
             'X-API-KEY': apiKeyValue, // ← Usa API Key aqui!
-          },
-        }
+          }}
       );
 
       if (!response.ok) {
@@ -254,9 +252,7 @@ export default function ConnectBankScreen() {
         connectorName: connector.name,
         imageUrl: connector.imageUrl,
         apiKey: connectToken || '', // ← Passa Connect Token (não API Key)!
-        credentials: JSON.stringify(connector.credentials),
-      },
-    });
+        credentials: JSON.stringify(connector.credentials)}});
   };
 
   return (
@@ -283,8 +279,7 @@ export default function ConnectBankScreen() {
             {
               backgroundColor: theme.card,
               borderColor: theme.cardBorder,
-              color: theme.text,
-            },
+              color: theme.text},
           ]}
           placeholder="Buscar banco..."
           placeholderTextColor={theme.textSecondary}
@@ -297,11 +292,9 @@ export default function ConnectBankScreen() {
 
       {/* Lista de bancos */}
       {loading ? (
-        <ActivityIndicator
-          size="large"
-          color={theme.primary}
-          style={styles.loader}
-        />
+        <View style={styles.loader}>
+          <LoadingKangaroo size={80} />
+        </View>
       ) : (
         <ScrollView style={styles.content}>
           {filteredConnectors.length > 0 ? (
@@ -312,8 +305,7 @@ export default function ConnectBankScreen() {
                   styles.bankCard,
                   {
                     backgroundColor: theme.card,
-                    borderColor: theme.cardBorder,
-                  },
+                    borderColor: theme.cardBorder},
                 ]}
                 onPress={() => handleSelectBank(connector)}
               >
@@ -357,60 +349,50 @@ export default function ConnectBankScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   placeholder: {
-    width: 40,
-  },
+    width: 40},
   searchContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   searchInput: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     padding: 12,
     borderRadius: 8,
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   content: {
     flex: 1,
-    paddingHorizontal: 16,
-  },
+    paddingHorizontal: 16},
   loader: {
     marginTop: 40,
+    alignItems: 'center',
   },
   bankCard: {
     borderRadius: 12,
     borderWidth: 2,
     padding: 16,
-    marginBottom: 12,
-  },
+    marginBottom: 12},
   bankCardContent: {
     flexDirection: 'row',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   bankLogoContainer: {
     width: 48,
     height: 48,
-    position: 'relative',
-  },
+    position: 'relative'},
   bankLogo: {
     width: 48,
     height: 48,
-    borderRadius: 8,
-  },
+    borderRadius: 8},
   bankLogoPlaceholder: {
     width: 48,
     height: 48,
@@ -419,33 +401,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'absolute',
     top: 0,
-    left: 0,
-  },
+    left: 0},
   bankLogoText: {
     fontSize: 24,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#fff',
-  },
+    color: '#fff'},
   bankInfo: {
     flex: 1,
-    marginLeft: 16,
-  },
+    marginLeft: 16},
   bankName: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 2,
-  },
+    marginBottom: 2},
   bankType: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-  },
+    paddingVertical: 60},
   emptyText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
-});
+    fontFamily: 'CormorantGaramond-Regular'}});

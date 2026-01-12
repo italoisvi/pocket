@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
+  TouchableOpacity} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useState } from 'react';
@@ -14,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { useTheme } from '@/lib/theme';
 import { CardBrandIcon } from '@/lib/cardBrand';
@@ -41,8 +40,7 @@ export default function CartoesScreen() {
   const loadBanks = async () => {
     try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { user }} = await supabase.auth.getUser();
 
       if (!user) return;
 
@@ -75,8 +73,7 @@ export default function CartoesScreen() {
               usedCredit,
               creditLimit: account.credit_limit,
               availableCredit: account.available_credit_limit,
-              connectorName,
-            };
+              connectorName};
           }
           return null;
         })
@@ -111,7 +108,7 @@ export default function CartoesScreen() {
       <ScrollView style={styles.content}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
+            <LoadingKangaroo size={80} />
           </View>
         ) : banks.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -132,8 +129,7 @@ export default function CartoesScreen() {
                   styles.card,
                   {
                     backgroundColor: theme.card,
-                    borderColor: theme.cardBorder,
-                  },
+                    borderColor: theme.cardBorder},
                   getCardShadowStyle(isDark),
                 ]}
                 onPress={() =>
@@ -141,9 +137,7 @@ export default function CartoesScreen() {
                     pathname: '/cartoes/faturas',
                     params: {
                       accountId: bank.accountId,
-                      accountName: bank.accountName,
-                    },
-                  })
+                      accountName: bank.accountName}})
                 }
               >
                 <View style={styles.cardContent}>
@@ -184,95 +178,74 @@ export default function CartoesScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
-    padding: 4,
-  },
+    padding: 4},
   title: {
     flex: 1,
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
     textAlign: 'center',
-    marginHorizontal: 8,
-  },
+    marginHorizontal: 8},
   placeholder: {
-    width: 28,
-  },
+    width: 28},
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-  },
+    paddingHorizontal: 24},
   loadingContainer: {
     padding: 40,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   emptyContainer: {
     padding: 40,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   emptyText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 8,
-  },
+    marginBottom: 8},
   emptySubtext: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    textAlign: 'center',
-  },
+    textAlign: 'center'},
   banksContainer: {
-    paddingTop: 16,
-  },
+    paddingTop: 16},
   card: {
     borderRadius: 12,
     borderWidth: 2,
     padding: 16,
-    marginBottom: 16,
-  },
+    marginBottom: 16},
   cardContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   cardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginRight: 12,
-  },
+    marginRight: 12},
   bankIndicator: {
     width: 8,
     height: 48,
     borderRadius: 4,
-    marginRight: 12,
-  },
+    marginRight: 12},
   cardTextContainer: {
-    flex: 1,
-  },
+    flex: 1},
   bankName: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 4,
-  },
+    marginBottom: 4},
   bankSubtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   cardRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
+    gap: 8},
   cardValue: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
-});
+    fontFamily: 'CormorantGaramond-SemiBold'}});

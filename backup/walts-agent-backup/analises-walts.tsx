@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
   Dimensions,
   Alert,
 } from 'react-native';
@@ -14,10 +15,8 @@ import { PieChart } from 'react-native-chart-kit';
 import Svg, { Rect, Line } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
 import { supabase } from '@/lib/supabase';
-import { sendMessageToDeepSeek } from '@/lib/deepseek';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { GraficoCircularIcon } from '@/components/GraficoCircularIcon';
 import { GraficoBarrasIcon } from '@/components/GraficoBarrasIcon';
@@ -432,7 +431,12 @@ export default function RaioXFinanceiroScreen() {
         })),
       };
 
-      const prompt = `Analise meu Raio-X Financeiro e me dê sugestões práticas e personalizadas.
+      const { data, error } = await supabase.functions.invoke('walts-agent', {
+        body: {
+          messages: [
+            {
+              role: 'user',
+              content: `Analise meu Raio-X Financeiro e me dê sugestões práticas e personalizadas.
 
 Aqui estão os dados:
 - Renda mensal: R$ ${monthlyIncome.toFixed(2)}
@@ -448,23 +452,19 @@ Faça uma análise detalhada e me dê:
 3. 3 sugestões práticas para melhorar
 4. Uma meta sugerida para o próximo mês
 
-Use formatação markdown para organizar a resposta.`;
-
-      const response = await sendMessageToDeepSeek([
-        {
-          id: 'analysis-request',
-          role: 'user',
-          content: prompt,
-          timestamp: Date.now(),
+Use formatação markdown para organizar a resposta.`,
+            },
+          ],
         },
-      ]);
+      });
 
-      if (!response) {
+      if (error) {
+        console.error('Error generating analysis:', error);
         Alert.alert('Erro', 'Não foi possível gerar a análise');
         return;
       }
 
-      setWaltsAnalysis(response);
+      setWaltsAnalysis(data.response);
     } catch (error) {
       console.error('Error generating analysis:', error);
       Alert.alert('Erro', 'Ocorreu um erro ao gerar a análise');
@@ -556,7 +556,7 @@ Use formatação markdown para organizar a resposta.`;
       <ScrollView style={styles.content}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" color={theme.primary} />
             <Text style={[styles.loadingText, { color: theme.text }]}>
               Analisando suas finanças...
             </Text>
@@ -1032,7 +1032,7 @@ Use formatação markdown para organizar a resposta.`;
               <View style={styles.analysisContainer}>
                 {loadingAnalysis ? (
                   <View style={styles.analysisLoading}>
-                    <LoadingKangaroo size={80} />
+                    <ActivityIndicator size="small" color={theme.primary} />
                     <Text
                       style={[
                         styles.analysisLoadingText,
@@ -1190,7 +1190,7 @@ Use formatação markdown para organizar a resposta.`;
                 disabled={loadingAnalysis}
               >
                 {loadingAnalysis ? (
-                  <LoadingKangaroo size={80} />
+                  <ActivityIndicator size="small" color={theme.background} />
                 ) : (
                   <Text
                     style={[

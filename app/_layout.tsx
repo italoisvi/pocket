@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
   View,
-  ActivityIndicator,
   StyleSheet,
   StatusBar,
   useColorScheme,
@@ -16,6 +15,7 @@ import { ErrorBoundary } from '@/lib/errorBoundary';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { AnimatedSplashScreen } from '@/components/AnimatedSplashScreen';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import {
   initializeRevenueCat,
   loginRevenueCat,
@@ -315,7 +315,7 @@ function RootLayout() {
     );
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#000" />
+        <LoadingKangaroo size={80} />
       </View>
     );
   }

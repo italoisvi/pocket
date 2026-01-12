@@ -5,13 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { AlertaIcon } from '@/components/AlertaIcon';
 import { CardBrandIcon } from '@/lib/cardBrand';
 import { supabase } from '@/lib/supabase';
@@ -410,7 +410,7 @@ export default function AlertasPendenciasScreen() {
           <ChevronLeftIcon size={24} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]}>
-          Alertas e Pendencias
+          Alertas e Pendências
         </Text>
         <View style={{ width: 24 }} />
       </View>
@@ -427,15 +427,13 @@ export default function AlertasPendenciasScreen() {
         }
       >
         {loading ? (
-          <ActivityIndicator
-            size="large"
-            color={theme.primary}
-            style={styles.loader}
-          />
+          <View style={styles.loader}>
+            <LoadingKangaroo size={80} />
+          </View>
         ) : alerts.length > 0 ? (
           <>
             {renderSection('Urgente', urgentAlerts, '#ef4444')}
-            {renderSection('Atencao', attentionAlerts, '#f59e0b')}
+            {renderSection('Atenção', attentionAlerts, '#f59e0b')}
           </>
         ) : (
           <View style={styles.emptyState}>
@@ -445,7 +443,7 @@ export default function AlertasPendenciasScreen() {
             <Text
               style={[styles.emptyDescription, { color: theme.textSecondary }]}
             >
-              Nenhum alerta ou pendencia no momento. Continue assim!
+              Nenhum alerta ou pendência no momento. Continue assim!
             </Text>
           </View>
         )}
@@ -478,6 +476,7 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 40,
+    alignItems: 'center',
   },
   section: {
     marginBottom: 24,

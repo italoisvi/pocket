@@ -7,14 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ActivityIndicator,
-  Switch,
-} from 'react-native';
+  Switch} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
@@ -40,8 +39,7 @@ export default function CreateBudgetScreen() {
 
     return numberValue.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+      maximumFractionDigits: 2});
   };
 
   const handleAmountChange = (text: string) => {
@@ -78,8 +76,7 @@ export default function CreateBudgetScreen() {
 
     try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { user }} = await supabase.auth.getUser();
 
       if (!user) {
         Alert.alert('Erro', 'Usuário não autenticado');
@@ -94,8 +91,7 @@ export default function CreateBudgetScreen() {
         amount: amountValue,
         period_type: periodType,
         start_date: new Date().toISOString().split('T')[0],
-        notifications_enabled: notificationsEnabled,
-      });
+        notifications_enabled: notificationsEnabled});
 
       if (error) {
         if (error.code === '23505') {
@@ -112,8 +108,7 @@ export default function CreateBudgetScreen() {
       Alert.alert('Sucesso', 'Orçamento criado com sucesso!', [
         {
           text: 'OK',
-          onPress: () => router.back(),
-        },
+          onPress: () => router.back()},
       ]);
     } catch (error) {
       console.error('Erro ao criar orçamento:', error);
@@ -128,8 +123,7 @@ export default function CreateBudgetScreen() {
     .map(([key, info]) => ({
       key: key as ExpenseCategory,
       name: info.name,
-      color: info.color,
-    }));
+      color: info.color}));
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -157,8 +151,7 @@ export default function CreateBudgetScreen() {
               styles.input,
               {
                 backgroundColor: theme.surface,
-                borderColor: theme.border,
-              },
+                borderColor: theme.border},
               getCardShadowStyle(isDark),
             ]}
             onPress={() => setShowCategoryPicker(!showCategoryPicker)}
@@ -168,8 +161,7 @@ export default function CreateBudgetScreen() {
                 styles.inputText,
                 {
                   color: selectedCategory ? theme.text : theme.textSecondary,
-                  flex: 1,
-                },
+                  flex: 1},
               ]}
             >
               {selectedCategory
@@ -189,8 +181,7 @@ export default function CreateBudgetScreen() {
                 styles.categoryPicker,
                 {
                   backgroundColor: theme.surface,
-                  borderColor: theme.border,
-                },
+                  borderColor: theme.border},
                 getCardShadowStyle(isDark),
               ]}
             >
@@ -204,8 +195,7 @@ export default function CreateBudgetScreen() {
                         backgroundColor:
                           selectedCategory === category.key
                             ? theme.border
-                            : 'transparent',
-                      },
+                            : 'transparent'},
                     ]}
                     onPress={() => {
                       setSelectedCategory(category.key);
@@ -235,8 +225,7 @@ export default function CreateBudgetScreen() {
               styles.input,
               {
                 backgroundColor: theme.surface,
-                borderColor: theme.border,
-              },
+                borderColor: theme.border},
               getCardShadowStyle(isDark),
             ]}
           >
@@ -263,8 +252,7 @@ export default function CreateBudgetScreen() {
                   {
                     backgroundColor:
                       periodType === period ? theme.primary : theme.surface,
-                    borderColor: theme.border,
-                  },
+                    borderColor: theme.border},
                   getCardShadowStyle(isDark),
                 ]}
                 onPress={() => setPeriodType(period)}
@@ -274,8 +262,7 @@ export default function CreateBudgetScreen() {
                     styles.periodText,
                     {
                       color:
-                        periodType === period ? theme.background : theme.text,
-                    },
+                        periodType === period ? theme.background : theme.text},
                   ]}
                 >
                   {getPeriodLabel(period)}
@@ -317,15 +304,14 @@ export default function CreateBudgetScreen() {
           style={[
             styles.createButton,
             {
-              backgroundColor: theme.primary,
-            },
+              backgroundColor: theme.primary},
             getCardShadowStyle(isDark),
           ]}
           onPress={handleCreate}
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator color={theme.background} />
+            <LoadingKangaroo size={80} />
           ) : (
             <Text
               style={[styles.createButtonText, { color: theme.background }]}
@@ -341,122 +327,96 @@ export default function CreateBudgetScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   placeholder: {
-    width: 40,
-  },
+    width: 40},
   content: {
     flex: 1,
-    padding: 24,
-  },
+    padding: 24},
   form: {
-    gap: 16,
-  },
+    gap: 16},
   label: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 8,
-  },
+    marginBottom: 8},
   input: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    gap: 12,
-  },
+    gap: 12},
   inputText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   currencyPrefix: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   categoryPicker: {
     borderRadius: 12,
     borderWidth: 2,
     maxHeight: 300,
-    marginTop: 8,
-  },
+    marginTop: 8},
   categoryList: {
-    padding: 8,
-  },
+    padding: 8},
   categoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderRadius: 8,
-    gap: 12,
-  },
+    gap: 12},
   categoryColor: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-  },
+    borderRadius: 12},
   categoryName: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   periodContainer: {
     flexDirection: 'row',
-    gap: 12,
-  },
+    gap: 12},
   periodButton: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   periodText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   footer: {
-    padding: 24,
-  },
+    padding: 24},
   createButton: {
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   createButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Bold',
-  },
+    fontFamily: 'CormorantGaramond-Bold'},
   notificationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
-    marginTop: 8,
-  },
+    marginTop: 8},
   notificationTextContainer: {
-    flex: 1,
-  },
+    flex: 1},
   notificationDescription: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     marginTop: 4,
-    lineHeight: 20,
-  },
-});
+    lineHeight: 20}});

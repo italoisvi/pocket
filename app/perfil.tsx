@@ -5,10 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   Share,
-  Image,
-} from 'react-native';
+  Image} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
@@ -16,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { LapisIcon } from '@/components/LapisIcon';
 import { AdicionarUsuarioIcon } from '@/components/AdicionarUsuarioIcon';
 import { SettingsIcon } from '@/components/SettingsIcon';
@@ -44,8 +43,7 @@ export default function PerfilScreen() {
   const loadProfile = async () => {
     try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { user }} = await supabase.auth.getUser();
 
       if (!user) {
         router.replace('/');
@@ -85,8 +83,7 @@ export default function PerfilScreen() {
     try {
       await Share.share({
         message:
-          'Experimente o Pocket! Um app simples e elegante para controlar suas finanças pessoais. 💰',
-      });
+          'Experimente o Pocket! Um app simples e elegante para controlar suas finanças pessoais. 💰'});
     } catch (error) {
       console.error('Erro ao compartilhar:', error);
     }
@@ -110,8 +107,7 @@ export default function PerfilScreen() {
             styles.settingsButton,
             {
               backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
+              borderColor: theme.border},
           ]}
           onPress={() => router.push('/(tabs)/settings')}
         >
@@ -121,7 +117,7 @@ export default function PerfilScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
+          <LoadingKangaroo size={80} />
         </View>
       ) : (
         <ScrollView style={styles.content}>
@@ -131,8 +127,7 @@ export default function PerfilScreen() {
               styles.card,
               {
                 backgroundColor: theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
               getCardShadowStyle(theme.background === '#000'),
             ]}
           >
@@ -142,8 +137,7 @@ export default function PerfilScreen() {
                   styles.profilePhoto,
                   {
                     backgroundColor: theme.background,
-                    borderColor: theme.cardBorder,
-                  },
+                    borderColor: theme.cardBorder},
                 ]}
               >
                 {profileImage ? (
@@ -190,8 +184,7 @@ export default function PerfilScreen() {
               styles.card,
               {
                 backgroundColor: theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
               getCardShadowStyle(theme.background === '#000'),
             ]}
           >
@@ -216,8 +209,7 @@ export default function PerfilScreen() {
               styles.card,
               {
                 backgroundColor: theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
               getCardShadowStyle(theme.background === '#000'),
             ]}
           >
@@ -248,25 +240,21 @@ export default function PerfilScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   settingsButton: {
     width: 48,
     height: 48,
@@ -275,34 +263,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowOffset: {
       width: 0,
-      height: 2,
-    },
+      height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 4,
-    borderWidth: 1,
-  },
+    borderWidth: 1},
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   content: {
     flex: 1,
-    padding: 24,
-  },
+    padding: 24},
   card: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 16,
-  },
+    gap: 16},
   profilePhoto: {
     width: 64,
     height: 64,
@@ -310,48 +292,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    overflow: 'hidden',
-  },
+    overflow: 'hidden'},
   profilePhotoImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 32,
-  },
+    borderRadius: 32},
   cardInfo: {
-    flex: 1,
-  },
+    flex: 1},
   userName: {
     fontSize: 24,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 4,
-  },
+    marginBottom: 4},
   userEmail: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   editButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   inviteCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+    justifyContent: 'space-between'},
   inviteLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-  },
+    gap: 16},
   inviteTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   inviteSubtitle: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Medium',
-    letterSpacing: 1,
-  },
-});
+    letterSpacing: 1}});

@@ -5,16 +5,15 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   TextInput,
   Alert,
-  Switch,
-} from 'react-native';
+  Switch} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { MaisIcon } from '@/components/MaisIcon';
 import { LapisIcon } from '@/components/LapisIcon';
@@ -57,8 +56,7 @@ export default function OrcamentosScreen() {
   const loadBudgets = async () => {
     try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { user }} = await supabase.auth.getUser();
 
       if (!user) return;
 
@@ -100,8 +98,7 @@ export default function OrcamentosScreen() {
             amount: parseFloat(budget.amount),
             period_type: budget.period_type,
             spent,
-            notifications_enabled: budget.notifications_enabled,
-          };
+            notifications_enabled: budget.notifications_enabled};
         });
 
         setBudgets(budgetsWithSpent);
@@ -125,8 +122,7 @@ export default function OrcamentosScreen() {
 
     return numberValue.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+      maximumFractionDigits: 2});
   };
 
   const handleAmountChange = (text: string) => {
@@ -163,8 +159,7 @@ export default function OrcamentosScreen() {
 
     try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { user }} = await supabase.auth.getUser();
 
       if (!user) {
         Alert.alert('Erro', 'Usuário não autenticado');
@@ -179,8 +174,7 @@ export default function OrcamentosScreen() {
         amount: amountValue,
         period_type: periodType,
         start_date: new Date().toISOString().split('T')[0],
-        notifications_enabled: notificationsEnabled,
-      });
+        notifications_enabled: notificationsEnabled});
 
       if (error) {
         if (error.code === '23505') {
@@ -219,8 +213,7 @@ export default function OrcamentosScreen() {
       [
         {
           text: 'Cancelar',
-          style: 'cancel',
-        },
+          style: 'cancel'},
         {
           text: 'Excluir',
           style: 'destructive',
@@ -239,8 +232,7 @@ export default function OrcamentosScreen() {
               console.error('Erro ao excluir orçamento:', error);
               Alert.alert('Erro', 'Não foi possível excluir o orçamento');
             }
-          },
-        },
+          }},
       ]
     );
   };
@@ -259,8 +251,7 @@ export default function OrcamentosScreen() {
     .map(([key, info]) => ({
       key: key as ExpenseCategory,
       name: info.name,
-      color: info.color,
-    }));
+      color: info.color}));
 
   const renderBudgetCard = (budget: Budget) => {
     const categoryInfo = CATEGORIES[budget.category_id];
@@ -275,8 +266,7 @@ export default function OrcamentosScreen() {
           styles.budgetCard,
           {
             backgroundColor: theme.card,
-            borderColor: theme.cardBorder,
-          },
+            borderColor: theme.cardBorder},
           getCardShadowStyle(isDark),
         ]}
       >
@@ -361,8 +351,7 @@ export default function OrcamentosScreen() {
                       width: `${Math.min(percentage, 100)}%`,
                       backgroundColor: isOverBudget
                         ? '#EF4444'
-                        : categoryInfo.color,
-                    },
+                        : categoryInfo.color},
                   ]}
                 />
               </View>
@@ -390,8 +379,7 @@ export default function OrcamentosScreen() {
             styles.input,
             {
               backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
+              borderColor: theme.border},
             getCardShadowStyle(isDark),
           ]}
           onPress={() => setShowCategoryPicker(!showCategoryPicker)}
@@ -400,8 +388,7 @@ export default function OrcamentosScreen() {
             style={[
               styles.inputText,
               {
-                color: selectedCategory ? theme.text : theme.textSecondary,
-              },
+                color: selectedCategory ? theme.text : theme.textSecondary},
             ]}
           >
             {selectedCategory
@@ -417,8 +404,7 @@ export default function OrcamentosScreen() {
               styles.categoryPicker,
               {
                 backgroundColor: theme.surface,
-                borderColor: theme.border,
-              },
+                borderColor: theme.border},
               getCardShadowStyle(isDark),
             ]}
           >
@@ -432,8 +418,7 @@ export default function OrcamentosScreen() {
                       backgroundColor:
                         selectedCategory === category.key
                           ? theme.border
-                          : 'transparent',
-                    },
+                          : 'transparent'},
                   ]}
                   onPress={() => {
                     setSelectedCategory(category.key);
@@ -465,8 +450,7 @@ export default function OrcamentosScreen() {
             styles.input,
             {
               backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
+              borderColor: theme.border},
             getCardShadowStyle(isDark),
           ]}
         >
@@ -491,8 +475,7 @@ export default function OrcamentosScreen() {
                 {
                   backgroundColor:
                     periodType === period ? theme.primary : theme.surface,
-                  borderColor: theme.border,
-                },
+                  borderColor: theme.border},
                 getCardShadowStyle(isDark),
               ]}
               onPress={() => setPeriodType(period)}
@@ -502,8 +485,7 @@ export default function OrcamentosScreen() {
                   styles.periodText,
                   {
                     color:
-                      periodType === period ? theme.background : theme.text,
-                  },
+                      periodType === period ? theme.background : theme.text},
                 ]}
               >
                 {getPeriodLabel(period)}
@@ -564,7 +546,7 @@ export default function OrcamentosScreen() {
           <View style={styles.placeholder} />
         </SafeAreaView>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
+          <LoadingKangaroo size={80} />
         </View>
       </View>
     );
@@ -603,15 +585,14 @@ export default function OrcamentosScreen() {
             style={[
               styles.createButton,
               {
-                backgroundColor: theme.primary,
-              },
+                backgroundColor: theme.primary},
               getCardShadowStyle(isDark),
             ]}
             onPress={handleCreate}
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color={theme.background} />
+              <LoadingKangaroo size={80} />
             ) : (
               <Text
                 style={[styles.createButtonText, { color: theme.background }]}
@@ -628,207 +609,163 @@ export default function OrcamentosScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   placeholder: {
-    width: 40,
-  },
+    width: 40},
   addButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   formContainer: {
     flex: 1,
-    padding: 24,
-  },
+    padding: 24},
   budgetsListContainer: {
     flex: 1,
-    padding: 24,
-  },
+    padding: 24},
   form: {
-    gap: 16,
-  },
+    gap: 16},
   label: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 8,
-  },
+    marginBottom: 8},
   input: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    gap: 12,
-  },
+    gap: 12},
   inputText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   currencyPrefix: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   categoryPicker: {
     borderRadius: 12,
     borderWidth: 2,
     maxHeight: 300,
-    marginTop: 8,
-  },
+    marginTop: 8},
   categoryList: {
-    padding: 8,
-  },
+    padding: 8},
   categoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderRadius: 8,
-    gap: 12,
-  },
+    gap: 12},
   categoryColor: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-  },
+    borderRadius: 12},
   categoryItemName: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   periodContainer: {
     flexDirection: 'row',
-    gap: 12,
-  },
+    gap: 12},
   periodButton: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   periodText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   notificationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
-    marginTop: 8,
-  },
+    marginTop: 8},
   notificationTextContainer: {
-    flex: 1,
-  },
+    flex: 1},
   notificationDescription: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     marginTop: 4,
-    lineHeight: 20,
-  },
+    lineHeight: 20},
   footer: {
-    padding: 24,
-  },
+    padding: 24},
   createButton: {
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   createButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Bold',
-  },
+    fontFamily: 'CormorantGaramond-Bold'},
   budgetCard: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   budgetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+    justifyContent: 'space-between'},
   budgetHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1,
-  },
+    flex: 1},
   budgetHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
+    gap: 12},
   iconButton: {
     padding: 8,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   categoryIndicator: {
     width: 4,
     height: 24,
-    borderRadius: 2,
-  },
+    borderRadius: 2},
   categoryName: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   budgetContent: {
-    gap: 12,
-  },
+    gap: 12},
   budgetRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   budgetLabel: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   budgetValue: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   progressBarContainer: {
-    marginTop: 4,
-  },
+    marginTop: 4},
   progressBarBackground: {
     height: 8,
     borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 8,
-  },
+    marginBottom: 8},
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
-  },
+    borderRadius: 4},
   percentageText: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Medium',
-    textAlign: 'right',
-  },
-});
+    textAlign: 'right'}});

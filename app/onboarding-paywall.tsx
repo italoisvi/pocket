@@ -5,13 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+  Alert} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { CoroaIcon } from '@/components/CoroaIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CheckIcon } from '@/components/CheckIcon';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { usePremium } from '@/lib/usePremium';
@@ -20,8 +19,7 @@ import { supabase } from '@/lib/supabase';
 import {
   getOfferings,
   purchasePackage,
-  ENTITLEMENT_ID,
-} from '@/lib/revenuecat';
+  ENTITLEMENT_ID} from '@/lib/revenuecat';
 import type { PurchasesPackage } from 'react-native-purchases';
 
 type PlanType = 'trial' | 'yearly' | 'monthly';
@@ -50,8 +48,7 @@ export default function OnboardingPaywallScreen() {
       subtitle: 'Teste sem compromisso',
       price: 'Grátis',
       period: '7 dias',
-      highlighted: false,
-    },
+      highlighted: false},
     {
       id: 'yearly' as PlanType,
       title: 'Plano Anual',
@@ -59,16 +56,14 @@ export default function OnboardingPaywallScreen() {
       price: 'R$ 12,90',
       period: 'por mês',
       highlighted: true,
-      badge: 'Mais Popular',
-    },
+      badge: 'Mais Popular'},
     {
       id: 'monthly' as PlanType,
       title: 'Plano Mensal',
       subtitle: 'Flexibilidade total',
       price: 'R$ 14,90',
       period: 'por mês',
-      highlighted: false,
-    },
+      highlighted: false},
   ]);
 
   useEffect(() => {
@@ -99,8 +94,7 @@ export default function OnboardingPaywallScreen() {
               price: product.priceString,
               period: '7 dias',
               highlighted: false,
-              rcPackage: pkg,
-            });
+              rcPackage: pkg});
           } else if (
             identifier.includes('yearly') ||
             identifier.includes('annual')
@@ -113,8 +107,7 @@ export default function OnboardingPaywallScreen() {
               period: 'por ano',
               highlighted: true,
               badge: 'Mais Popular',
-              rcPackage: pkg,
-            });
+              rcPackage: pkg});
           } else if (identifier.includes('monthly')) {
             updatedPlans.push({
               id: 'monthly',
@@ -123,8 +116,7 @@ export default function OnboardingPaywallScreen() {
               price: product.priceString,
               period: 'por mês',
               highlighted: false,
-              rcPackage: pkg,
-            });
+              rcPackage: pkg});
           }
         });
       }
@@ -150,8 +142,7 @@ export default function OnboardingPaywallScreen() {
 
   const handleSkip = async () => {
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { user }} = await supabase.auth.getUser();
     if (user?.id) {
       await markOnboardingPaywallShown(user.id);
     }
@@ -180,8 +171,7 @@ export default function OnboardingPaywallScreen() {
       if (hasEntitlement) {
         await refresh();
         const {
-          data: { user },
-        } = await supabase.auth.getUser();
+          data: { user }} = await supabase.auth.getUser();
         if (user?.id) {
           await markOnboardingPaywallShown(user.id);
         }
@@ -216,7 +206,7 @@ export default function OnboardingPaywallScreen() {
           { backgroundColor: theme.background, justifyContent: 'center' },
         ]}
       >
-        <ActivityIndicator size="large" color={theme.primary} />
+        <LoadingKangaroo size={80} />
       </View>
     );
   }
@@ -246,8 +236,7 @@ export default function OnboardingPaywallScreen() {
               styles.iconContainer,
               {
                 backgroundColor: theme.card,
-                borderColor: theme.cardBorder,
-              },
+                borderColor: theme.cardBorder},
               getCardShadowStyle(theme.background === '#000'),
             ]}
           >
@@ -270,11 +259,9 @@ export default function OnboardingPaywallScreen() {
                 {
                   backgroundColor: theme.card,
                   borderColor:
-                    selectedPlan === plan.id ? theme.primary : theme.cardBorder,
-                },
+                    selectedPlan === plan.id ? theme.primary : theme.cardBorder},
                 plan.highlighted && {
-                  borderColor: theme.primary,
-                },
+                  borderColor: theme.primary},
                 getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => setSelectedPlan(plan.id)}
@@ -313,8 +300,7 @@ export default function OnboardingPaywallScreen() {
                       backgroundColor:
                         selectedPlan === plan.id
                           ? theme.primary
-                          : 'transparent',
-                    },
+                          : 'transparent'},
                   ]}
                 >
                   {selectedPlan === plan.id && (
@@ -362,14 +348,13 @@ export default function OnboardingPaywallScreen() {
           style={[
             styles.continueButton,
             {
-              backgroundColor: theme.primary,
-            },
+              backgroundColor: theme.primary},
           ]}
           onPress={handleContinue}
           disabled={purchasing}
         >
           {purchasing ? (
-            <ActivityIndicator size="small" color={theme.background} />
+            <LoadingKangaroo size={80} />
           ) : (
             <Text
               style={[styles.continueButtonText, { color: theme.background }]}
@@ -388,19 +373,15 @@ export default function OnboardingPaywallScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   scrollView: {
-    flex: 1,
-  },
+    flex: 1},
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 24,
-  },
+    paddingBottom: 24},
   header: {
     alignItems: 'center',
-    marginBottom: 32,
-  },
+    marginBottom: 32},
   iconContainer: {
     width: 96,
     height: 96,
@@ -408,143 +389,114 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   title: {
     fontSize: 28,
     fontFamily: 'CormorantGaramond-Bold',
     textAlign: 'center',
     marginBottom: 8,
-    paddingHorizontal: 16,
-  },
+    paddingHorizontal: 16},
   subtitle: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    paddingHorizontal: 24,
-  },
+    paddingHorizontal: 24},
   plansContainer: {
     marginBottom: 32,
-    gap: 12,
-  },
+    gap: 12},
   planCard: {
     borderRadius: 16,
     padding: 20,
     borderWidth: 2,
-    position: 'relative',
-  },
+    position: 'relative'},
   badge: {
     position: 'absolute',
     top: -12,
     alignSelf: 'center',
     paddingHorizontal: 16,
     paddingVertical: 6,
-    borderRadius: 20,
-  },
+    borderRadius: 20},
   badgeText: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   planHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
-  },
+    marginBottom: 12},
   planTitleContainer: {
-    flex: 1,
-  },
+    flex: 1},
   planTitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-Bold',
-    marginBottom: 4,
-  },
+    marginBottom: 4},
   planSubtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   radioButton: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   planPricing: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 8,
-  },
+    gap: 8},
   planPrice: {
     fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
-  },
+    fontFamily: 'CormorantGaramond-Bold'},
   planPeriod: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   featuresContainer: {
-    marginBottom: 24,
-  },
+    marginBottom: 24},
   featuresTitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-Bold',
-    marginBottom: 16,
-  },
+    marginBottom: 16},
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 12,
-  },
+    marginBottom: 12},
   featureText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
-    flex: 1,
-  },
+    flex: 1},
   disclaimer: {
     alignItems: 'center',
-    paddingVertical: 16,
-  },
+    paddingVertical: 16},
   disclaimerText: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    textAlign: 'center',
-  },
+    textAlign: 'center'},
   footer: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 8,
-  },
+    paddingBottom: 8},
   continueButton: {
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: 'center',
-    marginBottom: 12,
-  },
+    marginBottom: 12},
   continueButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   footerText: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
-    textAlign: 'center',
-  },
+    textAlign: 'center'},
   topBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 8,
-  },
+    paddingBottom: 8},
   skipButton: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
+    paddingVertical: 8},
   skipButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
-});
+    fontFamily: 'CormorantGaramond-SemiBold'}});

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   Alert,
   Switch,
   KeyboardAvoidingView,
@@ -16,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
 import { CarregarIcon } from '@/components/CarregarIcon';
 import { formatCurrency } from '@/lib/formatCurrency';

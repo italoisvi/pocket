@@ -6,14 +6,13 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
-  Alert,
-} from 'react-native';
+  Alert} from 'react-native';
 import { BankLogo } from '@/components/BankLogo';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -83,8 +82,7 @@ export default function PainelFinanceiroScreen() {
   const loadFinancialData = async () => {
     try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { user }} = await supabase.auth.getUser();
 
       if (!user) {
         router.replace('/');
@@ -143,17 +141,14 @@ export default function PainelFinanceiroScreen() {
                 `https://api.pluggy.ai/connectors/${connectorId}`,
                 {
                   headers: {
-                    'X-API-KEY': apiKey,
-                  },
-                }
+                    'X-API-KEY': apiKey}}
               );
               if (response.ok) {
                 const connector = await response.json();
                 return {
                   id: connector.id,
                   imageUrl: connector.imageUrl,
-                  primaryColor: connector.primaryColor,
-                };
+                  primaryColor: connector.primaryColor};
               }
             } catch (error) {
               console.error(`Error fetching connector ${connectorId}:`, error);
@@ -175,8 +170,7 @@ export default function PainelFinanceiroScreen() {
           item_id: acc.item_id,
           imageUrl: connectorsMap.get(acc.pluggy_items.connector_id)?.imageUrl,
           primaryColor: connectorsMap.get(acc.pluggy_items.connector_id)
-            ?.primaryColor,
-        }));
+            ?.primaryColor}));
 
         setBankAccounts(accountsWithLogos);
       }
@@ -217,8 +211,7 @@ export default function PainelFinanceiroScreen() {
           onPress: async () => {
             try {
               const {
-                data: { user },
-              } = await supabase.auth.getUser();
+                data: { user }} = await supabase.auth.getUser();
 
               if (!user) return;
 
@@ -233,8 +226,7 @@ export default function PainelFinanceiroScreen() {
                 monthly_salary?: null;
                 salary_payment_day?: null;
               } = {
-                income_cards: updatedCards,
-              };
+                income_cards: updatedCards};
 
               if (updatedCards.length === 0) {
                 updateData.monthly_salary = null;
@@ -253,8 +245,7 @@ export default function PainelFinanceiroScreen() {
               console.error('Error deleting income card:', error);
               Alert.alert('Erro', 'Não foi possível excluir a renda.');
             }
-          },
-        },
+          }},
       ]
     );
   };
@@ -284,8 +275,7 @@ export default function PainelFinanceiroScreen() {
 
     try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { user }} = await supabase.auth.getUser();
 
       if (!user) return;
 
@@ -323,8 +313,7 @@ export default function PainelFinanceiroScreen() {
                 paymentDay,
                 incomeSource,
                 linkedAccountId: linkedAccountId || undefined,
-                lastKnownBalance,
-              }
+                lastKnownBalance}
             : card
         );
       } else {
@@ -334,8 +323,7 @@ export default function PainelFinanceiroScreen() {
           salary,
           paymentDay,
           incomeSource,
-          linkedAccountId: linkedAccountId || undefined,
-        };
+          linkedAccountId: linkedAccountId || undefined};
         updatedCards = [...incomeCards, newCard];
       }
 
@@ -456,7 +444,7 @@ export default function PainelFinanceiroScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
+          <LoadingKangaroo size={80} />
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -492,8 +480,7 @@ export default function PainelFinanceiroScreen() {
                           styles.displayCard,
                           {
                             backgroundColor: theme.card,
-                            borderColor: theme.cardBorder,
-                          },
+                            borderColor: theme.cardBorder},
                           getCardShadowStyle(theme.background === '#000'),
                         ]}
                       >
@@ -586,8 +573,7 @@ export default function PainelFinanceiroScreen() {
                         styles.inputContainer,
                         {
                           backgroundColor: theme.card,
-                          borderColor: theme.cardBorder,
-                        },
+                          borderColor: theme.cardBorder},
                       ]}
                     >
                       <Text style={[styles.currency, { color: theme.text }]}>
@@ -614,8 +600,7 @@ export default function PainelFinanceiroScreen() {
                         {
                           backgroundColor: theme.card,
                           borderColor: theme.cardBorder,
-                          color: theme.text,
-                        },
+                          color: theme.text},
                       ]}
                       value={paymentDay}
                       onChangeText={setPaymentDay}
@@ -648,8 +633,7 @@ export default function PainelFinanceiroScreen() {
                             borderColor:
                               incomeSource === source.value
                                 ? theme.primary
-                                : theme.cardBorder,
-                          },
+                                : theme.cardBorder},
                         ]}
                         onPress={() => setIncomeSource(source.value)}
                       >
@@ -660,8 +644,7 @@ export default function PainelFinanceiroScreen() {
                               borderColor:
                                 incomeSource === source.value
                                   ? theme.primary
-                                  : theme.cardBorder,
-                            },
+                                  : theme.cardBorder},
                           ]}
                         >
                           {incomeSource === source.value && (
@@ -707,8 +690,7 @@ export default function PainelFinanceiroScreen() {
                             borderColor:
                               linkedAccountId === null
                                 ? theme.primary
-                                : theme.cardBorder,
-                          },
+                                : theme.cardBorder},
                         ]}
                         onPress={() => setLinkedAccountId(null)}
                       >
@@ -719,8 +701,7 @@ export default function PainelFinanceiroScreen() {
                               borderColor:
                                 linkedAccountId === null
                                   ? theme.primary
-                                  : theme.cardBorder,
-                            },
+                                  : theme.cardBorder},
                           ]}
                         >
                           {linkedAccountId === null && (
@@ -750,8 +731,7 @@ export default function PainelFinanceiroScreen() {
                               borderColor:
                                 linkedAccountId === account.id
                                   ? theme.primary
-                                  : theme.cardBorder,
-                            },
+                                  : theme.cardBorder},
                           ]}
                           onPress={() => setLinkedAccountId(account.id)}
                         >
@@ -762,8 +742,7 @@ export default function PainelFinanceiroScreen() {
                                 borderColor:
                                   linkedAccountId === account.id
                                     ? theme.primary
-                                    : theme.cardBorder,
-                              },
+                                    : theme.cardBorder},
                             ]}
                           >
                             {linkedAccountId === account.id && (
@@ -816,8 +795,7 @@ export default function PainelFinanceiroScreen() {
                         styles.cancelButton,
                         {
                           backgroundColor: theme.background,
-                          borderColor: theme.cardBorder,
-                        },
+                          borderColor: theme.cardBorder},
                       ]}
                       onPress={handleCancel}
                     >
@@ -839,20 +817,14 @@ export default function PainelFinanceiroScreen() {
                           borderColor:
                             theme.background === '#000'
                               ? theme.cardBorder
-                              : theme.primary,
-                        },
+                              : theme.primary},
                         saving && styles.saveButtonDisabled,
                       ]}
                       onPress={handleSave}
                       disabled={saving}
                     >
                       {saving ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={
-                            theme.background === '#000' ? theme.text : '#FFF'
-                          }
-                        />
+                        <LoadingKangaroo size={80} />
                       ) : (
                         <Text
                           style={[
@@ -861,8 +833,7 @@ export default function PainelFinanceiroScreen() {
                               color:
                                 theme.background === '#000'
                                   ? theme.text
-                                  : '#FFF',
-                            },
+                                  : '#FFF'},
                           ]}
                         >
                           Salvar
@@ -882,113 +853,93 @@ export default function PainelFinanceiroScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   title: {
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
     flex: 1,
-    textAlign: 'center',
-  },
+    textAlign: 'center'},
   headerButtons: {
     flexDirection: 'row',
-    gap: 8,
-  },
+    gap: 8},
   headerButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   keyboardView: {
-    flex: 1,
-  },
+    flex: 1},
   content: {
     flex: 1,
-    padding: 24,
-  },
+    padding: 24},
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
-  },
+    paddingTop: 100},
   emptyStateText: {
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 8,
-  },
+    marginBottom: 8},
   emptyStateSubtext: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    paddingHorizontal: 40,
-  },
+    paddingHorizontal: 40},
   section: {
-    marginBottom: 32,
-  },
+    marginBottom: 32},
   label: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 12,
-  },
+    marginBottom: 12},
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 2,
-    paddingHorizontal: 16,
-  },
+    paddingHorizontal: 16},
   currency: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginRight: 8,
-  },
+    marginRight: 8},
   input: {
     flex: 1,
     fontSize: 20,
     fontFamily: 'CormorantGaramond-Regular',
-    paddingVertical: 16,
-  },
+    paddingVertical: 16},
   dayInput: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-Regular',
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   helperText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 8,
-  },
+    marginTop: 8},
   sourceOption: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    marginBottom: 12,
-  },
+    marginBottom: 12},
   radio: {
     width: 24,
     height: 24,
@@ -996,97 +947,76 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     marginRight: 12,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   radioInner: {
     width: 12,
     height: 12,
-    borderRadius: 6,
-  },
+    borderRadius: 6},
   sourceLabel: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   accountInfo: {
-    flex: 1,
-  },
+    flex: 1},
   accountNumber: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 2,
-  },
+    marginTop: 2},
   bankLogoWrapper: {
-    marginRight: 12,
-  },
+    marginRight: 12},
   linkedAccountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-  },
+    marginTop: 8},
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 8,
-    marginBottom: 40,
-  },
+    marginBottom: 40},
   cancelButton: {
     flex: 1,
     borderRadius: 12,
     padding: 18,
     alignItems: 'center',
-    borderWidth: 2,
-  },
+    borderWidth: 2},
   cancelButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   saveButton: {
     flex: 1,
     borderRadius: 12,
     padding: 18,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   saveButtonDisabled: {
-    opacity: 0.6,
-  },
+    opacity: 0.6},
   saveButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   displayCard: {
     borderRadius: 12,
     padding: 24,
     borderWidth: 2,
-    marginBottom: 16,
-  },
+    marginBottom: 16},
   displayCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-  },
+    marginBottom: 20},
   displayCardTitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    flex: 1,
-  },
+    flex: 1},
   cardActions: {
     flexDirection: 'row',
-    gap: 8,
-  },
+    gap: 8},
   iconButton: {
     width: 36,
     height: 36,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   displayCardValue: {
     fontSize: 32,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 8,
-  },
+    marginBottom: 8},
   displayCardSubtitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
-});
+    fontFamily: 'CormorantGaramond-Regular'}});

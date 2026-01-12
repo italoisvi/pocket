@@ -4,18 +4,17 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   TouchableOpacity,
   Image,
   Alert,
-  Modal,
-} from 'react-native';
+  Modal} from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { useTheme } from '@/lib/theme';
 import { LixoIcon } from '@/components/LixoIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { LapisIcon } from '@/components/LapisIcon';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 
@@ -127,7 +126,7 @@ export default function ExpenseDetailScreen() {
       <View
         style={[styles.loadingContainer, { backgroundColor: theme.background }]}
       >
-        <ActivityIndicator size="large" color={theme.primary} />
+        <LoadingKangaroo size={80} />
       </View>
     );
   }
@@ -286,7 +285,7 @@ export default function ExpenseDetailScreen() {
                 disabled={deleting}
               >
                 {deleting ? (
-                  <ActivityIndicator color="#fff" />
+                  <LoadingKangaroo size={80} />
                 ) : (
                   <Text style={styles.deleteButtonText}>Excluir</Text>
                 )}
@@ -301,30 +300,25 @@ export default function ExpenseDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1},
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   errorText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+    paddingBottom: 12},
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   title: {
     fontSize: 26,
     fontFamily: 'CormorantGaramond-SemiBold',
@@ -332,132 +326,103 @@ const styles = StyleSheet.create({
     left: 56,
     right: 96,
     textAlign: 'center',
-    alignSelf: 'center',
-  },
+    alignSelf: 'center'},
   headerActions: {
     flexDirection: 'row',
-    gap: 12,
-  },
+    gap: 12},
   iconButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   scrollContent: {
-    flex: 1,
-  },
+    flex: 1},
   image: {
     width: '100%',
     height: 300,
     resizeMode: 'contain',
-    backgroundColor: '#f5f5f5',
-  },
+    backgroundColor: '#f5f5f5'},
   content: {
-    padding: 24,
-  },
+    padding: 24},
   establishment: {
     fontSize: 28,
     fontFamily: 'CormorantGaramond-Bold',
-    marginBottom: 8,
-  },
+    marginBottom: 8},
   date: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 16,
-  },
+    marginBottom: 16},
   amount: {
     fontSize: 32,
     fontFamily: 'CormorantGaramond-Bold',
-    marginBottom: 32,
-  },
+    marginBottom: 32},
   itemsSection: {
-    marginBottom: 32,
-  },
+    marginBottom: 32},
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 16,
-  },
+    marginBottom: 16},
   item: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
+    borderBottomWidth: 1},
   itemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
+    gap: 8},
   itemQuantity: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   itemName: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
+    fontFamily: 'CormorantGaramond-Regular'},
   itemPrice: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   notesSection: {
-    marginBottom: 32,
-  },
+    marginBottom: 32},
   notes: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
-    lineHeight: 24,
-  },
+    lineHeight: 24},
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   modalContent: {
     borderRadius: 16,
     padding: 24,
     marginHorizontal: 24,
     width: '90%',
-    maxWidth: 400,
-  },
+    maxWidth: 400},
   modalTitle: {
     fontSize: 24,
     fontFamily: 'CormorantGaramond-Bold',
-    marginBottom: 12,
-  },
+    marginBottom: 12},
   modalMessage: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     lineHeight: 24,
-    marginBottom: 24,
-  },
+    marginBottom: 24},
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
-  },
+    gap: 12},
   modalButton: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
-  },
+    alignItems: 'center'},
   cancelButton: {
     borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
+    borderColor: '#e0e0e0'},
   cancelButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
-  },
+    fontFamily: 'CormorantGaramond-SemiBold'},
   deleteButton: {
-    backgroundColor: '#ef4444',
-  },
+    backgroundColor: '#ef4444'},
   deleteButtonText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#fff',
-  },
-});
+    color: '#fff'}});

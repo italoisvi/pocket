@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import RevenueCatUI from 'react-native-purchases-ui';
@@ -30,7 +31,7 @@ export default function CustomerCenterScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ActivityIndicator size="large" color={theme.primary} />
+      <LoadingKangaroo size={80} />
     </View>
   );
 }
@@ -39,6 +40,4 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
+    alignItems: 'center'}});

@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Alert,
   FlatList,
-  ActivityIndicator,
   Text,
   Image,
 } from 'react-native';
@@ -13,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { SettingsIcon } from '@/components/SettingsIcon';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { UsuarioIcon } from '@/components/UsuarioIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
@@ -476,7 +476,7 @@ export default function HomeScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
+          <LoadingKangaroo size={80} />
         </View>
       ) : expenses.length === 0 ? (
         <View style={styles.emptyContainer}>

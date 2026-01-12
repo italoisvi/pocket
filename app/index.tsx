@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Redirect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { View, ActivityIndicator } from 'react-native';
+import { View } from 'react-native';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import type { Session } from '@supabase/supabase-js';
 
 export default function Index() {
@@ -18,7 +19,7 @@ export default function Index() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
+        <LoadingKangaroo size={80} />
       </View>
     );
   }
