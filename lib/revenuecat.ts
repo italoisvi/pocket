@@ -110,6 +110,42 @@ export async function restorePurchases(): Promise<CustomerInfo> {
   }
 }
 
+export async function loginRevenueCat(userId: string): Promise<CustomerInfo> {
+  try {
+    console.log('[RevenueCat] Logging in user:', userId);
+    const { customerInfo } = await Purchases.logIn(userId);
+    const hasPremium =
+      customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
+    console.log('[RevenueCat] Login successful. Premium:', hasPremium);
+    return customerInfo;
+  } catch (error) {
+    console.error('[RevenueCat] Error logging in:', error);
+    Sentry.captureException(error, {
+      tags: {
+        component: 'revenuecat-login',
+      },
+    });
+    throw error;
+  }
+}
+
+export async function logoutRevenueCat(): Promise<CustomerInfo> {
+  try {
+    console.log('[RevenueCat] Logging out user');
+    const customerInfo = await Purchases.logOut();
+    console.log('[RevenueCat] Logout successful');
+    return customerInfo;
+  } catch (error) {
+    console.error('[RevenueCat] Error logging out:', error);
+    Sentry.captureException(error, {
+      tags: {
+        component: 'revenuecat-logout',
+      },
+    });
+    throw error;
+  }
+}
+
 export async function purchasePackage(
   packageToPurchase: PurchasesPackage
 ): Promise<CustomerInfo> {

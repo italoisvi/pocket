@@ -69,7 +69,9 @@
       "WebFetch(domain:docs.pluggy.ai)",
       "Bash(del \"C:\\\\Users\\\\italo\\\\source\\\\repo\\\\pocket\\\\app\\\\dividas.tsx\")",
       "Bash(del \"C:\\\\Users\\\\italo\\\\source\\\\repo\\\\pocket\\\\app\\\\dividas-pessoais.tsx\")",
-      "Bash(del \"C:\\\\Users\\\\italo\\\\source\\\\repo\\\\pocket\\\\app\\\\dividas-settings.tsx\")"
+      "Bash(del \"C:\\\\Users\\\\italo\\\\source\\\\repo\\\\pocket\\\\app\\\\dividas-settings.tsx\")",
+      "WebSearch",
+      "WebFetch(domain:supabase.com)"
     ]
   }
 }

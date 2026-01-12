@@ -1,11 +1,26 @@
 const DEEPSEEK_API_KEY = 'sk-59bfb3091a144736aa266745ac79f595';
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
+export type MessageAttachment = {
+  id: string;
+  type: 'image' | 'file' | 'audio';
+  url: string;
+  mimeType: string;
+  name?: string;
+  ocrData?: {
+    establishment_name?: string;
+    amount?: number;
+    date?: string;
+    items?: Array<{ name: string; quantity: number; price: number }>;
+  };
+};
+
 export type Message = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+  attachments?: MessageAttachment[];
 };
 
 export type Conversation = {

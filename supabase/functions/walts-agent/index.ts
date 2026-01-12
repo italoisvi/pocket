@@ -1,10 +1,231 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { jsPDF } from 'https://esm.sh/jspdf@2.5.2';
+import { categorizeWithWalts } from '../_shared/categorize-with-walts.ts';
 
 const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+// Helper para fetch com timeout
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = 60000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// Função para transcrever áudio via Whisper
+async function transcribeAudio(audioUrl: string): Promise<string> {
+  const startTime = Date.now();
+
+  try {
+    console.log('[walts-agent] START transcription for:', audioUrl);
+
+    if (!OPENAI_API_KEY) {
+      console.error('[walts-agent] OPENAI_API_KEY not configured!');
+      throw new Error('OpenAI API key not configured');
+    }
+
+    // Baixar o arquivo de áudio com timeout de 30s
+    console.log('[walts-agent] Downloading audio file...');
+    const downloadStart = Date.now();
+    const audioResponse = await fetchWithTimeout(audioUrl, {}, 30000);
+    console.log('[walts-agent] Download took:', Date.now() - downloadStart, 'ms');
+
+    if (!audioResponse.ok) {
+      throw new Error(`Failed to download audio: ${audioResponse.status}`);
+    }
+
+    const audioBlob = await audioResponse.blob();
+    const sizeKB = (audioBlob.size / 1024).toFixed(2);
+    console.log('[walts-agent] Audio size:', sizeKB, 'KB');
+
+    if (audioBlob.size === 0) {
+      throw new Error('Downloaded audio file is empty');
+    }
+
+    // Verificar se o arquivo não é muito grande (max 25MB para Whisper)
+    if (audioBlob.size > 25 * 1024 * 1024) {
+      throw new Error('Audio file too large (max 25MB)');
+    }
+
+    // Criar FormData para enviar ao Whisper
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.m4a');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'pt');
+
+    console.log('[walts-agent] Sending to Whisper API...');
+    const whisperStart = Date.now();
+
+    // Enviar para OpenAI Whisper com timeout de 60s (Edge Functions podem ter limite)
+    const whisperResponse = await fetchWithTimeout(
+      'https://api.openai.com/v1/audio/transcriptions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: formData,
+      },
+      55000 // 55 segundos (abaixo do timeout da Edge Function)
+    );
+
+    console.log('[walts-agent] Whisper API took:', Date.now() - whisperStart, 'ms');
+
+    if (!whisperResponse.ok) {
+      const errorText = await whisperResponse.text();
+      console.error('[walts-agent] Whisper error:', errorText);
+      throw new Error(
+        `Whisper transcription failed: ${whisperResponse.status} - ${errorText}`
+      );
+    }
+
+    const result = await whisperResponse.json();
+    console.log('[walts-agent] TOTAL transcription time:', Date.now() - startTime, 'ms');
+    console.log('[walts-agent] Transcription result:', result.text?.substring(0, 100));
+
+    return result.text || '';
+  } catch (error: any) {
+    console.error('[walts-agent] Transcribe error after', Date.now() - startTime, 'ms:', error.message);
+    throw error;
+  }
+}
+
+// Processa mensagens para transcrever áudios antes de enviar ao LLM
+// IMPORTANTE: Só processa o ÚLTIMO áudio para evitar reprocessar histórico
+async function processMessagesWithAudio(messages: any[]): Promise<any[]> {
+  const processedMessages = [];
+
+  console.log(
+    '[walts-agent] Processing',
+    messages.length,
+    'messages for audio'
+  );
+
+  // Encontrar o índice da última mensagem com áudio (para processar apenas ela)
+  let lastAudioMessageIndex = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (
+      msg.attachments &&
+      Array.isArray(msg.attachments) &&
+      msg.attachments.some((a: any) => a.type === 'audio' && a.url)
+    ) {
+      lastAudioMessageIndex = i;
+      break;
+    }
+  }
+
+  console.log('[walts-agent] Last audio message index:', lastAudioMessageIndex);
+
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+
+    // Só processar áudio se for a ÚLTIMA mensagem com áudio
+    const shouldProcessAudio = i === lastAudioMessageIndex;
+
+    // Verificar se a mensagem tem attachments de áudio
+    if (
+      shouldProcessAudio &&
+      message.attachments &&
+      Array.isArray(message.attachments)
+    ) {
+      const audioAttachments = message.attachments.filter(
+        (a: any) => a.type === 'audio' && a.url
+      );
+
+      console.log(
+        '[walts-agent] Processing',
+        audioAttachments.length,
+        'audio attachments from last message'
+      );
+
+      if (audioAttachments.length > 0) {
+        // Transcrever todos os áudios
+        const transcriptions: string[] = [];
+        for (const audio of audioAttachments) {
+          console.log('[walts-agent] Processing audio:', audio.url);
+          try {
+            const transcription = await transcribeAudio(audio.url);
+            if (transcription && transcription.trim().length > 0) {
+              transcriptions.push(transcription.trim());
+              console.log(
+                '[walts-agent] Transcription added:',
+                transcription.substring(0, 50) + '...'
+              );
+            } else {
+              console.warn('[walts-agent] Transcription returned empty');
+              transcriptions.push('[Áudio recebido - transcrição vazia]');
+            }
+          } catch (error: any) {
+            console.error('[walts-agent] Failed to transcribe audio:', error?.message || error);
+            // Se falhar, adicionar mensagem de erro informativa
+            transcriptions.push(`[Erro ao transcrever áudio: ${error?.message || 'erro desconhecido'}]`);
+          }
+        }
+
+        // Combinar transcrições com o conteúdo original
+        let content = message.content || '';
+        if (transcriptions.length > 0) {
+          const audioText = transcriptions.join(' ');
+          content = content ? `${content}\n\n${audioText}` : audioText;
+        } else {
+          // Fallback se não conseguiu nenhuma transcrição
+          content = content || '[Mensagem de áudio recebida]';
+        }
+
+        console.log('[walts-agent] Final audio message content:', {
+          length: content.length,
+          preview: content.substring(0, 100),
+        });
+
+        processedMessages.push({
+          role: message.role,
+          content,
+        });
+        continue;
+      }
+    }
+
+    // Mensagem sem áudio (ou áudio antigo já processado) - passar normalmente
+    // Para áudios antigos, usar o conteúdo salvo (que pode ser a transcrição anterior ou placeholder)
+    let content = message.content || '';
+
+    // Se for mensagem antiga de áudio sem conteúdo, adicionar placeholder
+    if (
+      !content &&
+      message.attachments?.some((a: any) => a.type === 'audio')
+    ) {
+      content = '[Mensagem de áudio anterior]';
+    }
+
+    processedMessages.push({
+      role: message.role,
+      content,
+    });
+  }
+
+  console.log(
+    '[walts-agent] Processed messages count:',
+    processedMessages.length
+  );
+  return processedMessages;
+}
 
 // Definição das ferramentas (tools) que o Walts pode usar
 const WALTS_TOOLS = [
@@ -416,10 +637,259 @@ const WALTS_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'recategorize_expenses',
+      description:
+        'Recategoriza despesas existentes usando IA. Use quando o usuário pedir para recategorizar gastos que estão como "outros" ou com categoria errada.',
+      parameters: {
+        type: 'object',
+        properties: {
+          force_all: {
+            type: 'boolean',
+            description:
+              'Se true, recategoriza TODOS os gastos. Se false (padrão), apenas recategoriza os que estão como "outros".',
+            default: false,
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'categorize_open_finance_transactions',
+      description:
+        'Categoriza transações existentes do Open Finance (extrato bancário) sem criar duplicatas. Use quando o usuário pedir para categorizar transações do banco, do extrato, ou quando quiser organizar gastos do Open Finance que ainda não foram categorizados.',
+      parameters: {
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description:
+              'Número de dias para buscar transações (ex: 30 para último mês). Padrão: 30 dias.',
+            default: 30,
+          },
+          only_uncategorized: {
+            type: 'boolean',
+            description:
+              'Se true (padrão), categoriza apenas transações sem categoria ou como "outros". Se false, recategoriza todas.',
+            default: true,
+          },
+          account_name: {
+            type: 'string',
+            description:
+              'Nome do banco/conta específica (ex: Nubank, Inter). Se não especificado, processa todas as contas.',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_pocket_data',
+      description:
+        'Busca TODOS os dados do Pocket do usuário. Use esta ferramenta para responder perguntas sobre comprovantes, gastos, perfil, cartões, faturas, gastos fixos/variáveis, resumos financeiros. SEMPRE use esta ferramenta quando o usuário perguntar sobre seus dados no app.',
+      parameters: {
+        type: 'object',
+        properties: {
+          data_type: {
+            type: 'string',
+            enum: [
+              'expenses',
+              'profile',
+              'credit_cards',
+              'credit_card_transactions',
+              'bank_accounts',
+              'connected_banks',
+              'budgets',
+              'fixed_costs',
+              'variable_costs',
+              'analysis_history',
+              'summary',
+              'all',
+            ],
+            description:
+              'Tipo de dados a buscar: expenses (comprovantes/gastos), profile (perfil com salário), credit_cards (cartões de crédito), credit_card_transactions (faturas), bank_accounts (contas bancárias), connected_banks (bancos conectados e status), budgets (orçamentos), fixed_costs (gastos fixos), variable_costs (gastos variáveis), analysis_history (histórico de Raio-X), summary (resumo geral), all (tudo)',
+          },
+          days: {
+            type: 'number',
+            description:
+              'Número de dias para buscar histórico. Padrão: 30 dias (mês atual).',
+            default: 30,
+          },
+          category: {
+            type: 'string',
+            description:
+              'Filtrar por categoria específica (ex: alimentacao, transporte, moradia).',
+          },
+        },
+        required: ['data_type'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_expense',
+      description:
+        'Exclui um comprovante/gasto do usuário. Use quando o usuário pedir para remover, apagar ou deletar um gasto. SEMPRE peça confirmação antes de excluir.',
+      parameters: {
+        type: 'object',
+        properties: {
+          expense_id: {
+            type: 'string',
+            description:
+              'ID do gasto a ser excluído. Se não tiver o ID, busque primeiro com get_pocket_data.',
+          },
+          confirm: {
+            type: 'boolean',
+            description:
+              'Confirmação de exclusão. SEMPRE defina como false na primeira chamada para mostrar o gasto ao usuário, depois true para confirmar.',
+            default: false,
+          },
+        },
+        required: ['expense_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_expense',
+      description:
+        'Atualiza um comprovante/gasto existente. Use quando o usuário pedir para editar, alterar, corrigir um gasto.',
+      parameters: {
+        type: 'object',
+        properties: {
+          expense_id: {
+            type: 'string',
+            description: 'ID do gasto a ser atualizado',
+          },
+          establishment_name: {
+            type: 'string',
+            description: 'Novo nome do estabelecimento',
+          },
+          amount: {
+            type: 'number',
+            description: 'Novo valor do gasto',
+          },
+          category: {
+            type: 'string',
+            enum: [
+              'alimentacao',
+              'transporte',
+              'lazer',
+              'saude',
+              'educacao',
+              'moradia',
+              'vestuario',
+              'beleza',
+              'eletronicos',
+              'delivery',
+              'transferencias',
+              'outros',
+            ],
+            description: 'Nova categoria',
+          },
+          subcategory: {
+            type: 'string',
+            description: 'Nova subcategoria',
+          },
+          date: {
+            type: 'string',
+            description: 'Nova data no formato YYYY-MM-DD',
+          },
+          notes: {
+            type: 'string',
+            description: 'Novas observações/notas',
+          },
+        },
+        required: ['expense_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_budget',
+      description:
+        'Exclui um orçamento existente. Use quando o usuário pedir para remover um limite/orçamento de gastos. SEMPRE peça confirmação.',
+      parameters: {
+        type: 'object',
+        properties: {
+          category_id: {
+            type: 'string',
+            enum: [
+              'alimentacao',
+              'transporte',
+              'lazer',
+              'saude',
+              'educacao',
+              'moradia',
+              'vestuario',
+              'outros',
+            ],
+            description: 'Categoria do orçamento a excluir',
+          },
+          confirm: {
+            type: 'boolean',
+            description:
+              'Confirmação de exclusão. SEMPRE defina como false primeiro para mostrar o orçamento, depois true para confirmar.',
+            default: false,
+          },
+        },
+        required: ['category_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'export_data',
+      description:
+        'Exporta dados financeiros do usuário e gera link para download. Use quando o usuário pedir para exportar, baixar, fazer backup ou gerar relatório dos dados.',
+      parameters: {
+        type: 'object',
+        properties: {
+          format: {
+            type: 'string',
+            enum: ['csv', 'json'],
+            description: 'Formato de exportação',
+            default: 'csv',
+          },
+          data_types: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: ['expenses', 'budgets', 'profile', 'transactions'],
+            },
+            description: 'Tipos de dados a exportar. Se vazio, exporta tudo.',
+          },
+          date_from: {
+            type: 'string',
+            description: 'Data inicial no formato YYYY-MM-DD (opcional)',
+          },
+          date_to: {
+            type: 'string',
+            description: 'Data final no formato YYYY-MM-DD (opcional)',
+          },
+        },
+      },
+    },
+  },
 ];
 
 // System prompt para o Walts Agent
-const WALTS_SYSTEM_PROMPT = `Você é o Walts, um assistente financeiro pessoal inteligente e proativo.
+const WALTS_SYSTEM_PROMPT = `Você é o Walts, o GUARDIÃO e agente principal do app Pocket - um assistente financeiro pessoal inteligente e proativo.
+
+VOCÊ TEM ACESSO TOTAL AO POCKET:
+- Você é o agente que vê TUDO do usuário no app
+- Comprovantes, gastos, perfil, salário, cartões, faturas, orçamentos, bancos conectados
+- Histórico de análises, padrões financeiros, memória de preferências
+- Use get_pocket_data para acessar qualquer dado que o usuário perguntar
 
 PERSONALIDADE:
 - Seja amigável, mas profissional
@@ -443,6 +913,13 @@ Você pode executar ações reais para ajudar o usuário:
 12. Dar sugestões financeiras personalizadas baseadas em memória
 13. Buscar padrões financeiros aprendidos sobre o usuário
 14. Verificar se um gasto é uma anomalia baseado no histórico
+15. Recategorizar despesas existentes que estão como "outros" ou com categoria errada
+16. Categorizar transações existentes do Open Finance sem criar duplicatas
+17. ACESSAR TODOS OS DADOS DO POCKET: comprovantes, perfil, salário, cartões de crédito, faturas, gastos fixos/variáveis, resumos
+18. EXCLUIR comprovantes/gastos (com confirmação)
+19. EDITAR comprovantes/gastos existentes
+20. EXCLUIR orçamentos (com confirmação)
+21. EXPORTAR dados e gerar link de download
 
 APRENDIZADO E PERSONALIZAÇÃO:
 Você tem acesso a padrões financeiros aprendidos sobre cada usuário. Use-os para:
@@ -463,9 +940,38 @@ COMO USAR SUAS FERRAMENTAS:
 - "analisa meus gastos com alimentação" → analyze_spending_pattern
 - "onde posso economizar?" → suggest_savings
 - "vou passar do orçamento esse mês?" → forecast_month_end
+- "recategoriza meus gastos" ou "arruma as categorias" → recategorize_expenses
+- "categoriza as transações do banco" ou "organiza meu extrato" → categorize_open_finance_transactions
 - Quando usuário menciona preferência → save_user_preference (ex: "prefiro gastar mais em lazer")
 - No início de conversas importantes → get_user_context para personalizar resposta
 - SEMPRE confirme com o usuário antes de executar uma ação que modifica dados
+
+CATEGORIZAÇÃO DE TRANSAÇÕES EXISTENTES:
+- Use recategorize_expenses para recategorizar gastos/comprovantes manuais existentes
+- Use categorize_open_finance_transactions para categorizar transações do Open Finance (banco) sem criar duplicatas
+- Ambas as ferramentas usam IA para categorizar automaticamente
+- Não criam duplicatas - apenas atualizam categorias de transações existentes
+
+ACESSO COMPLETO AOS DADOS DO POCKET (use get_pocket_data):
+- "quais comprovantes eu adicionei?" → data_type: expenses
+- "qual meu salário?" ou "meu perfil" → data_type: profile
+- "quais cartões eu tenho?" → data_type: credit_cards
+- "me mostra a fatura do cartão" → data_type: credit_card_transactions
+- "quais contas bancárias?" → data_type: bank_accounts
+- "quais bancos conectei?" → data_type: connected_banks
+- "meus orçamentos" → data_type: budgets
+- "quais meus gastos fixos?" → data_type: fixed_costs
+- "quais meus gastos variáveis?" → data_type: variable_costs
+- "histórico de análises" → data_type: analysis_history
+- "resumo do mês" ou "como estou?" → data_type: summary
+- "me mostra tudo" → data_type: all
+- SEMPRE use get_pocket_data quando o usuário perguntar sobre QUALQUER dado do app
+
+GERENCIAMENTO DE DADOS:
+- "apaga/exclui esse gasto" ou "remove o comprovante do Subway" → delete_expense (SEMPRE confirme antes)
+- "edita/altera o gasto" ou "muda o valor pra R$ 50" → update_expense
+- "remove o orçamento de alimentação" → delete_budget (SEMPRE confirme antes)
+- "exporta meus dados" ou "quero baixar meus gastos" → export_data (retorna link de download)
 
 APRENDIZADO E MEMÓRIA:
 - Quando o usuário mencionar preferências, prioridades ou padrões de comportamento, SEMPRE salve usando save_user_preference
@@ -527,21 +1033,99 @@ serve(async (req) => {
 
     const { messages } = await req.json();
 
+    // DEBUG: Log detalhado das mensagens recebidas
+    console.log('[walts-agent] ========== REQUEST RECEIVED ==========');
+    console.log('[walts-agent] Total messages:', messages.length);
+
+    // Log da última mensagem para debug
+    const lastMsg = messages[messages.length - 1];
+    console.log('[walts-agent] Last message details:', {
+      role: lastMsg?.role,
+      contentLength: lastMsg?.content?.length || 0,
+      contentPreview: lastMsg?.content?.substring(0, 50),
+      hasAttachments: !!lastMsg?.attachments,
+      attachmentsCount: lastMsg?.attachments?.length || 0,
+      attachments: lastMsg?.attachments?.map((a: any) => ({
+        type: a?.type,
+        hasUrl: !!a?.url,
+        urlPreview: a?.url?.substring(0, 50),
+      })),
+    });
+
+    // Processar mensagens com áudio (transcrever antes de enviar ao LLM)
+    console.log('[walts-agent] Processing messages for audio transcription...');
+
+    let processedMessages;
+    try {
+      processedMessages = await processMessagesWithAudio(messages);
+      console.log('[walts-agent] Audio processing completed successfully');
+    } catch (audioError) {
+      console.error('[walts-agent] Audio processing failed:', audioError);
+      // Fallback: usar mensagens originais sem transcrição
+      processedMessages = messages.map((m: any) => ({
+        role: m.role,
+        content: m.content || '[Erro ao processar mensagem de áudio]',
+      }));
+    }
+
+    // Limitar histórico para evitar problemas com contexto muito longo
+    // DeepSeek tem limite de ~32k tokens, precisamos manter o histórico pequeno
+    const maxHistoryMessages = 10;
+    if (processedMessages.length > maxHistoryMessages) {
+      console.log('[walts-agent] Trimming message history from', processedMessages.length, 'to', maxHistoryMessages);
+      processedMessages = processedMessages.slice(-maxHistoryMessages);
+    }
+
+    // Também truncar mensagens muito longas individualmente
+    processedMessages = processedMessages.map((msg: any) => ({
+      ...msg,
+      content: msg.content?.length > 2000
+        ? msg.content.substring(0, 2000) + '... [mensagem truncada]'
+        : msg.content,
+    }));
+
     // Loop do agente - continua até não haver mais tool calls
     let conversationMessages = [
       { role: 'system', content: WALTS_SYSTEM_PROMPT },
-      ...messages,
+      ...processedMessages,
     ];
+
+    // Calcular tamanho aproximado do contexto
+    const contextSize = conversationMessages.reduce((acc, m) => acc + (m.content?.length || 0), 0);
+    const lastUserMessage = processedMessages[processedMessages.length - 1];
+
+    console.log('[walts-agent] Context stats:', {
+      messageCount: conversationMessages.length,
+      contextChars: contextSize,
+      lastMessageContent: lastUserMessage?.content?.substring(0, 100),
+      lastMessageLength: lastUserMessage?.content?.length || 0,
+    });
+
+    // IMPORTANTE: Se a última mensagem está vazia, retornar erro ao invés de tentar processar
+    if (!lastUserMessage?.content || lastUserMessage.content.trim().length === 0) {
+      console.error('[walts-agent] Last message is empty! This will cause issues.');
+      return new Response(
+        JSON.stringify({
+          response: 'Desculpe, não consegui processar sua mensagem. Por favor, tente novamente ou envie uma mensagem de texto.',
+          error: 'Empty message content',
+          debug: {
+            lastMessageRole: lastUserMessage?.role,
+            hasContent: !!lastUserMessage?.content,
+            contentLength: lastUserMessage?.content?.length || 0,
+          },
+        }),
+        { headers }
+      );
+    }
 
     let maxIterations = 5; // Limite de segurança
     let iteration = 0;
+    let toolsCalledThisSession: string[] = [];
 
     while (iteration < maxIterations) {
       iteration++;
 
-      console.log(
-        `[walts-agent] Iteration ${iteration}, sending to DeepSeek...`
-      );
+      console.log(`[walts-agent] === ITERATION ${iteration} ===`);
 
       // Chamar DeepSeek com function calling
       const deepseekResponse = await fetch(
@@ -558,6 +1142,7 @@ serve(async (req) => {
             tools: WALTS_TOOLS,
             tool_choice: 'auto',
             temperature: 0.7,
+            max_tokens: 2048, // Limitar tamanho da resposta
           }),
         }
       );
@@ -565,10 +1150,30 @@ serve(async (req) => {
       if (!deepseekResponse.ok) {
         const errorText = await deepseekResponse.text();
         console.error('[walts-agent] DeepSeek error:', errorText);
-        throw new Error('Failed to get response from DeepSeek');
+        // Retornar erro mais informativo ao invés de looping
+        return new Response(
+          JSON.stringify({
+            response: 'Desculpe, houve um erro ao processar sua mensagem. Tente enviar uma mensagem mais curta ou inicie uma nova conversa.',
+            error: `DeepSeek error: ${deepseekResponse.status}`,
+          }),
+          { headers }
+        );
       }
 
       const deepseekData = await deepseekResponse.json();
+
+      // Verificar se a resposta é válida
+      if (!deepseekData.choices || !deepseekData.choices[0] || !deepseekData.choices[0].message) {
+        console.error('[walts-agent] Invalid DeepSeek response:', JSON.stringify(deepseekData));
+        return new Response(
+          JSON.stringify({
+            response: 'Desculpe, recebi uma resposta inválida. Tente novamente.',
+            error: 'Invalid response structure',
+          }),
+          { headers }
+        );
+      }
+
       const assistantMessage = deepseekData.choices[0].message;
 
       console.log(
@@ -595,9 +1200,22 @@ serve(async (req) => {
       }
 
       // Executar cada tool call
-      console.log(
-        `[walts-agent] Executing ${assistantMessage.tool_calls.length} tool call(s)`
-      );
+      const toolNames = assistantMessage.tool_calls.map((tc: any) => tc.function.name);
+      console.log(`[walts-agent] Tools being called:`, toolNames);
+      toolsCalledThisSession.push(...toolNames);
+
+      // Detectar loop infinito (mesmo tool sendo chamado repetidamente)
+      if (toolsCalledThisSession.length > 10) {
+        console.warn('[walts-agent] Too many tool calls, breaking loop. Tools called:', toolsCalledThisSession);
+        return new Response(
+          JSON.stringify({
+            response: 'Desculpe, houve um problema ao processar sua solicitação. Por favor, tente com uma pergunta mais simples.',
+            error: 'Too many tool calls',
+            toolsCalled: toolsCalledThisSession,
+          }),
+          { headers }
+        );
+      }
 
       for (const toolCall of assistantMessage.tool_calls) {
         const functionName = toolCall.function.name;
@@ -605,7 +1223,7 @@ serve(async (req) => {
 
         console.log(
           `[walts-agent] Executing tool: ${functionName} with args:`,
-          functionArgs
+          JSON.stringify(functionArgs).substring(0, 200)
         );
 
         let toolResult;
@@ -666,6 +1284,28 @@ serve(async (req) => {
             );
           } else if (functionName === 'check_if_anomaly') {
             toolResult = await checkIfAnomaly(supabase, user.id, functionArgs);
+          } else if (functionName === 'recategorize_expenses') {
+            toolResult = await recategorizeExpenses(
+              supabase,
+              user.id,
+              functionArgs
+            );
+          } else if (functionName === 'categorize_open_finance_transactions') {
+            toolResult = await categorizeOpenFinanceTransactions(
+              supabase,
+              user.id,
+              functionArgs
+            );
+          } else if (functionName === 'get_pocket_data') {
+            toolResult = await getPocketData(supabase, user.id, functionArgs);
+          } else if (functionName === 'delete_expense') {
+            toolResult = await deleteExpense(supabase, user.id, functionArgs);
+          } else if (functionName === 'update_expense') {
+            toolResult = await updateExpense(supabase, user.id, functionArgs);
+          } else if (functionName === 'delete_budget') {
+            toolResult = await deleteBudget(supabase, user.id, functionArgs);
+          } else if (functionName === 'export_data') {
+            toolResult = await exportData(supabase, user.id, functionArgs);
           } else {
             toolResult = {
               success: false,
@@ -692,11 +1332,12 @@ serve(async (req) => {
     }
 
     // Se chegou aqui, excedeu o limite de iterações
-    console.warn('[walts-agent] Max iterations reached');
+    console.warn('[walts-agent] Max iterations reached. Last conversation length:', conversationMessages.length);
+    console.warn('[walts-agent] This usually means DeepSeek kept calling tools without stopping');
     return new Response(
       JSON.stringify({
         response:
-          'Desculpe, encontrei um problema ao processar sua solicitação. Tente novamente.',
+          'Desculpe, encontrei um problema ao processar sua solicitação (loop de ferramentas). Tente novamente com uma pergunta mais simples.',
         error: 'Max iterations exceeded',
       }),
       { headers }
@@ -2636,6 +3277,1425 @@ async function checkIfAnomaly(
     return {
       success: false,
       error: error.message || 'Erro desconhecido',
+    };
+  }
+}
+
+// ==================== RECATEGORIZAÇÃO DE EXPENSES ====================
+
+async function recategorizeExpenses(
+  supabase: any,
+  userId: string,
+  args: { force_all?: boolean }
+) {
+  try {
+    const forceAll = args.force_all === true;
+
+    console.log(
+      `[recategorizeExpenses] Starting for user ${userId}, forceAll=${forceAll}`
+    );
+
+    // Buscar expenses que precisam ser recategorizadas
+    let query = supabase
+      .from('expenses')
+      .select('id, establishment_name, amount, category, subcategory')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    if (!forceAll) {
+      query = query.eq('category', 'outros');
+    }
+
+    const { data: expenses, error: fetchError } = await query;
+
+    if (fetchError) {
+      console.error(
+        '[recategorizeExpenses] Error fetching expenses:',
+        fetchError
+      );
+      return {
+        success: false,
+        error: `Erro ao buscar despesas: ${fetchError.message}`,
+      };
+    }
+
+    if (!expenses || expenses.length === 0) {
+      return {
+        success: true,
+        message: forceAll
+          ? 'Nenhuma despesa encontrada para recategorizar.'
+          : 'Não há despesas categorizadas como "outros" para recategorizar.',
+        recategorized: 0,
+      };
+    }
+
+    console.log(`[recategorizeExpenses] Found ${expenses.length} expenses`);
+
+    // Recategorizar cada expense
+    let recategorized = 0;
+    let failed = 0;
+    const results: Array<{
+      name: string;
+      oldCategory: string;
+      newCategory: string;
+      newSubcategory: string;
+    }> = [];
+
+    // Processar em lotes de 5
+    const batchSize = 5;
+    for (let i = 0; i < expenses.length; i += batchSize) {
+      const batch = expenses.slice(i, i + batchSize);
+
+      await Promise.all(
+        batch.map(async (expense: any) => {
+          try {
+            const categorization = await categorizeWithWalts(
+              expense.establishment_name,
+              { amount: expense.amount }
+            );
+
+            if (
+              categorization.category !== expense.category ||
+              categorization.subcategory !== expense.subcategory
+            ) {
+              const { error: updateError } = await supabase
+                .from('expenses')
+                .update({
+                  category: categorization.category,
+                  subcategory: categorization.subcategory,
+                })
+                .eq('id', expense.id);
+
+              if (updateError) {
+                console.error(
+                  `[recategorizeExpenses] Error updating expense ${expense.id}:`,
+                  updateError
+                );
+                failed++;
+                return;
+              }
+
+              recategorized++;
+              results.push({
+                name: expense.establishment_name,
+                oldCategory: expense.category,
+                newCategory: categorization.category,
+                newSubcategory: categorization.subcategory,
+              });
+
+              console.log(
+                `[recategorizeExpenses] Recategorized "${expense.establishment_name}": ${expense.category} -> ${categorization.category}`
+              );
+            }
+          } catch (error) {
+            console.error(
+              `[recategorizeExpenses] Error processing expense ${expense.id}:`,
+              error
+            );
+            failed++;
+          }
+        })
+      );
+
+      // Delay entre lotes
+      if (i + batchSize < expenses.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    console.log(
+      `[recategorizeExpenses] Completed. Recategorized: ${recategorized}, Failed: ${failed}`
+    );
+
+    // Gerar mensagem de resumo
+    let message = `✅ Recategorização concluída!\n`;
+    message += `📊 Total analisado: ${expenses.length}\n`;
+    message += `🔄 Recategorizados: ${recategorized}\n`;
+    if (failed > 0) {
+      message += `❌ Falhas: ${failed}\n`;
+    }
+
+    if (results.length > 0 && results.length <= 10) {
+      message += `\nAlterações:\n`;
+      results.forEach((r) => {
+        message += `• ${r.name}: ${r.oldCategory} → ${r.newCategory}/${r.newSubcategory}\n`;
+      });
+    } else if (results.length > 10) {
+      message += `\nPrimeiras 10 alterações:\n`;
+      results.slice(0, 10).forEach((r) => {
+        message += `• ${r.name}: ${r.oldCategory} → ${r.newCategory}/${r.newSubcategory}\n`;
+      });
+      message += `...e mais ${results.length - 10} alterações.`;
+    }
+
+    return {
+      success: true,
+      total: expenses.length,
+      recategorized,
+      failed,
+      unchanged: expenses.length - recategorized - failed,
+      results: results.slice(0, 20),
+      message,
+    };
+  } catch (error) {
+    console.error('[recategorizeExpenses] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro desconhecido',
+    };
+  }
+}
+
+// ==================== CATEGORIZAÇÃO DE TRANSAÇÕES DO OPEN FINANCE ====================
+
+async function categorizeOpenFinanceTransactions(
+  supabase: any,
+  userId: string,
+  args: { days?: number; only_uncategorized?: boolean; account_name?: string }
+) {
+  try {
+    const days = args.days || 30;
+    const onlyUncategorized = args.only_uncategorized !== false;
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - days);
+    const fromDateStr = fromDate.toISOString().split('T')[0];
+
+    console.log(
+      `[categorizeOpenFinanceTransactions] Starting for user ${userId}, days=${days}, onlyUncategorized=${onlyUncategorized}`
+    );
+
+    // Buscar contas do usuário
+    let accountsQuery = supabase
+      .from('pluggy_accounts')
+      .select('id, name, type')
+      .eq('user_id', userId)
+      .in('type', ['BANK', 'CHECKING']);
+
+    if (args.account_name) {
+      accountsQuery = accountsQuery.ilike('name', `%${args.account_name}%`);
+    }
+
+    const { data: accounts, error: accountsError } = await accountsQuery;
+
+    if (accountsError || !accounts || accounts.length === 0) {
+      return {
+        success: false,
+        error: args.account_name
+          ? `Conta "${args.account_name}" não encontrada`
+          : 'Nenhuma conta bancária conectada via Open Finance',
+      };
+    }
+
+    console.log(
+      `[categorizeOpenFinanceTransactions] Found ${accounts.length} account(s)`
+    );
+
+    const accountIds = accounts.map((acc: any) => acc.id);
+
+    // Buscar transações que precisam de categorização
+    // Buscamos transações que têm expense_id (já foram sincronizadas como expenses)
+    let txQuery = supabase
+      .from('pluggy_transactions')
+      .select('id, description, amount, date, expense_id, account_id')
+      .in('account_id', accountIds)
+      .eq('type', 'DEBIT')
+      .gte('date', fromDateStr)
+      .not('expense_id', 'is', null); // Apenas transações que já têm expense vinculado
+
+    const { data: transactions, error: txError } = await txQuery;
+
+    if (txError) {
+      console.error(
+        '[categorizeOpenFinanceTransactions] Error fetching transactions:',
+        txError
+      );
+      return {
+        success: false,
+        error: `Erro ao buscar transações: ${txError.message}`,
+      };
+    }
+
+    if (!transactions || transactions.length === 0) {
+      return {
+        success: true,
+        message: `Nenhuma transação do Open Finance encontrada nos últimos ${days} dias que precise de categorização.`,
+        categorized: 0,
+      };
+    }
+
+    console.log(
+      `[categorizeOpenFinanceTransactions] Found ${transactions.length} transactions with expenses`
+    );
+
+    // Buscar os expenses vinculados para verificar categorias
+    const expenseIds = transactions
+      .map((tx: any) => tx.expense_id)
+      .filter((id: any) => id);
+
+    let expensesQuery = supabase
+      .from('expenses')
+      .select('id, establishment_name, amount, category, subcategory')
+      .in('id', expenseIds);
+
+    if (onlyUncategorized) {
+      expensesQuery = expensesQuery.eq('category', 'outros');
+    }
+
+    const { data: expenses, error: expensesError } = await expensesQuery;
+
+    if (expensesError) {
+      console.error(
+        '[categorizeOpenFinanceTransactions] Error fetching expenses:',
+        expensesError
+      );
+      return {
+        success: false,
+        error: `Erro ao buscar expenses: ${expensesError.message}`,
+      };
+    }
+
+    if (!expenses || expenses.length === 0) {
+      return {
+        success: true,
+        message: onlyUncategorized
+          ? `Todas as transações do Open Finance nos últimos ${days} dias já estão categorizadas! 🎉`
+          : `Nenhuma transação encontrada para recategorizar.`,
+        categorized: 0,
+      };
+    }
+
+    console.log(
+      `[categorizeOpenFinanceTransactions] Found ${expenses.length} expenses to categorize`
+    );
+
+    // Categorizar cada expense
+    let categorized = 0;
+    let failed = 0;
+    const results: Array<{
+      name: string;
+      oldCategory: string;
+      newCategory: string;
+      newSubcategory: string;
+    }> = [];
+
+    // Processar em lotes de 5
+    const batchSize = 5;
+    for (let i = 0; i < expenses.length; i += batchSize) {
+      const batch = expenses.slice(i, i + batchSize);
+
+      await Promise.all(
+        batch.map(async (expense: any) => {
+          try {
+            const categorization = await categorizeWithWalts(
+              expense.establishment_name,
+              { amount: expense.amount }
+            );
+
+            if (
+              categorization.category !== expense.category ||
+              categorization.subcategory !== expense.subcategory
+            ) {
+              const { error: updateError } = await supabase
+                .from('expenses')
+                .update({
+                  category: categorization.category,
+                  subcategory: categorization.subcategory,
+                })
+                .eq('id', expense.id);
+
+              if (updateError) {
+                console.error(
+                  `[categorizeOpenFinanceTransactions] Error updating expense ${expense.id}:`,
+                  updateError
+                );
+                failed++;
+                return;
+              }
+
+              categorized++;
+              results.push({
+                name: expense.establishment_name,
+                oldCategory: expense.category,
+                newCategory: categorization.category,
+                newSubcategory: categorization.subcategory,
+              });
+
+              console.log(
+                `[categorizeOpenFinanceTransactions] Categorized "${expense.establishment_name}": ${expense.category} -> ${categorization.category}`
+              );
+            }
+          } catch (error) {
+            console.error(
+              `[categorizeOpenFinanceTransactions] Error processing expense ${expense.id}:`,
+              error
+            );
+            failed++;
+          }
+        })
+      );
+
+      // Delay entre lotes
+      if (i + batchSize < expenses.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    console.log(
+      `[categorizeOpenFinanceTransactions] Completed. Categorized: ${categorized}, Failed: ${failed}`
+    );
+
+    // Gerar mensagem de resumo
+    const accountNames = accounts.map((a: any) => a.name).join(', ');
+    let message = `✅ Categorização do Open Finance concluída!\n`;
+    message += `🏦 Contas: ${accountNames}\n`;
+    message += `📅 Período: últimos ${days} dias\n`;
+    message += `📊 Transações analisadas: ${expenses.length}\n`;
+    message += `🔄 Categorizadas: ${categorized}\n`;
+    if (failed > 0) {
+      message += `❌ Falhas: ${failed}\n`;
+    }
+
+    if (results.length > 0 && results.length <= 10) {
+      message += `\nAlterações:\n`;
+      results.forEach((r) => {
+        message += `• ${r.name}: ${r.oldCategory} → ${r.newCategory}/${r.newSubcategory}\n`;
+      });
+    } else if (results.length > 10) {
+      message += `\nPrimeiras 10 alterações:\n`;
+      results.slice(0, 10).forEach((r) => {
+        message += `• ${r.name}: ${r.oldCategory} → ${r.newCategory}/${r.newSubcategory}\n`;
+      });
+      message += `...e mais ${results.length - 10} alterações.`;
+    }
+
+    return {
+      success: true,
+      accounts: accountNames,
+      period_days: days,
+      total: expenses.length,
+      categorized,
+      failed,
+      unchanged: expenses.length - categorized - failed,
+      results: results.slice(0, 20),
+      message,
+    };
+  } catch (error) {
+    console.error('[categorizeOpenFinanceTransactions] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro desconhecido',
+    };
+  }
+}
+
+// ==================== ACESSO COMPLETO AOS DADOS DO POCKET ====================
+
+// Categorias consideradas gastos fixos
+const FIXED_COST_CATEGORIES = ['moradia', 'saude', 'educacao'];
+
+// Categorias consideradas gastos variáveis
+const VARIABLE_COST_CATEGORIES = [
+  'alimentacao',
+  'transporte',
+  'lazer',
+  'vestuario',
+  'beleza',
+  'eletronicos',
+  'delivery',
+  'outros',
+];
+
+async function getPocketData(
+  supabase: any,
+  userId: string,
+  args: { data_type: string; days?: number; category?: string }
+) {
+  try {
+    const days = args.days || 30;
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - days);
+    const fromDateStr = fromDate.toISOString().split('T')[0];
+
+    console.log(
+      `[getPocketData] Fetching ${args.data_type} for user ${userId}, days=${days}`
+    );
+
+    const result: any = {
+      success: true,
+      data_type: args.data_type,
+      period_days: days,
+    };
+
+    // Helper para buscar expenses
+    const fetchExpenses = async (categoryFilter?: string[]) => {
+      let query = supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('date', fromDateStr)
+        .order('date', { ascending: false });
+
+      if (categoryFilter && categoryFilter.length > 0) {
+        query = query.in('category', categoryFilter);
+      } else if (args.category) {
+        query = query.eq('category', args.category);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    };
+
+    // Helper para buscar perfil
+    const fetchProfile = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    };
+
+    // Helper para buscar cartões de crédito
+    const fetchCreditCards = async () => {
+      const { data, error } = await supabase
+        .from('pluggy_accounts')
+        .select('*, pluggy_items!inner(connector_name)')
+        .eq('user_id', userId)
+        .eq('type', 'CREDIT');
+
+      if (error) throw error;
+      return (data || []).map((card: any) => ({
+        id: card.id,
+        name: card.name,
+        bank: card.pluggy_items?.connector_name || 'Desconhecido',
+        number: card.number,
+        credit_limit: card.credit_limit,
+        available_limit: card.available_credit_limit,
+        balance: card.balance,
+        used: card.credit_limit
+          ? card.credit_limit - (card.available_credit_limit || 0)
+          : null,
+        usage_percent: card.credit_limit
+          ? Math.round(
+              ((card.credit_limit - (card.available_credit_limit || 0)) /
+                card.credit_limit) *
+                100
+            )
+          : null,
+      }));
+    };
+
+    // Helper para buscar contas bancárias
+    const fetchBankAccounts = async () => {
+      const { data, error } = await supabase
+        .from('pluggy_accounts')
+        .select(
+          '*, pluggy_items!inner(connector_name, status, last_updated_at)'
+        )
+        .eq('user_id', userId)
+        .eq('type', 'BANK');
+
+      if (error) throw error;
+      return (data || []).map((acc: any) => ({
+        id: acc.id,
+        name: acc.name,
+        bank: acc.pluggy_items?.connector_name || 'Desconhecido',
+        number: acc.number,
+        balance: acc.balance,
+        currency: acc.currency_code,
+        status: acc.pluggy_items?.status,
+        last_sync: acc.last_sync_at,
+      }));
+    };
+
+    // Helper para buscar bancos conectados
+    const fetchConnectedBanks = async () => {
+      const { data, error } = await supabase
+        .from('pluggy_items')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        bank_name: item.connector_name,
+        connector_id: item.connector_id,
+        status: item.status,
+        last_updated: item.last_updated_at,
+        error_message: item.error_message,
+        created_at: item.created_at,
+      }));
+    };
+
+    // Helper para buscar orçamentos
+    const fetchBudgets = async () => {
+      const { data, error } = await supabase
+        .from('budgets')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      return data || [];
+    };
+
+    // Helper para buscar histórico de análises
+    const fetchAnalysisHistory = async () => {
+      const { data, error } = await supabase
+        .from('walts_analyses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      return (data || []).map((a: any) => ({
+        id: a.id,
+        type: a.analysis_type,
+        content_preview: a.content?.substring(0, 200) + '...',
+        created_at: a.created_at,
+      }));
+    };
+
+    // Helper para buscar transações do cartão de crédito
+    const fetchCreditCardTransactions = async () => {
+      // Primeiro buscar as contas de cartão
+      const { data: cards, error: cardsError } = await supabase
+        .from('pluggy_accounts')
+        .select('id, name')
+        .eq('user_id', userId)
+        .eq('type', 'CREDIT');
+
+      if (cardsError) throw cardsError;
+      if (!cards || cards.length === 0) {
+        return { cards: [], transactions: [] };
+      }
+
+      const cardIds = cards.map((c: any) => c.id);
+
+      // Buscar transações dos cartões
+      const { data: transactions, error: txError } = await supabase
+        .from('pluggy_transactions')
+        .select('*, pluggy_accounts!inner(name)')
+        .in('account_id', cardIds)
+        .gte('date', fromDateStr)
+        .order('date', { ascending: false });
+
+      if (txError) throw txError;
+
+      return {
+        cards: cards,
+        transactions: (transactions || []).map((tx: any) => ({
+          id: tx.id,
+          card_name: tx.pluggy_accounts?.name,
+          description: tx.description,
+          amount: Math.abs(tx.amount),
+          date: tx.date,
+          type: tx.type,
+          category: tx.category,
+          status: tx.status,
+        })),
+      };
+    };
+
+    // Processar baseado no tipo de dados solicitado
+    if (args.data_type === 'expenses' || args.data_type === 'all') {
+      const expenses = await fetchExpenses();
+      result.expenses = {
+        total: expenses.length,
+        total_amount: expenses.reduce(
+          (sum: number, e: any) => sum + parseFloat(e.amount),
+          0
+        ),
+        items: expenses.slice(0, 50).map((e: any) => ({
+          id: e.id,
+          establishment: e.establishment_name,
+          amount: parseFloat(e.amount),
+          date: e.date,
+          category: e.category,
+          subcategory: e.subcategory,
+          has_receipt: !!e.image_url,
+          notes: e.notes,
+        })),
+      };
+    }
+
+    if (args.data_type === 'profile' || args.data_type === 'all') {
+      const profile = await fetchProfile();
+      result.profile = profile
+        ? {
+            name: profile.name,
+            monthly_salary: profile.monthly_salary,
+            salary_payment_day: profile.salary_payment_day,
+            income_source: profile.income_source,
+            income_cards: profile.income_cards,
+            debt_notifications_enabled: profile.debt_notifications_enabled,
+          }
+        : null;
+    }
+
+    if (args.data_type === 'credit_cards' || args.data_type === 'all') {
+      result.credit_cards = await fetchCreditCards();
+    }
+
+    if (
+      args.data_type === 'credit_card_transactions' ||
+      args.data_type === 'all'
+    ) {
+      const ccData = await fetchCreditCardTransactions();
+      result.credit_card_transactions = {
+        cards: ccData.cards.length,
+        total_transactions: ccData.transactions.length,
+        total_amount: ccData.transactions
+          .filter((t: any) => t.type === 'DEBIT')
+          .reduce((sum: number, t: any) => sum + t.amount, 0),
+        transactions: ccData.transactions.slice(0, 50),
+      };
+    }
+
+    if (args.data_type === 'bank_accounts' || args.data_type === 'all') {
+      result.bank_accounts = await fetchBankAccounts();
+    }
+
+    if (args.data_type === 'connected_banks' || args.data_type === 'all') {
+      result.connected_banks = await fetchConnectedBanks();
+    }
+
+    if (args.data_type === 'budgets' || args.data_type === 'all') {
+      const budgets = await fetchBudgets();
+      result.budgets = {
+        total: budgets.length,
+        items: budgets.map((b: any) => ({
+          id: b.id,
+          category: b.category_id,
+          amount: parseFloat(b.amount),
+          period: b.period_type,
+          notifications: b.notifications_enabled,
+          start_date: b.start_date,
+        })),
+      };
+    }
+
+    if (args.data_type === 'analysis_history' || args.data_type === 'all') {
+      result.analysis_history = await fetchAnalysisHistory();
+    }
+
+    if (args.data_type === 'fixed_costs' || args.data_type === 'all') {
+      const fixedExpenses = await fetchExpenses(FIXED_COST_CATEGORIES);
+      result.fixed_costs = {
+        total: fixedExpenses.length,
+        total_amount: fixedExpenses.reduce(
+          (sum: number, e: any) => sum + parseFloat(e.amount),
+          0
+        ),
+        by_category: FIXED_COST_CATEGORIES.reduce((acc: any, cat: string) => {
+          const catExpenses = fixedExpenses.filter(
+            (e: any) => e.category === cat
+          );
+          acc[cat] = {
+            count: catExpenses.length,
+            amount: catExpenses.reduce(
+              (sum: number, e: any) => sum + parseFloat(e.amount),
+              0
+            ),
+          };
+          return acc;
+        }, {}),
+        items: fixedExpenses.slice(0, 30).map((e: any) => ({
+          establishment: e.establishment_name,
+          amount: parseFloat(e.amount),
+          date: e.date,
+          category: e.category,
+          subcategory: e.subcategory,
+        })),
+      };
+    }
+
+    if (args.data_type === 'variable_costs' || args.data_type === 'all') {
+      const variableExpenses = await fetchExpenses(VARIABLE_COST_CATEGORIES);
+      result.variable_costs = {
+        total: variableExpenses.length,
+        total_amount: variableExpenses.reduce(
+          (sum: number, e: any) => sum + parseFloat(e.amount),
+          0
+        ),
+        by_category: VARIABLE_COST_CATEGORIES.reduce(
+          (acc: any, cat: string) => {
+            const catExpenses = variableExpenses.filter(
+              (e: any) => e.category === cat
+            );
+            acc[cat] = {
+              count: catExpenses.length,
+              amount: catExpenses.reduce(
+                (sum: number, e: any) => sum + parseFloat(e.amount),
+                0
+              ),
+            };
+            return acc;
+          },
+          {}
+        ),
+        items: variableExpenses.slice(0, 30).map((e: any) => ({
+          establishment: e.establishment_name,
+          amount: parseFloat(e.amount),
+          date: e.date,
+          category: e.category,
+          subcategory: e.subcategory,
+        })),
+      };
+    }
+
+    if (args.data_type === 'summary' || args.data_type === 'all') {
+      // Buscar todos os dados para o resumo
+      const [allExpenses, profile, creditCards] = await Promise.all([
+        fetchExpenses(),
+        fetchProfile(),
+        fetchCreditCards(),
+      ]);
+
+      const totalExpenses = allExpenses.reduce(
+        (sum: number, e: any) => sum + parseFloat(e.amount),
+        0
+      );
+      const salary = profile?.monthly_salary || 0;
+
+      // Agrupar por categoria
+      const byCategory = allExpenses.reduce((acc: any, e: any) => {
+        const cat = e.category || 'outros';
+        if (!acc[cat]) acc[cat] = { count: 0, amount: 0 };
+        acc[cat].count++;
+        acc[cat].amount += parseFloat(e.amount);
+        return acc;
+      }, {});
+
+      // Calcular gastos fixos e variáveis
+      const fixedAmount = allExpenses
+        .filter((e: any) => FIXED_COST_CATEGORIES.includes(e.category))
+        .reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
+
+      const variableAmount = allExpenses
+        .filter((e: any) => VARIABLE_COST_CATEGORIES.includes(e.category))
+        .reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
+
+      // Total usado nos cartões
+      const totalCreditUsed = creditCards.reduce(
+        (sum: number, c: any) => sum + (c.used || 0),
+        0
+      );
+
+      result.summary = {
+        period: `Últimos ${days} dias`,
+        salary: salary,
+        total_expenses: totalExpenses,
+        remaining: salary - totalExpenses,
+        remaining_percent: salary
+          ? Math.round(((salary - totalExpenses) / salary) * 100)
+          : null,
+        fixed_costs: fixedAmount,
+        variable_costs: variableAmount,
+        expenses_count: allExpenses.length,
+        credit_cards_count: creditCards.length,
+        credit_used: totalCreditUsed,
+        by_category: byCategory,
+        top_categories: Object.entries(byCategory)
+          .sort((a: any, b: any) => b[1].amount - a[1].amount)
+          .slice(0, 5)
+          .map(([cat, data]: any) => ({
+            category: cat,
+            amount: data.amount,
+            count: data.count,
+            percent: totalExpenses
+              ? Math.round((data.amount / totalExpenses) * 100)
+              : 0,
+          })),
+      };
+    }
+
+    // Gerar mensagem de resumo
+    let message = '';
+    if (args.data_type === 'expenses') {
+      message = `📋 Encontrei ${result.expenses.total} comprovantes/gastos nos últimos ${days} dias, totalizando R$ ${result.expenses.total_amount.toFixed(2)}.`;
+    } else if (args.data_type === 'profile') {
+      if (result.profile) {
+        message = `👤 Perfil: ${result.profile.name || 'Sem nome'}, Salário: R$ ${result.profile.monthly_salary?.toFixed(2) || 'não informado'}, Dia de pagamento: ${result.profile.salary_payment_day || 'não informado'}`;
+      } else {
+        message = '👤 Perfil não encontrado ou incompleto.';
+      }
+    } else if (args.data_type === 'credit_cards') {
+      message = `💳 Encontrei ${result.credit_cards.length} cartão(ões) de crédito conectado(s).`;
+    } else if (args.data_type === 'credit_card_transactions') {
+      message = `💳 Encontrei ${result.credit_card_transactions.total_transactions} transações de cartão de crédito, totalizando R$ ${result.credit_card_transactions.total_amount.toFixed(2)}.`;
+    } else if (args.data_type === 'bank_accounts') {
+      message = `🏦 Encontrei ${result.bank_accounts.length} conta(s) bancária(s) conectada(s).`;
+    } else if (args.data_type === 'connected_banks') {
+      message = `🔗 Encontrei ${result.connected_banks.length} banco(s) conectado(s) via Open Finance.`;
+    } else if (args.data_type === 'budgets') {
+      message = `📊 Encontrei ${result.budgets.total} orçamento(s) configurado(s).`;
+    } else if (args.data_type === 'analysis_history') {
+      message = `📈 Encontrei ${result.analysis_history.length} análise(s) Raio-X no histórico.`;
+    } else if (args.data_type === 'fixed_costs') {
+      message = `🏠 Gastos fixos nos últimos ${days} dias: ${result.fixed_costs.total} itens, totalizando R$ ${result.fixed_costs.total_amount.toFixed(2)}.`;
+    } else if (args.data_type === 'variable_costs') {
+      message = `🛒 Gastos variáveis nos últimos ${days} dias: ${result.variable_costs.total} itens, totalizando R$ ${result.variable_costs.total_amount.toFixed(2)}.`;
+    } else if (args.data_type === 'summary') {
+      const s = result.summary;
+      message = `📊 RESUMO FINANCEIRO (últimos ${days} dias):\n`;
+      message += `💰 Salário: R$ ${s.salary?.toFixed(2) || 'N/A'}\n`;
+      message += `💸 Total gasto: R$ ${s.total_expenses.toFixed(2)}\n`;
+      message += `📈 Restante: R$ ${s.remaining.toFixed(2)} (${s.remaining_percent || 0}%)\n`;
+      message += `🏠 Gastos fixos: R$ ${s.fixed_costs.toFixed(2)}\n`;
+      message += `🛒 Gastos variáveis: R$ ${s.variable_costs.toFixed(2)}\n`;
+      message += `📝 Total de comprovantes: ${s.expenses_count}\n`;
+      if (s.credit_cards_count > 0) {
+        message += `💳 Cartões: ${s.credit_cards_count}, usado: R$ ${s.credit_used.toFixed(2)}`;
+      }
+    } else if (args.data_type === 'all') {
+      message = `✅ Dados completos do Pocket carregados com sucesso.`;
+    }
+
+    result.message = message;
+
+    console.log(`[getPocketData] Success:`, message);
+    return result;
+  } catch (error) {
+    console.error('[getPocketData] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro ao buscar dados do Pocket',
+    };
+  }
+}
+
+// ==================== GERENCIAMENTO DE EXPENSES ====================
+
+async function deleteExpense(
+  supabase: any,
+  userId: string,
+  args: { expense_id: string; confirm?: boolean }
+) {
+  try {
+    console.log(
+      `[deleteExpense] Request for user ${userId}, expense ${args.expense_id}, confirm=${args.confirm}`
+    );
+
+    // Primeiro, buscar o expense para mostrar ao usuário
+    const { data: expense, error: fetchError } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('id', args.expense_id)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !expense) {
+      return {
+        success: false,
+        error: 'Gasto não encontrado ou você não tem permissão para excluí-lo.',
+      };
+    }
+
+    // Se não confirmou ainda, mostrar os dados para confirmação
+    if (!args.confirm) {
+      return {
+        success: true,
+        action: 'confirm_required',
+        expense: {
+          id: expense.id,
+          establishment: expense.establishment_name,
+          amount: parseFloat(expense.amount),
+          date: expense.date,
+          category: expense.category,
+          subcategory: expense.subcategory,
+          has_receipt: !!expense.image_url,
+        },
+        message: `⚠️ Confirme a exclusão:\n\n📋 **${expense.establishment_name}**\n💰 R$ ${parseFloat(expense.amount).toFixed(2)}\n📅 ${expense.date}\n📁 ${expense.category}/${expense.subcategory}\n\nPara confirmar, peça ao usuário para confirmar a exclusão.`,
+      };
+    }
+
+    // Se tem imagem, deletar do storage
+    if (expense.image_url) {
+      try {
+        // Extrair path do URL
+        const urlParts = expense.image_url.split('/');
+        const bucketIndex = urlParts.findIndex((p: string) => p === 'receipts');
+        if (bucketIndex >= 0) {
+          const filePath = urlParts.slice(bucketIndex + 1).join('/');
+          await supabase.storage.from('receipts').remove([filePath]);
+          console.log(`[deleteExpense] Deleted image: ${filePath}`);
+        }
+      } catch (imgError) {
+        console.error('[deleteExpense] Error deleting image:', imgError);
+        // Continuar mesmo se falhar a exclusão da imagem
+      }
+    }
+
+    // Deletar o expense
+    const { error: deleteError } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', args.expense_id)
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      console.error('[deleteExpense] Delete error:', deleteError);
+      return {
+        success: false,
+        error: `Erro ao excluir: ${deleteError.message}`,
+      };
+    }
+
+    console.log(
+      `[deleteExpense] Successfully deleted expense ${args.expense_id}`
+    );
+
+    return {
+      success: true,
+      deleted: {
+        id: expense.id,
+        establishment: expense.establishment_name,
+        amount: parseFloat(expense.amount),
+      },
+      message: `✅ Gasto excluído com sucesso!\n\n🗑️ ${expense.establishment_name} - R$ ${parseFloat(expense.amount).toFixed(2)}`,
+    };
+  } catch (error) {
+    console.error('[deleteExpense] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro ao excluir gasto',
+    };
+  }
+}
+
+async function updateExpense(
+  supabase: any,
+  userId: string,
+  args: {
+    expense_id: string;
+    establishment_name?: string;
+    amount?: number;
+    category?: string;
+    subcategory?: string;
+    date?: string;
+    notes?: string;
+  }
+) {
+  try {
+    console.log(`[updateExpense] Request for expense ${args.expense_id}`);
+
+    // Verificar se o expense existe e pertence ao usuário
+    const { data: existing, error: fetchError } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('id', args.expense_id)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !existing) {
+      return {
+        success: false,
+        error: 'Gasto não encontrado ou você não tem permissão para editá-lo.',
+      };
+    }
+
+    // Montar objeto de atualização apenas com campos fornecidos
+    const updates: any = {};
+    if (args.establishment_name)
+      updates.establishment_name = args.establishment_name;
+    if (args.amount !== undefined) updates.amount = args.amount;
+    if (args.category) updates.category = args.category;
+    if (args.subcategory) updates.subcategory = args.subcategory;
+    if (args.date) updates.date = args.date;
+    if (args.notes !== undefined) updates.notes = args.notes;
+
+    if (Object.keys(updates).length === 0) {
+      return {
+        success: false,
+        error: 'Nenhum campo para atualizar foi fornecido.',
+      };
+    }
+
+    // Atualizar o expense
+    const { data: updated, error: updateError } = await supabase
+      .from('expenses')
+      .update(updates)
+      .eq('id', args.expense_id)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('[updateExpense] Update error:', updateError);
+      return {
+        success: false,
+        error: `Erro ao atualizar: ${updateError.message}`,
+      };
+    }
+
+    console.log(
+      `[updateExpense] Successfully updated expense ${args.expense_id}`
+    );
+
+    // Gerar mensagem de mudanças
+    const changes: string[] = [];
+    if (
+      args.establishment_name &&
+      args.establishment_name !== existing.establishment_name
+    ) {
+      changes.push(
+        `Nome: ${existing.establishment_name} → ${args.establishment_name}`
+      );
+    }
+    if (
+      args.amount !== undefined &&
+      args.amount !== parseFloat(existing.amount)
+    ) {
+      changes.push(
+        `Valor: R$ ${parseFloat(existing.amount).toFixed(2)} → R$ ${args.amount.toFixed(2)}`
+      );
+    }
+    if (args.category && args.category !== existing.category) {
+      changes.push(`Categoria: ${existing.category} → ${args.category}`);
+    }
+    if (args.subcategory && args.subcategory !== existing.subcategory) {
+      changes.push(
+        `Subcategoria: ${existing.subcategory} → ${args.subcategory}`
+      );
+    }
+    if (args.date && args.date !== existing.date) {
+      changes.push(`Data: ${existing.date} → ${args.date}`);
+    }
+    if (args.notes !== undefined && args.notes !== existing.notes) {
+      changes.push(`Notas: ${args.notes || '(removidas)'}`);
+    }
+
+    return {
+      success: true,
+      updated: {
+        id: updated.id,
+        establishment: updated.establishment_name,
+        amount: parseFloat(updated.amount),
+        category: updated.category,
+        subcategory: updated.subcategory,
+        date: updated.date,
+      },
+      changes,
+      message: `✅ Gasto atualizado com sucesso!\n\n📝 Alterações:\n${changes.map((c) => `• ${c}`).join('\n')}`,
+    };
+  } catch (error) {
+    console.error('[updateExpense] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro ao atualizar gasto',
+    };
+  }
+}
+
+// ==================== GERENCIAMENTO DE ORÇAMENTOS ====================
+
+async function deleteBudget(
+  supabase: any,
+  userId: string,
+  args: { category_id: string; confirm?: boolean }
+) {
+  try {
+    console.log(
+      `[deleteBudget] Request for user ${userId}, category ${args.category_id}, confirm=${args.confirm}`
+    );
+
+    // Buscar o orçamento
+    const { data: budget, error: fetchError } = await supabase
+      .from('budgets')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('category_id', args.category_id)
+      .single();
+
+    if (fetchError || !budget) {
+      return {
+        success: false,
+        error: `Orçamento para categoria "${args.category_id}" não encontrado.`,
+      };
+    }
+
+    // Se não confirmou, mostrar para confirmação
+    if (!args.confirm) {
+      return {
+        success: true,
+        action: 'confirm_required',
+        budget: {
+          id: budget.id,
+          category: budget.category_id,
+          amount: parseFloat(budget.amount),
+          period: budget.period_type,
+        },
+        message: `⚠️ Confirme a exclusão do orçamento:\n\n📊 **${budget.category_id}**\n💰 Limite: R$ ${parseFloat(budget.amount).toFixed(2)}\n📅 Período: ${budget.period_type}\n\nPara confirmar, peça ao usuário para confirmar a exclusão.`,
+      };
+    }
+
+    // Deletar o orçamento
+    const { error: deleteError } = await supabase
+      .from('budgets')
+      .delete()
+      .eq('id', budget.id)
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      console.error('[deleteBudget] Delete error:', deleteError);
+      return {
+        success: false,
+        error: `Erro ao excluir: ${deleteError.message}`,
+      };
+    }
+
+    console.log(`[deleteBudget] Successfully deleted budget ${budget.id}`);
+
+    return {
+      success: true,
+      deleted: {
+        id: budget.id,
+        category: budget.category_id,
+        amount: parseFloat(budget.amount),
+      },
+      message: `✅ Orçamento excluído com sucesso!\n\n🗑️ ${budget.category_id} - R$ ${parseFloat(budget.amount).toFixed(2)}/mês`,
+    };
+  } catch (error) {
+    console.error('[deleteBudget] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro ao excluir orçamento',
+    };
+  }
+}
+
+// ==================== EXPORTAÇÃO DE DADOS ====================
+
+async function exportData(
+  supabase: any,
+  userId: string,
+  args: {
+    format?: string;
+    data_types?: string[];
+    date_from?: string;
+    date_to?: string;
+  }
+) {
+  try {
+    const format = args.format || 'csv';
+    const dataTypes = args.data_types || ['expenses', 'budgets', 'profile'];
+
+    console.log(
+      `[exportData] Exporting ${dataTypes.join(', ')} as ${format} for user ${userId}`
+    );
+
+    const exportContent: any = {
+      exported_at: new Date().toISOString(),
+      user_id: userId,
+      format,
+      data: {},
+    };
+
+    // Buscar expenses se solicitado
+    if (dataTypes.includes('expenses')) {
+      let query = supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
+
+      if (args.date_from) {
+        query = query.gte('date', args.date_from);
+      }
+      if (args.date_to) {
+        query = query.lte('date', args.date_to);
+      }
+
+      const { data: expenses } = await query;
+      exportContent.data.expenses = (expenses || []).map((e: any) => ({
+        establishment_name: e.establishment_name,
+        amount: parseFloat(e.amount),
+        date: e.date,
+        category: e.category,
+        subcategory: e.subcategory,
+        notes: e.notes,
+      }));
+    }
+
+    // Buscar budgets se solicitado
+    if (dataTypes.includes('budgets')) {
+      const { data: budgets } = await supabase
+        .from('budgets')
+        .select('*')
+        .eq('user_id', userId);
+
+      exportContent.data.budgets = (budgets || []).map((b: any) => ({
+        category: b.category_id,
+        amount: parseFloat(b.amount),
+        period: b.period_type,
+        notifications: b.notifications_enabled,
+      }));
+    }
+
+    // Buscar profile se solicitado
+    if (dataTypes.includes('profile')) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (profile) {
+        exportContent.data.profile = {
+          name: profile.name,
+          monthly_salary: profile.monthly_salary,
+          salary_payment_day: profile.salary_payment_day,
+          income_source: profile.income_source,
+        };
+      }
+    }
+
+    // Buscar transações do Open Finance se solicitado
+    if (dataTypes.includes('transactions')) {
+      let query = supabase
+        .from('pluggy_transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+        .limit(500);
+
+      if (args.date_from) {
+        query = query.gte('date', args.date_from);
+      }
+      if (args.date_to) {
+        query = query.lte('date', args.date_to);
+      }
+
+      const { data: transactions } = await query;
+      exportContent.data.transactions = (transactions || []).map((t: any) => ({
+        description: t.description,
+        amount: parseFloat(t.amount),
+        date: t.date,
+        type: t.type,
+        category: t.category,
+      }));
+    }
+
+    // Gerar conteúdo no formato solicitado
+    let fileContent: string;
+    let mimeType: string;
+    let fileExt: string;
+
+    if (format === 'json') {
+      fileContent = JSON.stringify(exportContent, null, 2);
+      mimeType = 'application/json';
+      fileExt = 'json';
+    } else {
+      // CSV
+      const lines: string[] = [];
+
+      // Expenses
+      if (exportContent.data.expenses?.length > 0) {
+        lines.push('=== DESPESAS ===');
+        lines.push('Estabelecimento,Valor,Data,Categoria,Subcategoria,Notas');
+        exportContent.data.expenses.forEach((e: any) => {
+          lines.push(
+            `"${e.establishment_name}",${e.amount},"${e.date}","${e.category}","${e.subcategory}","${e.notes || ''}"`
+          );
+        });
+        lines.push('');
+      }
+
+      // Budgets
+      if (exportContent.data.budgets?.length > 0) {
+        lines.push('=== ORÇAMENTOS ===');
+        lines.push('Categoria,Limite,Período,Notificações');
+        exportContent.data.budgets.forEach((b: any) => {
+          lines.push(
+            `"${b.category}",${b.amount},"${b.period}",${b.notifications}`
+          );
+        });
+        lines.push('');
+      }
+
+      // Profile
+      if (exportContent.data.profile) {
+        lines.push('=== PERFIL ===');
+        lines.push(`Nome,"${exportContent.data.profile.name || ''}"`);
+        lines.push(`Salário,${exportContent.data.profile.monthly_salary || 0}`);
+        lines.push(
+          `Dia Pagamento,${exportContent.data.profile.salary_payment_day || ''}`
+        );
+        lines.push('');
+      }
+
+      // Transactions
+      if (exportContent.data.transactions?.length > 0) {
+        lines.push('=== TRANSAÇÕES OPEN FINANCE ===');
+        lines.push('Descrição,Valor,Data,Tipo,Categoria');
+        exportContent.data.transactions.forEach((t: any) => {
+          lines.push(
+            `"${t.description}",${t.amount},"${t.date}","${t.type}","${t.category || ''}"`
+          );
+        });
+      }
+
+      fileContent = lines.join('\n');
+      mimeType = 'text/csv';
+      fileExt = 'csv';
+    }
+
+    // Upload para Supabase Storage
+    const fileName = `export_${Date.now()}.${fileExt}`;
+    const filePath = `${userId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('exports')
+      .upload(filePath, fileContent, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('[exportData] Upload error:', uploadError);
+      // Se o bucket não existe, retornar os dados diretamente
+      return {
+        success: true,
+        format,
+        data_types: dataTypes,
+        record_counts: {
+          expenses: exportContent.data.expenses?.length || 0,
+          budgets: exportContent.data.budgets?.length || 0,
+          transactions: exportContent.data.transactions?.length || 0,
+        },
+        message: `📦 Dados exportados com sucesso!\n\n📊 Resumo:\n• ${exportContent.data.expenses?.length || 0} despesas\n• ${exportContent.data.budgets?.length || 0} orçamentos\n• ${exportContent.data.transactions?.length || 0} transações\n\n⚠️ Não foi possível gerar link de download. Use a opção "Exportar" nas configurações do app.`,
+      };
+    }
+
+    // Gerar URL assinada (válida por 1 hora)
+    const { data: signedUrl } = await supabase.storage
+      .from('exports')
+      .createSignedUrl(filePath, 3600);
+
+    console.log(`[exportData] File uploaded: ${filePath}`);
+
+    return {
+      success: true,
+      format,
+      data_types: dataTypes,
+      record_counts: {
+        expenses: exportContent.data.expenses?.length || 0,
+        budgets: exportContent.data.budgets?.length || 0,
+        transactions: exportContent.data.transactions?.length || 0,
+      },
+      download_url: signedUrl?.signedUrl,
+      expires_in: '1 hora',
+      message: `📦 Dados exportados com sucesso!\n\n📊 Resumo:\n• ${exportContent.data.expenses?.length || 0} despesas\n• ${exportContent.data.budgets?.length || 0} orçamentos\n• ${exportContent.data.transactions?.length || 0} transações\n\n📥 [Clique aqui para baixar](${signedUrl?.signedUrl})\n\n⏰ Link válido por 1 hora.`,
+    };
+  } catch (error) {
+    console.error('[exportData] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro ao exportar dados',
     };
   }
 }

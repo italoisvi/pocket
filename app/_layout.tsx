@@ -16,7 +16,11 @@ import { ErrorBoundary } from '@/lib/errorBoundary';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { AnimatedSplashScreen } from '@/components/AnimatedSplashScreen';
-import { initializeRevenueCat } from '@/lib/revenuecat';
+import {
+  initializeRevenueCat,
+  loginRevenueCat,
+  logoutRevenueCat,
+} from '@/lib/revenuecat';
 import { BiometricLock } from '@/components/BiometricLock';
 
 // Initialize Sentry
@@ -228,12 +232,25 @@ function RootLayout() {
     console.log('[RootLayout] Starting auth session check...');
     supabase.auth
       .getSession()
-      .then(({ data: { session } }) => {
+      .then(async ({ data: { session } }) => {
         console.log(
           '[RootLayout] Session retrieved:',
           session ? 'logged in' : 'not logged in'
         );
         setSession(session);
+
+        // Identificar usuário no RevenueCat se já estiver logado
+        if (session?.user?.id) {
+          try {
+            await loginRevenueCat(session.user.id);
+            console.log('[RootLayout] RevenueCat user identified on app start');
+          } catch (error) {
+            console.error(
+              '[RootLayout] Error identifying RevenueCat user on start:',
+              error
+            );
+          }
+        }
       })
       .catch((error) => {
         console.error('[RootLayout] Auth session error:', error);
@@ -246,9 +263,29 @@ function RootLayout() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       console.log('[RootLayout] Auth state changed:', _event);
       setSession(session);
+
+      // Sincronizar com RevenueCat quando estado de auth mudar
+      if (_event === 'SIGNED_IN' && session?.user?.id) {
+        try {
+          await loginRevenueCat(session.user.id);
+          console.log('[RootLayout] RevenueCat user identified after login');
+        } catch (error) {
+          console.error(
+            '[RootLayout] Error identifying RevenueCat user:',
+            error
+          );
+        }
+      } else if (_event === 'SIGNED_OUT') {
+        try {
+          await logoutRevenueCat();
+          console.log('[RootLayout] RevenueCat user logged out');
+        } catch (error) {
+          console.error('[RootLayout] Error logging out RevenueCat:', error);
+        }
+      }
     });
 
     return () => subscription.unsubscribe();

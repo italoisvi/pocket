@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
@@ -14,22 +13,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/lib/theme';
-import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { AviaDePapelIcon } from '@/components/AviaDePapelIcon';
 import { RelogioTresIcon } from '@/components/RelogioTresIcon';
-import { KangarooIcon } from '@/components/KangarooIcon';
 import { ComenteMedicalIcon } from '@/components/ComenteMedicalIcon';
-import Markdown from 'react-native-markdown-display';
 import {
   sendMessageToDeepSeek,
   type Message,
-  type Conversation,
+  type MessageAttachment,
 } from '@/lib/deepseek';
 import { sendMessageToWaltsAgent } from '@/lib/walts-agent';
 import { supabase } from '@/lib/supabase';
 import { CATEGORIES } from '@/lib/categories';
 import { PaywallModal } from '@/components/PaywallModal';
 import { usePremium } from '@/lib/usePremium';
+import { ChatInput } from '@/components/ChatInput';
+import { ChatMessage } from '@/components/ChatMessage';
 
 export default function ChatScreen() {
   const { theme } = useTheme();
@@ -39,11 +36,10 @@ export default function ChatScreen() {
     refresh: refreshPremium,
   } = usePremium();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
-  const [useAgent, setUseAgent] = useState(true); // Modo agente ativado por padrão
+  const [useAgent, setUseAgent] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -62,7 +58,6 @@ export default function ChatScreen() {
   );
 
   useEffect(() => {
-    // Auto-scroll to bottom when messages change
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
@@ -75,7 +70,6 @@ export default function ChatScreen() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Buscar a conversa mais recente do usuário
       const { data: conversations } = await supabase
         .from('conversations')
         .select('*')
@@ -88,7 +82,6 @@ export default function ChatScreen() {
         setMessages(conversation.messages || []);
         setConversationId(conversation.id);
       } else {
-        // Create new conversation without initial message
         const newId = Date.now().toString();
         setConversationId(newId);
         setMessages([]);
@@ -132,7 +125,6 @@ export default function ChatScreen() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Load user profile to get name and income
       const { data: profile } = await supabase
         .from('profiles')
         .select('name, monthly_salary, income_cards')
@@ -143,7 +135,6 @@ export default function ChatScreen() {
         setUserName(profile.name);
       }
 
-      // Calculate total income
       let totalIncome = 0;
       if (profile?.income_cards && Array.isArray(profile.income_cards)) {
         totalIncome = profile.income_cards.reduce((sum, card) => {
@@ -157,7 +148,6 @@ export default function ChatScreen() {
         totalIncome = profile.monthly_salary;
       }
 
-      // Get expenses from current month
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const firstDayISO = firstDayOfMonth.toISOString();
@@ -169,7 +159,6 @@ export default function ChatScreen() {
         .gte('created_at', firstDayISO)
         .order('created_at', { ascending: false });
 
-      // Buscar dados do Open Finance
       const { data: openFinanceItems } = await supabase
         .from('pluggy_items')
         .select('id, connector_name, status')
@@ -206,7 +195,6 @@ export default function ChatScreen() {
           categoryBreakdown[category] =
             (categoryBreakdown[category] || 0) + exp.amount;
 
-          // Separar em essenciais e não essenciais
           const categoryInfo =
             CATEGORIES[exp.category as keyof typeof CATEGORIES];
           if (categoryInfo) {
@@ -307,7 +295,6 @@ export default function ChatScreen() {
 
       const now = Date.now();
 
-      // Verificar se a conversa já existe
       const { data: existing } = await supabase
         .from('conversations')
         .select('id')
@@ -316,7 +303,6 @@ export default function ChatScreen() {
         .maybeSingle();
 
       if (existing) {
-        // Atualizar conversa existente
         await supabase
           .from('conversations')
           .update({
@@ -327,7 +313,6 @@ export default function ChatScreen() {
           .eq('id', conversationId)
           .eq('user_id', user.id);
       } else {
-        // Criar nova conversa
         await supabase.from('conversations').insert({
           id: conversationId,
           user_id: user.id,
@@ -342,38 +327,94 @@ export default function ChatScreen() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim() || loading) return;
+  const handleSendMessage = async (
+    text: string,
+    attachments?: MessageAttachment[]
+  ) => {
+    if ((!text.trim() && (!attachments || attachments.length === 0)) || loading)
+      return;
 
-    // Bloquear envio se não for premium (segurança extra)
     if (!isPremium) {
       setShowPaywall(true);
       return;
     }
 
+    let messageContent = text.trim();
+    let displayContent = text.trim();
+
+    if (attachments && attachments.length > 0) {
+      const imageAttachments = attachments.filter((a) => a.type === 'image');
+      const audioAttachments = attachments.filter((a) => a.type === 'audio');
+
+      // Processar imagens com OCR
+      if (imageAttachments.length > 0) {
+        const ocrResults = imageAttachments
+          .filter((a) => a.ocrData)
+          .map((a) => {
+            const ocr = a.ocrData!;
+            let result = `\n📋 COMPROVANTE DETECTADO:\n`;
+            result += `- Estabelecimento: ${ocr.establishment_name || 'Não identificado'}\n`;
+            result += `- Valor: R$ ${ocr.amount?.toFixed(2) || 'Não identificado'}\n`;
+            result += `- Data: ${ocr.date || 'Não identificada'}\n`;
+            if (ocr.items && ocr.items.length > 0) {
+              result += `- Itens: ${ocr.items.map((i) => `${i.name} (${i.quantity}x R$ ${i.price.toFixed(2)})`).join(', ')}\n`;
+            }
+            return result;
+          })
+          .join('\n');
+
+        if (ocrResults) {
+          messageContent = messageContent
+            ? `${messageContent}\n${ocrResults}`
+            : `[Imagem de comprovante enviada]${ocrResults}`;
+          displayContent = displayContent || '[Imagem enviada]';
+        } else {
+          messageContent = messageContent
+            ? `${messageContent}\n\n[Imagem enviada - não foi possível extrair dados]`
+            : `[Imagem enviada - não foi possível extrair dados]`;
+          displayContent = displayContent || '[Imagem enviada]';
+        }
+      }
+
+      // Processar áudios - serão transcritos pelo walts-agent
+      if (audioAttachments.length > 0) {
+        // Não modificar messageContent - a transcrição será feita no servidor
+        // Não definir displayContent - apenas o player de áudio deve aparecer
+        if (!messageContent) {
+          messageContent = ''; // Áudio será processado pelo walts-agent
+        }
+      }
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputText.trim(),
+      content: displayContent || messageContent, // Sem fallback para áudio
       timestamp: Date.now(),
+      attachments,
     };
 
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
-    setInputText('');
     setLoading(true);
 
     try {
       let response: string;
 
+      const messagesForApi = updatedMessages.map((m) => ({
+        ...m,
+        content:
+          m.id === userMessage.id && attachments?.length
+            ? messageContent
+            : m.content,
+      }));
+
       if (useAgent) {
-        // Usar o Walts Agent (com function calling - pode executar ações)
         console.log('[chat] Using Walts Agent mode');
-        response = await sendMessageToWaltsAgent(updatedMessages);
+        response = await sendMessageToWaltsAgent(messagesForApi);
       } else {
-        // Usar o chat normal (apenas conversa)
         console.log('[chat] Using normal chat mode');
-        response = await sendMessageToDeepSeek(updatedMessages, userContext);
+        response = await sendMessageToDeepSeek(messagesForApi, userContext);
       }
 
       const assistantMessage: Message = {
@@ -392,7 +433,6 @@ export default function ChatScreen() {
         'Erro',
         'Não foi possível enviar a mensagem. Tente novamente.'
       );
-      // Remove user message on error
       setMessages(messages);
     } finally {
       setLoading(false);
@@ -401,12 +441,10 @@ export default function ChatScreen() {
 
   const handleNewConversation = async () => {
     try {
-      // Save current conversation to database
       if (messages.length > 0) {
         await saveConversation(messages);
       }
 
-      // Create new conversation and save to database immediately
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -415,7 +453,6 @@ export default function ChatScreen() {
       const newId = Date.now().toString();
       const now = Date.now();
 
-      // Insert empty conversation to database
       await supabase.from('conversations').insert({
         id: newId,
         user_id: user.id,
@@ -477,211 +514,29 @@ export default function ChatScreen() {
         ) : (
           <>
             {messages.map((message) => (
-              <View
+              <ChatMessage
                 key={message.id}
-                style={[
-                  styles.messageWrapper,
-                  message.role === 'user'
-                    ? styles.userMessageWrapper
-                    : styles.assistantMessageWrapper,
-                ]}
-              >
-                {message.role === 'user' ? (
-                  <View
-                    style={[
-                      styles.userMessage,
-                      {
-                        backgroundColor:
-                          theme.background === '#000'
-                            ? theme.card
-                            : theme.primary,
-                        borderWidth: theme.background === '#000' ? 2 : 0,
-                        borderColor:
-                          theme.background === '#000'
-                            ? theme.cardBorder
-                            : 'transparent',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.messageText,
-                        {
-                          color:
-                            theme.background === '#000' ? theme.text : '#FFF',
-                        },
-                      ]}
-                    >
-                      {message.content}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={styles.assistantMessage}>
-                    <Markdown
-                      style={{
-                        body: {
-                          color: theme.text,
-                          fontSize: 20,
-                          fontFamily: 'CormorantGaramond-Regular',
-                          lineHeight: 26,
-                        },
-                        text: {
-                          color: theme.text,
-                          fontSize: 20,
-                          fontFamily: 'CormorantGaramond-Regular',
-                          lineHeight: 26,
-                        },
-                        strong: {
-                          fontFamily: 'CormorantGaramond-SemiBold',
-                          fontWeight: '600',
-                          color: theme.text,
-                        },
-                        em: {
-                          fontFamily: 'CormorantGaramond-Italic',
-                          fontStyle: 'italic',
-                          color: theme.text,
-                        },
-                        bullet_list: {
-                          marginVertical: 4,
-                        },
-                        ordered_list: {
-                          marginVertical: 4,
-                        },
-                        list_item: {
-                          marginVertical: 2,
-                          color: theme.text,
-                        },
-                        paragraph: {
-                          marginVertical: 4,
-                          color: theme.text,
-                          fontSize: 20,
-                          fontFamily: 'CormorantGaramond-Regular',
-                          lineHeight: 26,
-                        },
-                        heading1: {
-                          color: theme.text,
-                          fontSize: 28,
-                          fontFamily: 'CormorantGaramond-SemiBold',
-                        },
-                        heading2: {
-                          color: theme.text,
-                          fontSize: 24,
-                          fontFamily: 'CormorantGaramond-SemiBold',
-                        },
-                        code_inline: {
-                          color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
-                          backgroundColor: theme.card,
-                        },
-                        fence: {
-                          color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
-                          backgroundColor: theme.card,
-                        },
-                      }}
-                    >
-                      {message.content}
-                    </Markdown>
-                  </View>
-                )}
-              </View>
+                role={message.role}
+                content={message.content}
+                attachments={message.attachments}
+              />
             ))}
             {loading && (
-              <View style={styles.assistantMessageWrapper}>
-                <View style={styles.assistantMessage}>
-                  <ActivityIndicator size="small" color={theme.primary} />
-                </View>
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={theme.primary} />
               </View>
             )}
           </>
         )}
       </ScrollView>
 
-      <View
-        style={[
-          styles.inputContainer,
-          {
-            backgroundColor: theme.background,
-            borderTopColor: theme.border,
-          },
-        ]}
-      >
-        {isPremium ? (
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: theme.card,
-                borderColor: theme.cardBorder,
-                color: theme.text,
-              },
-            ]}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Digite sua mensagem..."
-            placeholderTextColor={theme.textSecondary}
-            multiline
-            maxLength={500}
-            autoCapitalize="sentences"
-            autoCorrect={true}
-            spellCheck={true}
-          />
-        ) : (
-          <TouchableOpacity
-            style={[
-              styles.input,
-              {
-                backgroundColor: theme.card,
-                borderColor: theme.cardBorder,
-                justifyContent: 'center',
-              },
-            ]}
-            onPress={() => setShowPaywall(true)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[styles.inputPlaceholder, { color: theme.textSecondary }]}
-            >
-              Assine para conversar com Walts
-            </Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            {
-              backgroundColor:
-                !inputText.trim() || loading
-                  ? theme.border
-                  : theme.background === '#000'
-                    ? theme.card
-                    : theme.primary,
-              borderWidth: 2,
-              borderColor:
-                !inputText.trim() || loading
-                  ? theme.border
-                  : theme.background === '#000'
-                    ? theme.cardBorder
-                    : theme.primary,
-            },
-          ]}
-          onPress={handleSendMessage}
-          disabled={!inputText.trim() || loading}
-        >
-          <AviaDePapelIcon
-            size={20}
-            color={
-              !inputText.trim() || loading
-                ? theme.textSecondary
-                : theme.background === '#000'
-                  ? theme.text
-                  : '#FFF'
-            }
-          />
-        </TouchableOpacity>
-      </View>
+      <ChatInput
+        onSendMessage={handleSendMessage}
+        loading={loading}
+        isPremium={isPremium}
+        onShowPaywall={() => setShowPaywall(true)}
+      />
 
-      {/* Paywall Modal */}
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
@@ -703,12 +558,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   title: {
     fontSize: 22,
@@ -748,56 +597,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 40,
   },
-  messageWrapper: {
-    marginBottom: 16,
-  },
-  userMessageWrapper: {
-    alignItems: 'flex-end',
-  },
-  assistantMessageWrapper: {
-    alignItems: 'flex-start',
-  },
-  userMessage: {
-    maxWidth: '80%',
-    borderRadius: 20,
-    padding: 14,
-    paddingHorizontal: 18,
-  },
-  assistantMessage: {
-    maxWidth: '80%',
-    padding: 4,
-  },
-  messageText: {
-    fontSize: 20,
-    fontFamily: 'CormorantGaramond-Regular',
-    lineHeight: 26,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 12,
-    paddingBottom: 16,
-    borderTopWidth: 1,
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 20,
-    fontFamily: 'CormorantGaramond-Regular',
-    padding: 12,
-    borderRadius: 20,
-    borderWidth: 2,
-    maxHeight: 100,
-  },
-  inputPlaceholder: {
-    fontSize: 20,
-    fontFamily: 'CormorantGaramond-Regular',
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+  loadingContainer: {
+    alignSelf: 'flex-start',
+    padding: 16,
   },
 });
