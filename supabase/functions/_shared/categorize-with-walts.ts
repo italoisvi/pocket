@@ -7,15 +7,16 @@ const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
 
 export type ExpenseCategory =
   | 'moradia'
-  | 'alimentacao'
+  | 'alimentacao_casa'
   | 'transporte'
   | 'saude'
   | 'educacao'
+  | 'alimentacao_fora'
   | 'lazer'
   | 'vestuario'
   | 'beleza'
   | 'eletronicos'
-  | 'delivery'
+  | 'pets'
   | 'poupanca'
   | 'previdencia'
   | 'investimentos'

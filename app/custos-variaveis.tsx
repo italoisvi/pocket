@@ -21,6 +21,7 @@ type SubcategoryExpense = {
   total: number;
   source?: 'manual' | 'extrato'; // Flag para indicar origem
   count?: number; // Quantidade de transacoes
+  recipientName?: string; // Nome do destinatário (para transferências)
 };
 
 export default function CustosVariaveisScreen() {
@@ -79,10 +80,10 @@ export default function CustosVariaveisScreen() {
       const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1);
       const lastDayOfMonth = new Date(selectedYear, selectedMonth + 1, 0);
 
-      // Buscar expenses MANUAIS
+      // Buscar expenses MANUAIS (incluindo establishment_name para transferências)
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category, subcategory, source')
+        .select('amount, category, subcategory, source, establishment_name')
         .eq('user_id', user.id)
         .gte('date', firstDayOfMonth.toISOString().split('T')[0])
         .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
@@ -98,6 +99,7 @@ export default function CustosVariaveisScreen() {
         const accountIds = accounts.map((a: any) => a.id);
 
         // Buscar transacoes com categoria (custos variaveis = is_fixed_cost = false)
+        // Inclui description para granularidade em transferências
         const { data: categorizedTx } = await supabase
           .from('transaction_categories')
           .select(`
@@ -107,7 +109,8 @@ export default function CustosVariaveisScreen() {
             pluggy_transactions!inner(
               amount,
               date,
-              account_id
+              account_id,
+              description
             )
           `)
           .eq('user_id', user.id)
@@ -144,7 +147,11 @@ export default function CustosVariaveisScreen() {
           .forEach((exp) => {
             const category = (exp.category as ExpenseCategory) || 'outros';
             const subcategory = exp.subcategory || 'Outros';
-            const key = `manual-${category}-${subcategory}`;
+            const establishmentName = exp.establishment_name || subcategory;
+
+            // Usar establishment_name como identificador único para TODAS as categorias
+            // Isso preserva a granularidade (Carrefour, iFood, João Silva, etc.)
+            const key = `manual-${category}-${establishmentName}`;
 
             if (subcategoryMap.has(key)) {
               const existing = subcategoryMap.get(key)!;
@@ -153,10 +160,11 @@ export default function CustosVariaveisScreen() {
             } else {
               subcategoryMap.set(key, {
                 category,
-                subcategory,
+                subcategory: establishmentName,
                 total: exp.amount,
                 source: 'manual',
-                count: 1});
+                count: 1,
+                recipientName: establishmentName});
             }
           });
       }
@@ -166,7 +174,11 @@ export default function CustosVariaveisScreen() {
         const category = (tx.category as ExpenseCategory) || 'outros';
         const subcategory = tx.subcategory || 'Extrato';
         const amount = Math.abs(tx.pluggy_transactions?.amount || 0);
-        const key = `extrato-${category}-${subcategory}`;
+        const description = tx.pluggy_transactions?.description || subcategory;
+
+        // Usar description como identificador único para TODAS as categorias
+        // Isso preserva a granularidade (mostra cada estabelecimento/pessoa separadamente)
+        const key = `extrato-${category}-${description}`;
 
         if (subcategoryMap.has(key)) {
           const existing = subcategoryMap.get(key)!;
@@ -175,10 +187,11 @@ export default function CustosVariaveisScreen() {
         } else {
           subcategoryMap.set(key, {
             category,
-            subcategory,
+            subcategory: description,
             total: amount,
             source: 'extrato',
-            count: 1});
+            count: 1,
+            recipientName: description});
         }
       });
 

@@ -799,13 +799,7 @@ export default function SettingsScreen() {
                 value={notificationsEnabled}
                 onValueChange={handleNotificationToggle}
                 trackColor={{ false: theme.border, true: theme.primary }}
-                thumbColor={
-                  notificationsEnabled
-                    ? theme.background === '#000'
-                      ? '#000'
-                      : '#fff'
-                    : theme.textSecondary
-                }
+                thumbColor={notificationsEnabled ? '#fff' : theme.textSecondary}
               />
             </View>
           </View>
@@ -860,7 +854,7 @@ export default function SettingsScreen() {
                 value={biometricEnabled}
                 onValueChange={handleBiometricToggle}
                 trackColor={{ false: theme.border, true: theme.primary }}
-                thumbColor={biometricEnabled ? '#000' : theme.textSecondary}
+                thumbColor={biometricEnabled ? '#fff' : theme.textSecondary}
               />
             </View>
           </View>

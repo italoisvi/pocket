@@ -17,6 +17,7 @@ import { EmprestimosIcon } from './EmprestimosIcon';
 import { FinanciamentosIcon } from './FinanciamentosIcon';
 import { TransferenciasIcon } from './TransferenciasIcon';
 import { OutrosIcon } from './OutrosIcon';
+import { PetsIcon } from './PetsIcon';
 import type { CategoryInfo } from '@/lib/categories';
 
 type CategoryIconProps = {
@@ -72,6 +73,8 @@ export function CategoryIcon({
         return <TransferenciasIcon size={size} color={iconColor} />;
       case 'outros':
         return <OutrosIcon size={size} color={iconColor} />;
+      case 'pets':
+        return <PetsIcon size={size} color={iconColor} />;
       default:
         // Fallback para emoji se o componente não existir
         return <Text style={{ fontSize: size }}>{categoryInfo.icon}</Text>;

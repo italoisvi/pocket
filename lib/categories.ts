@@ -4,16 +4,17 @@
 export type ExpenseCategory =
   // ESSENCIAIS (Fixas)
   | 'moradia' // Aluguel, condomínio, IPTU, água, luz, gás
-  | 'alimentacao' // Supermercado, feira, açougue
+  | 'alimentacao_casa' // Supermercado, feira, açougue (compras para casa)
   | 'transporte' // Combustível, transporte público, manutenção
   | 'saude' // Plano de saúde, medicamentos, consultas
   | 'educacao' // Mensalidade, material escolar, cursos
   // NÃO ESSENCIAIS (Variáveis)
+  | 'alimentacao_fora' // Restaurantes, delivery, lanches, padaria
   | 'lazer' // Cinema, streaming, hobbies, viagens
   | 'vestuario' // Roupas, calçados, acessórios
   | 'beleza' // Salão, barbearia, produtos de beleza
   | 'eletronicos' // Gadgets, acessórios, games
-  | 'delivery' // Restaurantes, iFood, Rappi
+  | 'pets' // Pet shop, veterinário, ração
   // INVESTIMENTOS
   | 'poupanca' // Poupança
   | 'previdencia' // Previdência privada
@@ -257,10 +258,10 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     ],
   },
 
-  alimentacao: {
-    name: 'Alimentação',
+  alimentacao_casa: {
+    name: 'Alimentação (Casa)',
     type: 'essencial',
-    description: 'Supermercado, feira, açougue',
+    description: 'Supermercado, feira, açougue - compras para casa',
     icon: 'shopping-basket',
     iconType: 'component',
     color: '#4ECDC4',
@@ -311,10 +312,6 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
       {
         name: 'Açougue',
         keywords: ['açougue', 'acougue'],
-      },
-      {
-        name: 'Padaria',
-        keywords: ['padaria'],
       },
       {
         name: 'Mercearia',
@@ -771,10 +768,54 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     ],
   },
 
-  delivery: {
-    name: 'Delivery',
+  pets: {
+    name: 'Pets',
     type: 'nao_essencial',
-    description: 'Restaurantes, iFood, Rappi',
+    description: 'Pet shop, veterinário, ração, acessórios para animais',
+    icon: 'pets',
+    iconType: 'component',
+    color: '#8D6E63',
+    subcategories: [
+      {
+        name: 'Alimentação Pet',
+        keywords: ['racao', 'ração', 'petisco', 'sachê', 'sache'],
+      },
+      {
+        name: 'Pet Shop',
+        keywords: [
+          'pet shop',
+          'petshop',
+          'petz',
+          'cobasi',
+          'petland',
+          'pet center',
+          'casa dos bichos',
+        ],
+      },
+      {
+        name: 'Veterinário',
+        keywords: [
+          'veterinario',
+          'veterinário',
+          'vet',
+          'clinica veterinaria',
+          'clínica veterinária',
+          'hospital pet',
+          'hospital veterinario',
+          'hospital veterinário',
+        ],
+      },
+      {
+        name: 'Acessórios Pet',
+        keywords: ['coleira', 'brinquedo pet', 'cama pet', 'casinha pet'],
+      },
+    ],
+  },
+
+  alimentacao_fora: {
+    name: 'Alimentação (Fora)',
+    type: 'nao_essencial',
+    description: 'Restaurantes, delivery, lanches, padaria para consumo imediato',
     icon: 'restaurant',
     iconType: 'component',
     color: '#AA96DA',
@@ -837,19 +878,31 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
           'pastel',
           'pastelaria',
           'espetinho',
+          'açaí',
+          'acai',
+          'hot dog',
+          'cachorro quente',
+        ],
+      },
+      {
+        name: 'Padaria/Café',
+        keywords: [
+          'padaria',
+          'cafe',
+          'café',
+          'cafeteria',
+          'starbucks',
+          'coffee',
+          'confeitaria',
         ],
       },
       {
         name: 'Bares',
-        keywords: ['bar', 'pub'],
-      },
-      {
-        name: 'Cafeterias',
-        keywords: ['cafe', 'café', 'starbucks', 'coffee'],
+        keywords: ['bar', 'pub', 'boteco', 'cervejaria'],
       },
       {
         name: 'Sorveteria',
-        keywords: ['sorvete', 'sorveteria', 'gelato'],
+        keywords: ['sorvete', 'sorveteria', 'gelato', 'açaí', 'acai'],
       },
     ],
   },
@@ -1147,6 +1200,8 @@ export function categorizeExpense(
   }
 
   // Ordem de prioridade: Dívidas > Essenciais > Investimentos > Não Essenciais > Outros
+  // IMPORTANTE: alimentacao_fora deve vir ANTES de alimentacao_casa para priorizar
+  // detecção de delivery/restaurante antes de supermercado
   const priorityOrder: ExpenseCategory[] = [
     // Dívidas primeiro (mais específico)
     'cartao_credito',
@@ -1154,7 +1209,7 @@ export function categorizeExpense(
     'financiamentos',
     // Essenciais
     'moradia',
-    'alimentacao',
+    'alimentacao_casa',
     'transporte',
     'saude',
     'educacao',
@@ -1162,12 +1217,13 @@ export function categorizeExpense(
     'poupanca',
     'previdencia',
     'investimentos',
-    // Não Essenciais (mais genérico)
+    // Não Essenciais - alimentacao_fora primeiro para priorizar delivery/restaurante
+    'alimentacao_fora',
     'lazer',
     'vestuario',
     'beleza',
     'eletronicos',
-    'delivery',
+    'pets',
     // Outros por último
     'outros',
   ];

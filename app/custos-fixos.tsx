@@ -82,7 +82,7 @@ export default function CustosFixosScreen() {
       // Buscar expenses MANUAIS (source = 'manual' ou null)
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category, subcategory, source')
+        .select('amount, category, subcategory, source, establishment_name')
         .eq('user_id', user.id)
         .gte('date', firstDayOfMonth.toISOString().split('T')[0])
         .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
@@ -98,7 +98,7 @@ export default function CustosFixosScreen() {
       if (accounts && accounts.length > 0) {
         const accountIds = accounts.map((a: any) => a.id);
 
-        // Buscar transacoes com categoria
+        // Buscar transacoes com categoria (inclui description para granularidade)
         const { data: categorizedTx } = await supabase
           .from('transaction_categories')
           .select(`
@@ -108,7 +108,8 @@ export default function CustosFixosScreen() {
             pluggy_transactions!inner(
               amount,
               date,
-              account_id
+              account_id,
+              description
             )
           `)
           .eq('user_id', user.id)
@@ -141,7 +142,10 @@ export default function CustosFixosScreen() {
           .forEach((exp) => {
             const category = (exp.category as ExpenseCategory) || 'outros';
             const subcategory = exp.subcategory || 'Outros';
-            const key = `manual-${category}-${subcategory}`;
+            const establishmentName = exp.establishment_name || subcategory;
+
+            // Usar establishment_name como identificador único para granularidade
+            const key = `manual-${category}-${establishmentName}`;
 
             if (subcategoryMap.has(key)) {
               const existing = subcategoryMap.get(key)!;
@@ -150,7 +154,7 @@ export default function CustosFixosScreen() {
             } else {
               subcategoryMap.set(key, {
                 category,
-                subcategory,
+                subcategory: establishmentName,
                 total: exp.amount,
                 source: 'manual',
                 count: 1});
@@ -163,7 +167,10 @@ export default function CustosFixosScreen() {
         const category = (tx.category as ExpenseCategory) || 'outros';
         const subcategory = tx.subcategory || 'Extrato';
         const amount = Math.abs(tx.pluggy_transactions?.amount || 0);
-        const key = `extrato-${category}-${subcategory}`;
+        const description = tx.pluggy_transactions?.description || subcategory;
+
+        // Usar description como identificador único para granularidade
+        const key = `extrato-${category}-${description}`;
 
         if (subcategoryMap.has(key)) {
           const existing = subcategoryMap.get(key)!;
@@ -172,7 +179,7 @@ export default function CustosFixosScreen() {
         } else {
           subcategoryMap.set(key, {
             category,
-            subcategory,
+            subcategory: description,
             total: amount,
             source: 'extrato',
             count: 1});

@@ -7,7 +7,9 @@ Italo, você está certo. O Walts tem problemas sérios que não apareceram na m
 ## 🐛 BUG #1: XML/DSML Vazando na Tela
 
 ### O que acontece
+
 O DeepSeek está vazando marcação XML interna na resposta visível ao usuário:
+
 ```
 < | DSML | function_calls>
 < | DSML | invoke name="get_data">
@@ -15,6 +17,7 @@ O DeepSeek está vazando marcação XML interna na resposta visível ao usuário
 ```
 
 ### Causa Raiz
+
 **O problema está em QUANDO a limpeza é aplicada:**
 
 ```typescript
@@ -31,6 +34,7 @@ conversationMessages.push(assistantMessage); // ← XML vai pro histórico!
 ```
 
 A limpeza só acontece quando **NÃO há tool_calls** (linha 2091):
+
 ```typescript
 if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
   const cleanedResponse = cleanResponseContent(assistantMessage.content); // ← Só limpa aqui
@@ -38,6 +42,7 @@ if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
 ```
 
 ### Solução
+
 Limpar o content SEMPRE, não só quando não tem tool_calls:
 
 ```typescript
@@ -51,9 +56,11 @@ conversationMessages.push(assistantMessage);
 ## 🐛 BUG #2: Dia de Pagamento Errado
 
 ### O que acontece
+
 Walts diz "dia 1" quando você configurou "dia 5" na Fonte de Renda.
 
 ### Causa Raiz
+
 **O `preloadUserContext` não lê o campo `income_cards`!**
 
 ```typescript
@@ -73,6 +80,7 @@ Mas em outras funções (como `forecastMonthEnd`), ele lê corretamente:
 ```
 
 ### Solução
+
 Atualizar `preloadUserContext`:
 
 ```typescript
@@ -96,37 +104,45 @@ if (profile.income_cards?.length > 0) {
 ## 🐛 BUG #3: Categorização Diz que Fez, Mas Não Fez
 
 ### O que acontece
+
 Walts diz "✅ Importadas X transações!" mas elas não aparecem em Custos Fixos/Variáveis.
 
 ### Possíveis Causas
 
 **1. Filtro de tipo de conta muito restritivo:**
+
 ```typescript
 // LINHA 2463-2464:
 .in('type', ['BANK', 'CHECKING'])
 ```
+
 Se sua conta é do tipo 'CREDIT' ou 'SAVINGS', não vai funcionar.
 
 **2. Já existe expense_id (considera "já importado"):**
+
 ```typescript
 // LINHA 2491:
 .is('expense_id', null)  // ← Se já tem expense_id, ignora
 ```
+
 Se você tentou importar antes e falhou parcialmente, as transações podem ter sido "marcadas" sem criar o expense.
 
 **3. Erro silencioso no loop:**
+
 ```typescript
 // LINHA 2568-2573:
 } catch (err) {
   console.error(...);  // ← Só loga, não para nem avisa o usuário
 }
 ```
+
 O erro é engolido e a contagem final pode estar errada.
 
 **4. Categorização retorna categoria inválida:**
 Se `categorizeWithWalts` retorna uma categoria que não existe em `CATEGORIES`, o expense pode ser criado com categoria errada e não aparecer nos filtros.
 
 ### Solução
+
 Adicionar validação e logs melhores:
 
 ```typescript
@@ -149,7 +165,7 @@ return {
   success: true,
   imported: importedCount,
   failed: failedCount,
-  message: failedCount > 0 
+  message: failedCount > 0
     ? `⚠️ ${importedCount} importadas, ${failedCount} falharam`
     : `✅ ${importedCount} importadas`
 };
@@ -160,15 +176,17 @@ return {
 ## 🐛 BUG #4: Áudio Longo Quebra Tudo
 
 ### O que acontece
+
 Áudio de 112 segundos resulta em XML vazando.
 
 ### Causa Raiz
 
 **1. Timeout:**
 O Whisper tem limite de 55 segundos no código, mas áudios longos podem demorar mais:
+
 ```typescript
 // LINHA 89:
-55000 // 55 segundos (abaixo do timeout da Edge Function)
+55000; // 55 segundos (abaixo do timeout da Edge Function)
 ```
 
 **2. Contexto estourado:**
@@ -176,12 +194,14 @@ O Whisper tem limite de 55 segundos no código, mas áudios longos podem demorar
 
 **3. Truncagem quebra XML:**
 O código trunca mensagens em 2000 chars:
+
 ```typescript
 // LINHA 1947-1951:
 msg.content?.length > 2000
   ? msg.content.substring(0, 2000) + '... [mensagem truncada]'
-  : msg.content
+  : msg.content;
 ```
+
 Se o DeepSeek enviou XML parcial, a truncagem pode quebrar as tags, fazendo o regex de limpeza não funcionar.
 
 ### Solução
@@ -207,24 +227,28 @@ if (hasAudioAttachment) {
 ## 🐛 BUG #5: Regex de Limpeza Incompleto
 
 ### O que acontece
+
 O padrão nas suas fotos é:
+
 ```
 < | DSML | function_calls>
 ```
 
 ### Causa Raiz
+
 O regex atual tem vários padrões, mas pode estar falhando porque:
 
 1. **Espaços inconsistentes:** O DeepSeek pode gerar `< | DSML |` ou `<| DSML|` ou `<|DSML|`
 2. **Multiline não capturado:** O `[\s\S]*?` pode não pegar tudo se houver quebras estranhas
 
 ### Solução
+
 Regex mais agressivo:
 
 ```typescript
 function cleanResponseContent(content: string | null | undefined): string {
   if (!content) return '';
-  
+
   let cleaned = content
     // Remover QUALQUER coisa que pareça XML/DSML de function calling
     .replace(/<[^>]*DSML[^>]*>[\s\S]*?<\/[^>]*DSML[^>]*>/gi, '')
@@ -234,12 +258,12 @@ function cleanResponseContent(content: string | null | undefined): string {
     .replace(/^[<>|\/\s]+$/gm, '') // Remove linhas só com símbolos de tags
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  
+
   // Se ficou só com lixo XML, retornar vazio
   if (cleaned.match(/^[\s<>|\/]*$/)) {
     return '';
   }
-  
+
   return cleaned;
 }
 ```
@@ -248,13 +272,13 @@ function cleanResponseContent(content: string | null | undefined): string {
 
 ## 📊 Resumo dos Problemas
 
-| Bug | Gravidade | Causa | Impacto |
-|-----|-----------|-------|---------|
-| XML vazando | 🔴 CRÍTICO | Limpeza não aplicada em tool_calls | Usuário vê código |
-| Dia pagamento errado | 🟡 MÉDIO | Não lê income_cards | Info errada |
-| Categorização fake | 🔴 CRÍTICO | Erros engolidos silenciosamente | Usuário não confia |
-| Áudio longo quebra | 🔴 CRÍTICO | Timeout + contexto estourado | App não funciona |
-| Regex incompleto | 🟡 MÉDIO | Padrões não cobrem tudo | XML vaza |
+| Bug                  | Gravidade  | Causa                              | Impacto            |
+| -------------------- | ---------- | ---------------------------------- | ------------------ |
+| XML vazando          | 🔴 CRÍTICO | Limpeza não aplicada em tool_calls | Usuário vê código  |
+| Dia pagamento errado | 🟡 MÉDIO   | Não lê income_cards                | Info errada        |
+| Categorização fake   | 🔴 CRÍTICO | Erros engolidos silenciosamente    | Usuário não confia |
+| Áudio longo quebra   | 🔴 CRÍTICO | Timeout + contexto estourado       | App não funciona   |
+| Regex incompleto     | 🟡 MÉDIO   | Padrões não cobrem tudo            | XML vaza           |
 
 ---
 
@@ -282,18 +306,21 @@ function cleanResponseContent(content: string | null | undefined): string {
 ### O que fazer:
 
 **Opção A: Consertar o DeepSeek**
+
 - Implementar as correções listadas acima
 - Adicionar logs verbosos
 - Testar cada ferramenta individualmente
 - Tempo estimado: 1-2 semanas de trabalho intenso
 
 **Opção B: Trocar o modelo**
+
 - GPT-4 tem function calling muito mais robusto
 - Claude 3.5 Sonnet também
 - Menos tratamento de erro necessário
 - Custo maior, mas funciona de verdade
 
 **Opção C: Simplificar**
+
 - Reduzir o número de ferramentas
 - Fazer o agente ser mais "conservador"
 - Validar TUDO antes de dizer que fez
@@ -304,18 +331,23 @@ function cleanResponseContent(content: string | null | undefined): string {
 ## 🔧 Plano de Ação Imediato
 
 ### Passo 1: Corrigir XML vazando (30 min)
+
 Aplicar limpeza SEMPRE, não só no retorno final.
 
 ### Passo 2: Corrigir dia de pagamento (15 min)
+
 Adicionar `income_cards` ao `preloadUserContext`.
 
 ### Passo 3: Validar categorização (1 hora)
+
 Adicionar logs, validação, e feedback honesto.
 
 ### Passo 4: Melhorar regex (30 min)
+
 Usar regex mais agressivo.
 
 ### Passo 5: Testar cada cenário (2-3 horas)
+
 - Áudio curto
 - Áudio longo
 - Texto curto

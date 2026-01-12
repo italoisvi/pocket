@@ -5,15 +5,19 @@ Italo, você perguntou como fazer o Walts ser um agente de verdade, como eu (Cla
 ## 🧠 Diferença entre Chat e Agente
 
 ### Chat (Read-Only)
+
 ```
 Usuário → Pergunta → LLM → Resposta textual
 ```
+
 O modelo só responde perguntas, não executa ações.
 
 ### Agente (Pode Agir)
+
 ```
 Usuário → Comando → LLM → Decide Ação → Executa Ferramenta → Observa Resultado → Responde
 ```
+
 O modelo pode **pensar**, **decidir** qual ação tomar, e **executar** ferramentas.
 
 ## 🔄 Padrão ReAct (Reason + Act)
@@ -33,6 +37,7 @@ O modelo pode **pensar**, **decidir** qual ação tomar, e **executar** ferramen
 ## ⚠️ O Problema do Loop Infinito
 
 O problema que você estava enfrentando era:
+
 - O DeepSeek **não sabia quando parar** de chamar ferramentas
 - Ele chamava ferramenta após ferramenta sem nunca responder
 - Resultado: "loop de ferramentas" e timeout
@@ -47,25 +52,30 @@ O problema que você estava enfrentando era:
 ## ✅ Correções Aplicadas
 
 ### 1. System Prompt Reduzido
+
 **Antes:** ~6000 caracteres, 100+ linhas
 **Depois:** ~1000 caracteres, ~20 linhas
 
 O prompt agora é conciso e tem instruções claras:
+
 - "Após executar uma ferramenta, RESPONDA ao usuário imediatamente"
 - "NÃO chame múltiplas ferramentas em sequência"
 
 ### 2. Stop Condition Adicionado
+
 ```typescript
 // Após executar ferramentas, forçar resposta
 if (iteration >= 2 || toolsCalledThisSession.length >= 3) {
   conversationMessages.push({
     role: 'system',
-    content: 'IMPORTANTE: Você DEVE responder ao usuário agora. NÃO chame mais ferramentas.'
+    content:
+      'IMPORTANTE: Você DEVE responder ao usuário agora. NÃO chame mais ferramentas.',
   });
 }
 ```
 
 ### 3. Limite de Iterações Reduzido
+
 **Antes:** 5 iterações
 **Depois:** 3 iterações
 
@@ -76,11 +86,13 @@ Menos chances de loop infinito.
 Se você quiser ir além e criar algo mais avançado, aqui está o roadmap:
 
 ### Nível 1: Agente Básico ✅ (Você está aqui)
+
 - [x] Function calling
 - [x] Execução de ferramentas
 - [x] Stop conditions
 
 ### Nível 2: Agente com Contexto
+
 - [ ] Pré-carregar dados do usuário antes de cada conversa
 - [ ] Injetar contexto no system prompt dinamicamente
 - [ ] Menos chamadas de ferramenta (dados já estão no contexto)
@@ -93,41 +105,44 @@ async function preloadContext(userId: string) {
     supabase.from('budgets').select('*').eq('user_id', userId),
     supabase.from('expenses').select('*').eq('user_id', userId).limit(20),
   ]);
-  
+
   return `
 CONTEXTO DO USUÁRIO:
 - Nome: ${profile.name}
 - Salário: R$ ${profile.monthly_salary}
 - Orçamentos: ${budgets.length} ativos
-- Últimos gastos: ${expenses.map(e => e.establishment_name).join(', ')}
+- Últimos gastos: ${expenses.map((e) => e.establishment_name).join(', ')}
   `;
 }
 ```
 
 ### Nível 3: Agente com Memória de Longo Prazo
+
 - [ ] Salvar preferências do usuário
 - [ ] Aprender padrões de comportamento
 - [ ] Personalizar respostas baseado em histórico
 
 ### Nível 4: Agente Multi-step (Planejamento)
+
 - [ ] Quebrar tarefas complexas em passos
 - [ ] Executar plano passo a passo
 - [ ] Adaptar plano baseado em resultados
 
 ### Nível 5: Agente Autônomo
+
 - [ ] Proativo (sugere ações sem ser perguntado)
 - [ ] Monitoramento contínuo
 - [ ] Alertas e notificações automáticas
 
 ## 📊 Comparação: DeepSeek vs Claude para Agentes
 
-| Aspecto | DeepSeek | Claude |
-|---------|----------|--------|
-| Function Calling | ✅ Bom | ✅ Excelente |
-| Seguir Instruções | 🟡 Médio | ✅ Muito bom |
-| Evitar Loops | 🟡 Precisa ajuda | ✅ Nativo |
-| Custo | 💰 Muito barato | 💰💰💰 Caro |
-| Velocidade | ⚡ Rápido | ⚡⚡ Muito rápido |
+| Aspecto           | DeepSeek         | Claude            |
+| ----------------- | ---------------- | ----------------- |
+| Function Calling  | ✅ Bom           | ✅ Excelente      |
+| Seguir Instruções | 🟡 Médio         | ✅ Muito bom      |
+| Evitar Loops      | 🟡 Precisa ajuda | ✅ Nativo         |
+| Custo             | 💰 Muito barato  | 💰💰💰 Caro       |
+| Velocidade        | ⚡ Rápido        | ⚡⚡ Muito rápido |
 
 **Recomendação:** DeepSeek é ótimo para o Pocket pelo custo-benefício, mas precisa de mais "guardrails" (como as correções que fizemos).
 
@@ -157,6 +172,7 @@ supabase functions deploy walts-agent
 ```
 
 Depois de fazer deploy, teste com comandos simples:
+
 - "Olá Walts"
 - "Qual meu saldo?"
 - "Registra um gasto de R$ 50 no Subway"
