@@ -22,6 +22,37 @@ type ChatMessageProps = {
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
+// Função para limpar tags internas do agente (DSML, function_calls, etc.)
+function cleanAgentTags(text: string): string {
+  // Remove blocos de function_calls completos (formato DSML)
+  let cleaned = text.replace(
+    /<\s*\|?\s*DSML\s*\|?\s*function_calls[\s\S]*?<\/?\s*\|?\s*DSML\s*\|?\s*function_calls\s*>/gi,
+    ''
+  );
+
+  // Remove tags antml/function_calls
+  cleaned = cleaned.replace(
+    /<function_calls>[\s\S]*?<\/antml:function_calls>/gi,
+    ''
+  );
+
+  // Remove qualquer tag XML/DSML restante que pareça ser interna
+  cleaned = cleaned.replace(
+    /<\s*\|?\s*DSML[^>]*>[\s\S]*?<\/?\s*\|?\s*DSML[^>]*>/gi,
+    ''
+  );
+  cleaned = cleaned.replace(/<\s*\|?\s*DSML[^>]*>/gi, '');
+  cleaned = cleaned.replace(/<\/?\s*\|?\s*DSML[^>]*>/gi, '');
+
+  // Remove linhas que começam com < | e terminam com >
+  cleaned = cleaned.replace(/^<\s*\|[^>]*>\s*$/gm, '');
+
+  // Remove linhas vazias extras
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  return cleaned.trim();
+}
+
 export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
   const { theme } = useTheme();
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -30,6 +61,9 @@ export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
   if (role === 'system') {
     return null;
   }
+
+  // Limpar tags internas do conteúdo
+  const cleanedContent = cleanAgentTags(content);
 
   const handleLinkPress = (url: string) => {
     Linking.openURL(url);
@@ -108,7 +142,7 @@ export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
   const hasOnlyAudio =
     audioAttachments.length > 0 &&
     imageAttachments.length === 0 &&
-    !content.trim();
+    !cleanedContent.trim();
 
   if (role === 'user') {
     return (
@@ -156,7 +190,7 @@ export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
         )}
 
         {/* Texto (só mostrar se não for apenas áudio) */}
-        {content.trim() && !hasOnlyAudio && (
+        {cleanedContent.trim() && !hasOnlyAudio && (
           <View
             style={[
               styles.userBubble,
@@ -168,6 +202,7 @@ export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
             ]}
           >
             <Text
+              selectable={true}
               style={[
                 styles.userText,
                 {
@@ -175,7 +210,7 @@ export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
                 },
               ]}
             >
-              {content}
+              {cleanedContent}
             </Text>
           </View>
         )}
@@ -204,11 +239,26 @@ export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
     );
   }
 
+  // Se não houver conteúdo limpo, não renderizar
+  if (!cleanedContent.trim()) {
+    return null;
+  }
+
   return (
     <View style={[styles.wrapper, styles.assistantWrapper]}>
       <View style={styles.assistantBubble}>
-        <Markdown style={markdownStyles} onLinkPress={handleLinkPress}>
-          {content}
+        <Markdown
+          style={markdownStyles}
+          onLinkPress={handleLinkPress}
+          rules={{
+            text: (node, children, parent, styles) => (
+              <Text key={node.key} style={styles.text} selectable={true}>
+                {node.content}
+              </Text>
+            ),
+          }}
+        >
+          {cleanedContent}
         </Markdown>
       </View>
     </View>

@@ -258,20 +258,36 @@ function cleanResponseContent(content: string | null | undefined): string {
   if (!content) return '';
 
   // Remover blocos DSML/XML que vazam do DeepSeek
-  // Padrão: < | DSML | ...> ou <| DSML |...> ou variações
+  // Padrões: < | DSML | function_calls>, <| DSML |invoke>, etc.
   let cleaned = content
-    // Remover blocos completos de function_calls
+    // Remover blocos completos de function_calls (várias variações)
     .replace(
-      /<\s*\|?\s*DSML\s*\|?\s*function_calls>[\s\S]*?<\/\s*\|?\s*DSML\s*\|?\s*function_calls>/gi,
+      /<\s*\|?\s*DSML\s*\|?\s*function_calls[\s\S]*?<\/?\s*\|?\s*DSML\s*\|?\s*function_calls\s*>/gi,
       ''
     )
-    // Remover tags DSML individuais que sobrarem
+    // Remover invoke com conteúdo
+    .replace(
+      /<\s*\|?\s*DSML\s*\|?\s*invoke[^>]*>[\s\S]*?<\/?\s*\|?\s*DSML\s*\|?\s*invoke\s*>/gi,
+      ''
+    )
+    // Remover parameter com conteúdo
+    .replace(
+      /<\s*\|?\s*DSML\s*\|?\s*parameter[^>]*>[^<]*<\/?\s*\|?\s*DSML\s*\|?\s*parameter\s*>/gi,
+      ''
+    )
+    // Remover tags DSML abertas/fechadas individualmente
     .replace(/<\s*\|?\s*DSML\s*\|?[^>]*>/gi, '')
-    .replace(/<\/\s*\|?\s*DSML\s*\|?[^>]*>/gi, '')
+    .replace(/<\/?\s*\|?\s*DSML\s*\|?[^>]*>/gi, '')
     // Remover blocos XML de function calls genéricos
     .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '')
+    .replace(/<function_calls>[\s\S]*?<\/antml:function_calls>/gi, '')
     .replace(/<invoke[^>]*>[\s\S]*?<\/invoke>/gi, '')
-    .replace(/<parameter[^>]*>[\s\S]*?<\/parameter>/gi, '')
+    .replace(/<parameter[^>]*>[^<]*<\/parameter>/gi, '')
+    // Remover linhas que são apenas tags (< | ... >) ou (</| ... >)
+    .replace(/^<\s*\/?\s*\|[^>]*>\s*$/gm, '')
+    .replace(/^<\s*\|[^>]*>\s*$/gm, '')
+    // Remover >texto< órfãos de tags
+    .replace(/^>[^<\n]+<$/gm, '')
     // Limpar espaços extras
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -412,27 +428,27 @@ const WALTS_TOOLS = [
     function: {
       name: 'sync_bank',
       description:
-        'Sincroniza e gerencia transações do banco via Open Finance. Use para buscar transações, categorizar, ver extrato ou sugerir categorias.',
+        'Gerencia transações do banco via Open Finance. QUANDO O USUÁRIO PEDIR PARA CATEGORIZAR AS TRANSAÇÕES/EXTRATO, USE action=categorize_and_save.',
       parameters: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['sync', 'categorize', 'statement', 'preview_categories'],
+            enum: [
+              'categorize_and_save',
+              'statement',
+              'preview',
+            ],
             description:
-              'sync=importar transações como gastos, categorize=categorizar gastos existentes, statement=ver extrato, preview_categories=mostrar categorias sugeridas para transações do extrato SEM importar',
+              'categorize_and_save=CATEGORIZAR transações do extrato e SALVAR no app (use quando usuário pedir para categorizar), statement=ver extrato bancário, preview=apenas visualizar categorias sugeridas SEM salvar',
           },
           days: {
             type: 'number',
-            description: 'Número de dias para buscar (padrão: 7)',
+            description: 'Número de dias para buscar (padrão: 30)',
           },
           account_name: {
             type: 'string',
             description: 'Nome do banco específico (opcional)',
-          },
-          only_uncategorized: {
-            type: 'boolean',
-            description: 'Apenas transações sem categoria',
           },
         },
         required: ['action'],
@@ -1668,24 +1684,19 @@ async function handleSyncBank(
   supabase: any,
   userId: string,
   args: {
-    action: 'sync' | 'categorize' | 'statement' | 'preview_categories';
+    action: 'categorize_and_save' | 'statement' | 'preview';
     days?: number;
     account_name?: string;
-    only_uncategorized?: boolean;
   }
 ) {
   console.log(`[handleSyncBank] Action: ${args.action}`);
 
   switch (args.action) {
-    case 'sync':
-      return await syncOpenFinanceTransactions(supabase, userId, {
-        days: args.days || 7,
+    case 'categorize_and_save':
+      // AÇÃO PRINCIPAL: Categoriza transações do extrato e salva no app
+      return await importAndCategorizeTransactions(supabase, userId, {
+        days: args.days || 30,
         account_name: args.account_name,
-      });
-
-    case 'categorize':
-      return await categorizeOpenFinanceTransactions(supabase, userId, {
-        only_uncategorized: args.only_uncategorized ?? true,
       });
 
     case 'statement':
@@ -1694,7 +1705,7 @@ async function handleSyncBank(
         account_name: args.account_name,
       });
 
-    case 'preview_categories':
+    case 'preview':
       return await previewTransactionCategories(supabase, userId, {
         days: args.days || 30,
         account_name: args.account_name,
@@ -2421,6 +2432,170 @@ async function createExpense(
     };
   } catch (error) {
     console.error('[createExpense] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro desconhecido',
+    };
+  }
+}
+
+// FUNÇÃO PRINCIPAL: Importa transações do extrato E categoriza com IA
+async function importAndCategorizeTransactions(
+  supabase: any,
+  userId: string,
+  args: { days?: number; account_name?: string }
+) {
+  try {
+    const days = args.days || 30;
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - days);
+    const fromDateStr = fromDate.toISOString().split('T')[0];
+    const toDateStr = new Date().toISOString().split('T')[0];
+
+    console.log(
+      `[importAndCategorizeTransactions] Starting for user ${userId}, days=${days}`
+    );
+
+    // Buscar contas do usuário
+    let accountsQuery = supabase
+      .from('pluggy_accounts')
+      .select('id, name, type')
+      .eq('user_id', userId)
+      .in('type', ['BANK', 'CHECKING']);
+
+    if (args.account_name) {
+      accountsQuery = accountsQuery.ilike('name', `%${args.account_name}%`);
+    }
+
+    const { data: accounts, error: accountsError } = await accountsQuery;
+
+    if (accountsError || !accounts || accounts.length === 0) {
+      return {
+        success: false,
+        error: args.account_name
+          ? `Conta "${args.account_name}" não encontrada`
+          : 'Nenhuma conta bancária conectada via Open Finance',
+      };
+    }
+
+    const accountIds = accounts.map((acc: any) => acc.id);
+
+    // Buscar transações NÃO importadas ainda (expense_id é null)
+    const { data: transactions, error: txError } = await supabase
+      .from('pluggy_transactions')
+      .select('id, description, amount, date, type, expense_id, category')
+      .in('account_id', accountIds)
+      .eq('type', 'DEBIT')
+      .gte('date', fromDateStr)
+      .lte('date', toDateStr)
+      .is('expense_id', null)
+      .order('date', { ascending: false })
+      .limit(50);
+
+    if (txError) {
+      console.error('[importAndCategorizeTransactions] Error:', txError);
+      return {
+        success: false,
+        error: `Erro ao buscar transações: ${txError.message}`,
+      };
+    }
+
+    if (!transactions || transactions.length === 0) {
+      return {
+        success: true,
+        message: `✅ Todas as transações dos últimos ${days} dias já estão importadas no app!`,
+        imported: 0,
+      };
+    }
+
+    console.log(
+      `[importAndCategorizeTransactions] Found ${transactions.length} transactions to import`
+    );
+
+    // Importar e categorizar cada transação
+    let importedCount = 0;
+    const importedExpenses: Array<{
+      establishment: string;
+      amount: number;
+      category: string;
+      subcategory: string;
+    }> = [];
+    const categorySummary: Record<string, number> = {};
+
+    for (const tx of transactions) {
+      try {
+        // Categorizar com IA
+        const categorization = await categorizeWithWalts(tx.description || 'Sem descrição', {
+          amount: Math.abs(tx.amount),
+          pluggyCategory: tx.category,
+        });
+
+        // Criar expense com categoria
+        const { data: expense, error: expenseError } = await supabase
+          .from('expenses')
+          .insert({
+            user_id: userId,
+            establishment_name: tx.description || 'Sem descrição',
+            amount: Math.abs(tx.amount),
+            category: categorization.category,
+            subcategory: categorization.subcategory,
+            date: tx.date,
+            transaction_id: tx.id,
+            created_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (!expenseError && expense) {
+          // Atualizar transação com expense_id
+          await supabase
+            .from('pluggy_transactions')
+            .update({ expense_id: expense.id, synced: true })
+            .eq('id', tx.id);
+
+          importedCount++;
+          importedExpenses.push({
+            establishment: tx.description,
+            amount: Math.abs(tx.amount),
+            category: categorization.category,
+            subcategory: categorization.subcategory,
+          });
+
+          // Contabilizar por categoria
+          categorySummary[categorization.category] =
+            (categorySummary[categorization.category] || 0) + Math.abs(tx.amount);
+        }
+      } catch (err) {
+        console.error(
+          `[importAndCategorizeTransactions] Error processing ${tx.description}:`,
+          err
+        );
+      }
+    }
+
+    // Formatar resumo
+    const summaryText = Object.entries(categorySummary)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, total]) => `• ${cat}: R$ ${total.toFixed(2)}`)
+      .join('\n');
+
+    const detailsText = importedExpenses
+      .slice(0, 10)
+      .map(
+        (exp) =>
+          `• ${exp.establishment}: R$ ${exp.amount.toFixed(2)} → ${exp.category}`
+      )
+      .join('\n');
+
+    return {
+      success: true,
+      message: `✅ Importadas e categorizadas ${importedCount} transações dos últimos ${days} dias!\n\n**Por categoria:**\n${summaryText}\n\n**Detalhes:**\n${detailsText}${importedCount > 10 ? `\n... e mais ${importedCount - 10} transações` : ''}`,
+      imported: importedCount,
+      summary: categorySummary,
+      expenses: importedExpenses,
+    };
+  } catch (error: any) {
+    console.error('[importAndCategorizeTransactions] Exception:', error);
     return {
       success: false,
       error: error.message || 'Erro desconhecido',
