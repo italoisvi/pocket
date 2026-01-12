@@ -177,13 +177,25 @@ async function processMessagesWithAudio(messages: any[]): Promise<any[]> {
 
       if (audioAttachments.length > 0) {
         // Transcrever todos os áudios
+        // CORREÇÃO BUG #4: Limitar tamanho da transcrição para não estourar contexto
+        const MAX_TRANSCRIPTION_LENGTH = 1500;
         const transcriptions: string[] = [];
         for (const audio of audioAttachments) {
           console.log('[walts-agent] Processing audio:', audio.url);
           try {
-            const transcription = await transcribeAudio(audio.url);
+            let transcription = await transcribeAudio(audio.url);
             if (transcription && transcription.trim().length > 0) {
-              transcriptions.push(transcription.trim());
+              // Limitar tamanho da transcrição
+              transcription = transcription.trim();
+              if (transcription.length > MAX_TRANSCRIPTION_LENGTH) {
+                console.warn(
+                  `[walts-agent] Transcription truncated from ${transcription.length} to ${MAX_TRANSCRIPTION_LENGTH} chars`
+                );
+                transcription =
+                  transcription.substring(0, MAX_TRANSCRIPTION_LENGTH) +
+                  '... [áudio longo, transcrição parcial]';
+              }
+              transcriptions.push(transcription);
               console.log(
                 '[walts-agent] Transcription added:',
                 transcription.substring(0, 50) + '...'
@@ -257,40 +269,57 @@ async function processMessagesWithAudio(messages: any[]): Promise<any[]> {
 function cleanResponseContent(content: string | null | undefined): string {
   if (!content) return '';
 
-  // Remover blocos DSML/XML que vazam do DeepSeek
-  // Padrões: < | DSML | function_calls>, <| DSML |invoke>, etc.
+  // CORREÇÃO BUG #5: Regex mais agressivo para limpar XML/DSML
+  // Padrões observados: < | DSML | function_calls>, <| DSML |invoke>, etc.
   let cleaned = content
-    // Remover blocos completos de function_calls (várias variações)
+    // 1. Remover QUALQUER coisa que pareça XML/DSML de function calling (mais agressivo)
+    .replace(/<[^>]*DSML[^>]*>[\s\S]*?<\/[^>]*DSML[^>]*>/gi, '')
+    // 2. Remover do início de XML até o fim da string (quando tag não fechou)
+    .replace(/<[^>]*function_calls[^>]*>[\s\S]*$/gi, '')
+    .replace(/<[^>]*invoke[^>]*>[\s\S]*$/gi, '')
+    // 3. Remover blocos completos de function_calls (várias variações de espaçamento)
     .replace(
       /<\s*\|?\s*DSML\s*\|?\s*function_calls[\s\S]*?<\/?\s*\|?\s*DSML\s*\|?\s*function_calls\s*>/gi,
       ''
     )
-    // Remover invoke com conteúdo
+    // 4. Remover invoke com conteúdo
     .replace(
       /<\s*\|?\s*DSML\s*\|?\s*invoke[^>]*>[\s\S]*?<\/?\s*\|?\s*DSML\s*\|?\s*invoke\s*>/gi,
       ''
     )
-    // Remover parameter com conteúdo
+    // 5. Remover parameter com conteúdo
     .replace(
       /<\s*\|?\s*DSML\s*\|?\s*parameter[^>]*>[^<]*<\/?\s*\|?\s*DSML\s*\|?\s*parameter\s*>/gi,
       ''
     )
-    // Remover tags DSML abertas/fechadas individualmente
+    // 6. Remover tags DSML abertas/fechadas individualmente
     .replace(/<\s*\|?\s*DSML\s*\|?[^>]*>/gi, '')
     .replace(/<\/?\s*\|?\s*DSML\s*\|?[^>]*>/gi, '')
-    // Remover blocos XML de function calls genéricos
+    // 7. Remover blocos XML de function calls genéricos (antml, etc)
     .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '')
     .replace(/<function_calls>[\s\S]*?<\/antml:function_calls>/gi, '')
+    .replace(/<function_calls>[\s\S]*?<\/antml:function_calls>/gi, '')
+    .replace(/<invoke[^>]*>[\s\S]*?<\/antml:invoke>/gi, '')
     .replace(/<invoke[^>]*>[\s\S]*?<\/invoke>/gi, '')
     .replace(/<parameter[^>]*>[^<]*<\/parameter>/gi, '')
-    // Remover linhas que são apenas tags (< | ... >) ou (</| ... >)
+    .replace(/<parameter[^>]*>[^<]*<\/antml:parameter>/gi, '')
+    // 8. Remover tags < | ... > (com espaços e pipes)
+    .replace(/<\s*\|[^>]*>/g, '')
+    .replace(/<\/\s*\|[^>]*>/g, '')
+    // 9. Remover linhas que são apenas tags ou símbolos de tags
     .replace(/^<\s*\/?\s*\|[^>]*>\s*$/gm, '')
     .replace(/^<\s*\|[^>]*>\s*$/gm, '')
-    // Remover >texto< órfãos de tags
+    .replace(/^[<>|\/\s]+$/gm, '')
+    // 10. Remover >texto< órfãos de tags
     .replace(/^>[^<\n]+<$/gm, '')
-    // Limpar espaços extras
+    // 11. Limpar espaços extras
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+
+  // Se ficou só com lixo XML, retornar vazio
+  if (cleaned.match(/^[\s<>|\/]*$/)) {
+    return '';
+  }
 
   // Se após limpeza ficou vazio ou muito curto, retornar mensagem padrão
   if (cleaned.length < 5) {
@@ -1261,10 +1290,10 @@ async function preloadUserContext(
   // Buscar tudo em paralelo para máxima performance
   const [profileResult, budgetsResult, expensesResult, preferencesResult] =
     await Promise.all([
-      // Perfil do usuário
+      // Perfil do usuário - CORREÇÃO BUG #2: Incluir income_cards
       supabase
         .from('profiles')
-        .select('name, monthly_salary, salary_payment_day')
+        .select('name, monthly_salary, salary_payment_day, income_cards')
         .eq('id', userId)
         .single(),
 
@@ -1288,14 +1317,47 @@ async function preloadUserContext(
         .limit(10),
     ]);
 
-  // Processar perfil
-  const profile = profileResult.data
-    ? {
-        name: profileResult.data.name,
-        monthly_salary: profileResult.data.monthly_salary,
-        salary_payment_day: profileResult.data.salary_payment_day,
+  // Processar perfil - CORREÇÃO BUG #2: Usar income_cards para salário e dia de pagamento
+  let profile = null;
+  if (profileResult.data) {
+    let monthlySalary = profileResult.data.monthly_salary;
+    let paymentDay = profileResult.data.salary_payment_day;
+
+    // Se tem income_cards, usar os valores de lá (mais atualizados)
+    if (
+      profileResult.data.income_cards &&
+      Array.isArray(profileResult.data.income_cards) &&
+      profileResult.data.income_cards.length > 0
+    ) {
+      // Somar todos os salários
+      const totalSalary = profileResult.data.income_cards.reduce(
+        (sum: number, card: any) => {
+          const salary = parseFloat(
+            String(card.salary || '0').replace(/\./g, '').replace(',', '.')
+          );
+          return sum + (isNaN(salary) ? 0 : salary);
+        },
+        0
+      );
+      if (totalSalary > 0) {
+        monthlySalary = totalSalary;
       }
-    : null;
+
+      // Usar o menor dia de pagamento (primeiro a receber)
+      const paymentDays = profileResult.data.income_cards
+        .map((card: any) => parseInt(card.paymentDay))
+        .filter((day: number) => !isNaN(day) && day >= 1 && day <= 31);
+      if (paymentDays.length > 0) {
+        paymentDay = Math.min(...paymentDays);
+      }
+    }
+
+    profile = {
+      name: profileResult.data.name,
+      monthly_salary: monthlySalary,
+      salary_payment_day: paymentDay,
+    };
+  }
 
   // Processar orçamentos com gastos calculados
   const budgets: UserContext['budgets'] = [];
@@ -1928,27 +1990,40 @@ serve(async (req) => {
       }));
     }
 
+    // CORREÇÃO BUG #4: Detectar se há áudio para reduzir histórico
+    const hasAudioInMessages = processedMessages.some(
+      (msg: any) =>
+        msg.content?.includes('[Áudio') ||
+        msg.content?.includes('transcrição') ||
+        msg.content?.includes('[áudio')
+    );
+
     // Limitar histórico para evitar problemas com contexto muito longo
     // DeepSeek tem limite de ~32k tokens, precisamos manter o histórico pequeno
-    const maxHistoryMessages = 10;
+    // Se tem áudio, reduzir ainda mais para dar espaço à transcrição
+    const maxHistoryMessages = hasAudioInMessages ? 5 : 10;
     if (processedMessages.length > maxHistoryMessages) {
       console.log(
         '[walts-agent] Trimming message history from',
         processedMessages.length,
         'to',
-        maxHistoryMessages
+        maxHistoryMessages,
+        hasAudioInMessages ? '(reduced due to audio)' : ''
       );
       processedMessages = processedMessages.slice(-maxHistoryMessages);
     }
 
-    // Também truncar mensagens muito longas individualmente
-    processedMessages = processedMessages.map((msg: any) => ({
-      ...msg,
-      content:
-        msg.content?.length > 2000
-          ? msg.content.substring(0, 2000) + '... [mensagem truncada]'
-          : msg.content,
-    }));
+    // CORREÇÃO BUG #4: Limpar ANTES de truncar para não quebrar tags
+    processedMessages = processedMessages.map((msg: any) => {
+      if (!msg.content) return msg;
+      // Limpar possíveis tags XML/DSML antes de truncar
+      let content = cleanResponseContent(msg.content);
+      // Truncar se necessário
+      if (content.length > 2000) {
+        content = content.substring(0, 2000) + '... [mensagem truncada]';
+      }
+      return { ...msg, content };
+    });
 
     // Loop do agente - continua até não haver mais tool calls
     let conversationMessages = [
@@ -2078,7 +2153,13 @@ serve(async (req) => {
         JSON.stringify(assistantMessage, null, 2)
       );
 
-      // Adicionar resposta do assistente à conversa
+      // CORREÇÃO BUG #1: Limpar XML/DSML SEMPRE, não só no retorno final
+      // O DeepSeek vaza marcação interna quando usa tool_calls
+      if (assistantMessage.content) {
+        assistantMessage.content = cleanResponseContent(assistantMessage.content);
+      }
+
+      // Adicionar resposta do assistente à conversa (já limpa)
       conversationMessages.push(assistantMessage);
 
       // Se não há tool calls, retornar a resposta final
@@ -2512,8 +2593,32 @@ async function importAndCategorizeTransactions(
       `[importAndCategorizeTransactions] Found ${transactions.length} transactions to import`
     );
 
-    // Importar e categorizar cada transação
+    // CORREÇÃO BUG #3: Validação, contagem de falhas e feedback honesto
+    // Lista de categorias válidas
+    const validCategories = [
+      'alimentacao',
+      'transporte',
+      'lazer',
+      'saude',
+      'educacao',
+      'moradia',
+      'vestuario',
+      'beleza',
+      'eletronicos',
+      'delivery',
+      'poupanca',
+      'previdencia',
+      'investimentos',
+      'cartao_credito',
+      'emprestimos',
+      'financiamentos',
+      'transferencias',
+      'outros',
+    ];
+
     let importedCount = 0;
+    let failedCount = 0;
+    const failedTransactions: string[] = [];
     const importedExpenses: Array<{
       establishment: string;
       amount: number;
@@ -2525,20 +2630,34 @@ async function importAndCategorizeTransactions(
     for (const tx of transactions) {
       try {
         // Categorizar com IA
-        const categorization = await categorizeWithWalts(tx.description || 'Sem descrição', {
-          amount: Math.abs(tx.amount),
-          pluggyCategory: tx.category,
-        });
+        const categorization = await categorizeWithWalts(
+          tx.description || 'Sem descrição',
+          {
+            amount: Math.abs(tx.amount),
+            pluggyCategory: tx.category,
+          }
+        );
 
-        // Criar expense com categoria
+        // VALIDAR categoria antes de salvar
+        let finalCategory = categorization.category;
+        let finalSubcategory = categorization.subcategory;
+        if (!validCategories.includes(finalCategory)) {
+          console.warn(
+            `[importAndCategorizeTransactions] Categoria inválida "${finalCategory}" para "${tx.description}", usando "outros"`
+          );
+          finalCategory = 'outros';
+          finalSubcategory = 'Outros';
+        }
+
+        // Criar expense com categoria validada
         const { data: expense, error: expenseError } = await supabase
           .from('expenses')
           .insert({
             user_id: userId,
             establishment_name: tx.description || 'Sem descrição',
             amount: Math.abs(tx.amount),
-            category: categorization.category,
-            subcategory: categorization.subcategory,
+            category: finalCategory,
+            subcategory: finalSubcategory,
             date: tx.date,
             transaction_id: tx.id,
             created_at: new Date().toISOString(),
@@ -2546,7 +2665,15 @@ async function importAndCategorizeTransactions(
           .select()
           .single();
 
-        if (!expenseError && expense) {
+        if (expenseError) {
+          // LOGAR ERRO DETALHADO
+          console.error(
+            `[importAndCategorizeTransactions] FALHOU ao criar expense para "${tx.description}":`,
+            expenseError
+          );
+          failedCount++;
+          failedTransactions.push(tx.description || 'Sem descrição');
+        } else if (expense) {
           // Atualizar transação com expense_id
           await supabase
             .from('pluggy_transactions')
@@ -2557,19 +2684,21 @@ async function importAndCategorizeTransactions(
           importedExpenses.push({
             establishment: tx.description,
             amount: Math.abs(tx.amount),
-            category: categorization.category,
-            subcategory: categorization.subcategory,
+            category: finalCategory,
+            subcategory: finalSubcategory,
           });
 
           // Contabilizar por categoria
-          categorySummary[categorization.category] =
-            (categorySummary[categorization.category] || 0) + Math.abs(tx.amount);
+          categorySummary[finalCategory] =
+            (categorySummary[finalCategory] || 0) + Math.abs(tx.amount);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(
-          `[importAndCategorizeTransactions] Error processing ${tx.description}:`,
-          err
+          `[importAndCategorizeTransactions] EXCEÇÃO ao processar "${tx.description}":`,
+          err?.message || err
         );
+        failedCount++;
+        failedTransactions.push(tx.description || 'Sem descrição');
       }
     }
 
@@ -2587,10 +2716,27 @@ async function importAndCategorizeTransactions(
       )
       .join('\n');
 
+    // CORREÇÃO BUG #3: Feedback honesto sobre falhas
+    let statusEmoji = '✅';
+    let statusMessage = `Importadas e categorizadas ${importedCount} transações`;
+    if (failedCount > 0 && importedCount === 0) {
+      statusEmoji = '❌';
+      statusMessage = `Falha ao importar ${failedCount} transações`;
+    } else if (failedCount > 0) {
+      statusEmoji = '⚠️';
+      statusMessage = `${importedCount} importadas, ${failedCount} falharam`;
+    }
+
+    const failedText =
+      failedCount > 0
+        ? `\n\n**Falharam (${failedCount}):**\n${failedTransactions.slice(0, 5).map((t) => `• ${t}`).join('\n')}${failedCount > 5 ? `\n... e mais ${failedCount - 5}` : ''}`
+        : '';
+
     return {
-      success: true,
-      message: `✅ Importadas e categorizadas ${importedCount} transações dos últimos ${days} dias!\n\n**Por categoria:**\n${summaryText}\n\n**Detalhes:**\n${detailsText}${importedCount > 10 ? `\n... e mais ${importedCount - 10} transações` : ''}`,
+      success: importedCount > 0,
+      message: `${statusEmoji} ${statusMessage} dos últimos ${days} dias!${summaryText ? `\n\n**Por categoria:**\n${summaryText}` : ''}${detailsText ? `\n\n**Detalhes:**\n${detailsText}${importedCount > 10 ? `\n... e mais ${importedCount - 10} transações` : ''}` : ''}${failedText}`,
       imported: importedCount,
+      failed: failedCount,
       summary: categorySummary,
       expenses: importedExpenses,
     };
