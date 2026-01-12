@@ -88,6 +88,17 @@ export default function ExpenseDetailScreen() {
         }
       }
 
+      // Remove reference from pluggy_transactions before deleting expense
+      const { error: unlinkError } = await supabase
+        .from('pluggy_transactions')
+        .update({ expense_id: null })
+        .eq('expense_id', expense.id);
+
+      if (unlinkError) {
+        console.error('Erro ao desvincular transações:', unlinkError);
+        // Continuar mesmo se falhar - pode não haver transações vinculadas
+      }
+
       // Delete expense from database
       const { error } = await supabase
         .from('expenses')
