@@ -7,9 +7,9 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
+import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/lib/theme';
@@ -523,7 +523,7 @@ export default function ChatScreen() {
             ))}
             {loading && (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={theme.primary} />
+                <LoadingKangaroo size={50} />
               </View>
             )}
           </>

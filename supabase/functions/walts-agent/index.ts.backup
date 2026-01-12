@@ -1,4 +1,4 @@
-﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { jsPDF } from 'https://esm.sh/jspdf@2.5.2';
 import { categorizeWithWalts } from '../_shared/categorize-with-walts.ts';
@@ -44,11 +44,7 @@ async function transcribeAudio(audioUrl: string): Promise<string> {
     console.log('[walts-agent] Downloading audio file...');
     const downloadStart = Date.now();
     const audioResponse = await fetchWithTimeout(audioUrl, {}, 30000);
-    console.log(
-      '[walts-agent] Download took:',
-      Date.now() - downloadStart,
-      'ms'
-    );
+    console.log('[walts-agent] Download took:', Date.now() - downloadStart, 'ms');
 
     if (!audioResponse.ok) {
       throw new Error(`Failed to download audio: ${audioResponse.status}`);
@@ -89,11 +85,7 @@ async function transcribeAudio(audioUrl: string): Promise<string> {
       55000 // 55 segundos (abaixo do timeout da Edge Function)
     );
 
-    console.log(
-      '[walts-agent] Whisper API took:',
-      Date.now() - whisperStart,
-      'ms'
-    );
+    console.log('[walts-agent] Whisper API took:', Date.now() - whisperStart, 'ms');
 
     if (!whisperResponse.ok) {
       const errorText = await whisperResponse.text();
@@ -104,24 +96,12 @@ async function transcribeAudio(audioUrl: string): Promise<string> {
     }
 
     const result = await whisperResponse.json();
-    console.log(
-      '[walts-agent] TOTAL transcription time:',
-      Date.now() - startTime,
-      'ms'
-    );
-    console.log(
-      '[walts-agent] Transcription result:',
-      result.text?.substring(0, 100)
-    );
+    console.log('[walts-agent] TOTAL transcription time:', Date.now() - startTime, 'ms');
+    console.log('[walts-agent] Transcription result:', result.text?.substring(0, 100));
 
     return result.text || '';
   } catch (error: any) {
-    console.error(
-      '[walts-agent] Transcribe error after',
-      Date.now() - startTime,
-      'ms:',
-      error.message
-    );
+    console.error('[walts-agent] Transcribe error after', Date.now() - startTime, 'ms:', error.message);
     throw error;
   }
 }
@@ -193,14 +173,9 @@ async function processMessagesWithAudio(messages: any[]): Promise<any[]> {
               transcriptions.push('[Áudio recebido - transcrição vazia]');
             }
           } catch (error: any) {
-            console.error(
-              '[walts-agent] Failed to transcribe audio:',
-              error?.message || error
-            );
+            console.error('[walts-agent] Failed to transcribe audio:', error?.message || error);
             // Se falhar, adicionar mensagem de erro informativa
-            transcriptions.push(
-              `[Erro ao transcrever áudio: ${error?.message || 'erro desconhecido'}]`
-            );
+            transcriptions.push(`[Erro ao transcrever áudio: ${error?.message || 'erro desconhecido'}]`);
           }
         }
 
@@ -232,7 +207,10 @@ async function processMessagesWithAudio(messages: any[]): Promise<any[]> {
     let content = message.content || '';
 
     // Se for mensagem antiga de áudio sem conteúdo, adicionar placeholder
-    if (!content && message.attachments?.some((a: any) => a.type === 'audio')) {
+    if (
+      !content &&
+      message.attachments?.some((a: any) => a.type === 'audio')
+    ) {
       content = '[Mensagem de áudio anterior]';
     }
 
@@ -249,73 +227,25 @@ async function processMessagesWithAudio(messages: any[]): Promise<any[]> {
   return processedMessages;
 }
 
-// ============================================================================
-// LIMPEZA DE RESPOSTAS
-// Remove XML/DSML que o DeepSeek às vezes vaza no content
-// ============================================================================
-
-function cleanResponseContent(content: string | null | undefined): string {
-  if (!content) return '';
-
-  // Remover blocos DSML/XML que vazam do DeepSeek
-  // Padrão: < | DSML | ...> ou <| DSML |...> ou variações
-  let cleaned = content
-    // Remover blocos completos de function_calls
-    .replace(
-      /<\s*\|?\s*DSML\s*\|?\s*function_calls>[\s\S]*?<\/\s*\|?\s*DSML\s*\|?\s*function_calls>/gi,
-      ''
-    )
-    // Remover tags DSML individuais que sobrarem
-    .replace(/<\s*\|?\s*DSML\s*\|?[^>]*>/gi, '')
-    .replace(/<\/\s*\|?\s*DSML\s*\|?[^>]*>/gi, '')
-    // Remover blocos XML de function calls genéricos
-    .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '')
-    .replace(/<invoke[^>]*>[\s\S]*?<\/invoke>/gi, '')
-    .replace(/<parameter[^>]*>[\s\S]*?<\/parameter>/gi, '')
-    // Limpar espaços extras
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-
-  // Se após limpeza ficou vazio ou muito curto, retornar mensagem padrão
-  if (cleaned.length < 5) {
-    return '';
-  }
-
-  return cleaned;
-}
-
-// ============================================================================
-// FERRAMENTAS CONSOLIDADAS (7 ao invés de 20)
-// Menos ferramentas = DeepSeek escolhe melhor e responde mais rápido
-// ============================================================================
-
+// Definição das ferramentas (tools) que o Walts pode usar
 const WALTS_TOOLS = [
-  // 1. GERENCIAR GASTOS (criar, editar, deletar)
   {
     type: 'function',
     function: {
-      name: 'manage_expense',
+      name: 'create_expense_from_description',
       description:
-        'Gerencia gastos/comprovantes do usuário. Use para criar novos gastos, editar existentes ou deletar.',
+        'Cria um novo comprovante/gasto na Home do usuário. Use quando o usuário pedir para registrar um gasto manualmente.',
       parameters: {
         type: 'object',
         properties: {
-          action: {
-            type: 'string',
-            enum: ['create', 'update', 'delete'],
-            description: 'Ação a ser executada',
-          },
-          expense_id: {
-            type: 'string',
-            description: 'ID do gasto (obrigatório para update/delete)',
-          },
           establishment_name: {
             type: 'string',
-            description: 'Nome do estabelecimento (ex: Subway, Uber)',
+            description:
+              'Nome do estabelecimento onde foi feito o gasto (ex: Subway, Uber, Ifood)',
           },
           amount: {
             type: 'number',
-            description: 'Valor em reais',
+            description: 'Valor do gasto em reais (ex: 50.00)',
           },
           category: {
             type: 'string',
@@ -333,285 +263,44 @@ const WALTS_TOOLS = [
           },
           subcategory: {
             type: 'string',
-            description: 'Subcategoria opcional',
+            description:
+              'Subcategoria opcional (ex: para alimentacao pode ser: restaurante, mercado, lanchonete)',
           },
           date: {
             type: 'string',
-            description: 'Data no formato YYYY-MM-DD',
-          },
-          confirm_delete: {
-            type: 'boolean',
-            description: 'Confirmar exclusão (necessário para delete)',
-          },
-          force_create: {
-            type: 'boolean',
+            format: 'date',
             description:
-              'Forçar criação mesmo se existir gasto similar (usar quando usuário confirmar que quer duplicar)',
+              'Data do gasto no formato YYYY-MM-DD. Se não especificado, usa hoje.',
           },
         },
-        required: ['action'],
+        required: ['establishment_name', 'amount', 'category'],
       },
     },
   },
-
-  // 2. GERENCIAR ORÇAMENTOS (criar, editar, deletar, verificar)
   {
     type: 'function',
     function: {
-      name: 'manage_budget',
+      name: 'sync_open_finance_transactions',
       description:
-        'Gerencia orçamentos do usuário. Use para criar, editar, deletar ou verificar status de orçamentos.',
+        'Sincroniza transações do Open Finance (Pluggy) e categoriza automaticamente. Use quando o usuário pedir para buscar gastos do banco.',
       parameters: {
         type: 'object',
         properties: {
-          action: {
-            type: 'string',
-            enum: ['create', 'update', 'delete', 'check'],
-            description: 'Ação a ser executada',
-          },
-          category_id: {
-            type: 'string',
-            enum: [
-              'alimentacao',
-              'transporte',
-              'lazer',
-              'saude',
-              'educacao',
-              'moradia',
-              'vestuario',
-              'outros',
-            ],
-            description: 'Categoria do orçamento',
-          },
-          amount: {
-            type: 'number',
-            description: 'Valor limite em reais',
-          },
-          period_type: {
-            type: 'string',
-            enum: ['monthly', 'weekly', 'yearly'],
-            description: 'Período do orçamento',
-          },
-          notifications_enabled: {
-            type: 'boolean',
-            description: 'Habilitar notificações',
-          },
-          confirm_delete: {
-            type: 'boolean',
-            description: 'Confirmar exclusão',
-          },
-        },
-        required: ['action'],
-      },
-    },
-  },
-
-  // 3. SINCRONIZAR BANCO (Open Finance)
-  {
-    type: 'function',
-    function: {
-      name: 'sync_bank',
-      description:
-        'Sincroniza e gerencia transações do banco via Open Finance. Use para buscar transações, categorizar, ver extrato ou sugerir categorias.',
-      parameters: {
-        type: 'object',
-        properties: {
-          action: {
-            type: 'string',
-            enum: ['sync', 'categorize', 'statement', 'preview_categories'],
-            description:
-              'sync=importar transações como gastos, categorize=categorizar gastos existentes, statement=ver extrato, preview_categories=mostrar categorias sugeridas para transações do extrato SEM importar',
-          },
           days: {
             type: 'number',
-            description: 'Número de dias para buscar (padrão: 7)',
+            description:
+              'Número de dias para buscar transações (ex: 7 para última semana, 30 para último mês)',
+            default: 7,
           },
           account_name: {
             type: 'string',
-            description: 'Nome do banco específico (opcional)',
-          },
-          only_uncategorized: {
-            type: 'boolean',
-            description: 'Apenas transações sem categoria',
-          },
-        },
-        required: ['action'],
-      },
-    },
-  },
-
-  // 4. ANALISAR FINANÇAS (padrões, sugestões, previsões)
-  {
-    type: 'function',
-    function: {
-      name: 'analyze_finances',
-      description:
-        'Analisa as finanças do usuário. Use para detectar padrões, sugerir economias, prever fim do mês ou detectar anomalias.',
-      parameters: {
-        type: 'object',
-        properties: {
-          analysis_type: {
-            type: 'string',
-            enum: ['patterns', 'savings', 'forecast', 'anomaly'],
             description:
-              'patterns=análise de padrões, savings=sugestões de economia, forecast=previsão fim do mês, anomaly=detectar gastos anormais',
-          },
-          category: {
-            type: 'string',
-            description: 'Categoria específica para análise (opcional)',
-          },
-          months: {
-            type: 'number',
-            description: 'Número de meses para análise (padrão: 3)',
-          },
-          savings_goal: {
-            type: 'number',
-            description: 'Meta de economia em reais (para savings)',
-          },
-        },
-        required: ['analysis_type'],
-      },
-    },
-  },
-
-  // 5. BUSCAR DADOS (qualquer dado do app)
-  {
-    type: 'function',
-    function: {
-      name: 'get_data',
-      description:
-        'Busca dados específicos do Pocket. Use APENAS se a informação não estiver no contexto acima.',
-      parameters: {
-        type: 'object',
-        properties: {
-          data_type: {
-            type: 'string',
-            enum: [
-              'expenses',
-              'profile',
-              'bank_accounts',
-              'credit_cards',
-              'transactions',
-              'all',
-            ],
-            description: 'Tipo de dados a buscar',
-          },
-          category: {
-            type: 'string',
-            description: 'Filtrar por categoria (para expenses)',
-          },
-          days: {
-            type: 'number',
-            description: 'Número de dias de histórico (padrão: 30)',
-          },
-          limit: {
-            type: 'number',
-            description: 'Limite de registros (padrão: 50)',
-          },
-        },
-        required: ['data_type'],
-      },
-    },
-  },
-
-  // 6. GERENCIAR MEMÓRIA (preferências do usuário)
-  {
-    type: 'function',
-    function: {
-      name: 'manage_memory',
-      description:
-        'Salva ou busca preferências e contextos do usuário para personalização.',
-      parameters: {
-        type: 'object',
-        properties: {
-          action: {
-            type: 'string',
-            enum: ['save', 'get'],
-            description: 'save=salvar preferência, get=buscar contexto',
-          },
-          memory_type: {
-            type: 'string',
-            enum: ['preference', 'context', 'goal', 'habit'],
-            description: 'Tipo de memória',
-          },
-          key: {
-            type: 'string',
-            description: 'Chave da preferência (ex: spending_priority)',
-          },
-          value: {
-            type: 'string',
-            description: 'Valor a salvar',
-          },
-        },
-        required: ['action'],
-      },
-    },
-  },
-
-  // 7. EXPORTAR DADOS
-  {
-    type: 'function',
-    function: {
-      name: 'export_data',
-      description: 'Exporta dados financeiros em CSV ou JSON.',
-      parameters: {
-        type: 'object',
-        properties: {
-          format: {
-            type: 'string',
-            enum: ['csv', 'json'],
-            description: 'Formato de exportação',
-          },
-          data_types: {
-            type: 'array',
-            items: {
-              type: 'string',
-              enum: ['expenses', 'budgets', 'profile'],
-            },
-            description: 'Tipos de dados a exportar',
-          },
-          date_from: {
-            type: 'string',
-            description: 'Data inicial YYYY-MM-DD',
-          },
-          date_to: {
-            type: 'string',
-            description: 'Data final YYYY-MM-DD',
+              'Nome do banco/conta específica (ex: Nubank, Inter). Se não especificado, busca de todas as contas.',
           },
         },
       },
     },
   },
-];
-
-// Manter ferramentas antigas como alias para compatibilidade
-const LEGACY_TOOL_MAPPING: { [key: string]: string } = {
-  create_expense_from_description: 'manage_expense',
-  update_expense: 'manage_expense',
-  delete_expense: 'manage_expense',
-  create_budget: 'manage_budget',
-  update_budget: 'manage_budget',
-  delete_budget: 'manage_budget',
-  check_budget_status: 'manage_budget',
-  sync_open_finance_transactions: 'sync_bank',
-  categorize_open_finance_transactions: 'sync_bank',
-  recategorize_expenses: 'sync_bank',
-  get_bank_statement: 'sync_bank',
-  analyze_spending_pattern: 'analyze_finances',
-  suggest_savings: 'analyze_finances',
-  forecast_month_end: 'analyze_finances',
-  check_if_anomaly: 'analyze_finances',
-  get_financial_patterns: 'analyze_finances',
-  get_pocket_data: 'get_data',
-  save_user_preference: 'manage_memory',
-  get_user_context: 'manage_memory',
-};
-
-// ============================================================================
-// FERRAMENTAS ANTIGAS (mantidas para compatibilidade, serão removidas depois)
-// ============================================================================
-
-const WALTS_TOOLS_LEGACY = [
   {
     type: 'function',
     function: {
@@ -1193,624 +882,116 @@ const WALTS_TOOLS_LEGACY = [
   },
 ];
 
-// ============================================================================
-// PRÉ-CARREGAMENTO DE CONTEXTO DO USUÁRIO
-// Busca dados essenciais ANTES de cada conversa para reduzir chamadas de ferramentas
-// ============================================================================
-
-type UserContext = {
-  profile: {
-    name: string | null;
-    monthly_salary: number | null;
-    salary_payment_day: number | null;
-  } | null;
-  budgets: Array<{
-    category_id: string;
-    amount: number;
-    period_type: string;
-    spent: number;
-    remaining: number;
-    percent_used: number;
-  }>;
-  recentExpenses: Array<{
-    id: string;
-    establishment_name: string;
-    amount: number;
-    category: string;
-    date: string;
-  }>;
-  preferences: Array<{
-    key: string;
-    value: string;
-    memory_type: string;
-  }>;
-  summary: {
-    total_spent_this_month: number;
-    expense_count_this_month: number;
-    top_categories: Array<{ category: string; total: number }>;
-  };
-};
-
-async function preloadUserContext(
-  supabase: any,
-  userId: string
-): Promise<UserContext> {
-  console.log('[walts-agent] Preloading user context...');
-  const startTime = Date.now();
-
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
-
-  // Buscar tudo em paralelo para máxima performance
-  const [profileResult, budgetsResult, expensesResult, preferencesResult] =
-    await Promise.all([
-      // Perfil do usuário
-      supabase
-        .from('profiles')
-        .select('name, monthly_salary, salary_payment_day')
-        .eq('id', userId)
-        .single(),
-
-      // Orçamentos ativos
-      supabase.from('budgets').select('*').eq('user_id', userId),
-
-      // Gastos do mês atual (para contexto) + últimos 15 gastos
-      supabase
-        .from('expenses')
-        .select('id, establishment_name, amount, category, date')
-        .eq('user_id', userId)
-        .order('date', { ascending: false })
-        .limit(30),
-
-      // Preferências salvas do usuário
-      supabase
-        .from('walts_memory')
-        .select('key, value, memory_type')
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false })
-        .limit(10),
-    ]);
-
-  // Processar perfil
-  const profile = profileResult.data
-    ? {
-        name: profileResult.data.name,
-        monthly_salary: profileResult.data.monthly_salary,
-        salary_payment_day: profileResult.data.salary_payment_day,
-      }
-    : null;
-
-  // Processar orçamentos com gastos calculados
-  const budgets: UserContext['budgets'] = [];
-  if (budgetsResult.data) {
-    for (const budget of budgetsResult.data) {
-      // Calcular período do orçamento
-      let periodStart: Date;
-      let periodEnd: Date;
-
-      if (budget.period_type === 'monthly') {
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      } else if (budget.period_type === 'weekly') {
-        const dayOfWeek = now.getDay();
-        periodStart = new Date(now);
-        periodStart.setDate(now.getDate() - dayOfWeek);
-        periodEnd = new Date(periodStart);
-        periodEnd.setDate(periodStart.getDate() + 6);
-      } else {
-        periodStart = new Date(now.getFullYear(), 0, 1);
-        periodEnd = new Date(now.getFullYear(), 11, 31);
-      }
-
-      // Buscar gastos da categoria no período
-      const { data: categoryExpenses } = await supabase
-        .from('expenses')
-        .select('amount')
-        .eq('user_id', userId)
-        .eq('category', budget.category_id)
-        .gte('date', periodStart.toISOString().split('T')[0])
-        .lte('date', periodEnd.toISOString().split('T')[0]);
-
-      const spent = (categoryExpenses || []).reduce(
-        (sum: number, e: any) => sum + parseFloat(e.amount),
-        0
-      );
-      const budgetAmount = parseFloat(budget.amount);
-
-      budgets.push({
-        category_id: budget.category_id,
-        amount: budgetAmount,
-        period_type: budget.period_type,
-        spent: Math.round(spent * 100) / 100,
-        remaining: Math.round((budgetAmount - spent) * 100) / 100,
-        percent_used: Math.round((spent / budgetAmount) * 100),
-      });
-    }
-  }
-
-  // Processar gastos recentes (com ID para poder editar)
-  const allExpenses = expensesResult.data || [];
-  const recentExpenses = allExpenses.slice(0, 15).map((e: any) => ({
-    id: e.id,
-    establishment_name: e.establishment_name,
-    amount: parseFloat(e.amount),
-    category: e.category || 'outros',
-    date: e.date,
-  }));
-
-  // Calcular resumo do mês
-  const monthExpenses = allExpenses.filter(
-    (e: any) => e.date >= startOfMonthStr
-  );
-  const totalSpentThisMonth = monthExpenses.reduce(
-    (sum: number, e: any) => sum + parseFloat(e.amount),
-    0
-  );
-
-  // Top categorias do mês
-  const categoryTotals: { [key: string]: number } = {};
-  for (const expense of monthExpenses) {
-    const cat = expense.category || 'outros';
-    categoryTotals[cat] =
-      (categoryTotals[cat] || 0) + parseFloat(expense.amount);
-  }
-  const topCategories = Object.entries(categoryTotals)
-    .map(([category, total]) => ({
-      category,
-      total: Math.round(total * 100) / 100,
-    }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
-
-  // Processar preferências
-  const preferences = (preferencesResult.data || []).map((p: any) => ({
-    key: p.key,
-    value: p.value,
-    memory_type: p.memory_type,
-  }));
-
-  const context: UserContext = {
-    profile,
-    budgets,
-    recentExpenses,
-    preferences,
-    summary: {
-      total_spent_this_month: Math.round(totalSpentThisMonth * 100) / 100,
-      expense_count_this_month: monthExpenses.length,
-      top_categories: topCategories,
-    },
-  };
-
-  console.log(
-    '[walts-agent] Context preloaded in',
-    Date.now() - startTime,
-    'ms:',
-    {
-      hasProfile: !!context.profile,
-      budgetsCount: context.budgets.length,
-      expensesCount: context.recentExpenses.length,
-      preferencesCount: context.preferences.length,
-      monthTotal: context.summary.total_spent_this_month,
-    }
-  );
-
-  return context;
-}
-
-// ============================================================================
-// GERAÇÃO DINÂMICA DO SYSTEM PROMPT
-// Injeta contexto do usuário para reduzir necessidade de ferramentas
-// ============================================================================
-
-function generateDynamicSystemPrompt(context: UserContext): string {
-  const now = new Date();
-  const currentDay = now.getDate();
-  const currentMonth = now.toLocaleDateString('pt-BR', { month: 'long' });
-
-  // Seção de contexto do usuário
-  let userContextSection = '';
-
-  if (context.profile) {
-    userContextSection += `\nSOBRE O USUÁRIO:`;
-    if (context.profile.name) {
-      userContextSection += `\n- Nome: ${context.profile.name}`;
-    }
-    if (context.profile.monthly_salary) {
-      userContextSection += `\n- Renda mensal: R$ ${context.profile.monthly_salary.toLocaleString('pt-BR')}`;
-    }
-    if (context.profile.salary_payment_day) {
-      userContextSection += `\n- Dia do pagamento: ${context.profile.salary_payment_day}`;
-    }
-  }
-
-  // Resumo financeiro do mês
-  userContextSection += `\n\nRESUMO DO MÊS (${currentMonth}):`;
-  userContextSection += `\n- Dia ${currentDay} do mês`;
-  userContextSection += `\n- Total gasto: R$ ${context.summary.total_spent_this_month.toLocaleString('pt-BR')}`;
-  userContextSection += `\n- Quantidade de gastos: ${context.summary.expense_count_this_month}`;
-
-  if (context.summary.top_categories.length > 0) {
-    userContextSection += `\n- Top categorias:`;
-    for (const cat of context.summary.top_categories.slice(0, 3)) {
-      userContextSection += ` ${cat.category} (R$ ${cat.total.toLocaleString('pt-BR')})`;
-    }
-  }
-
-  // Orçamentos
-  if (context.budgets.length > 0) {
-    userContextSection += `\n\nORÇAMENTOS:`;
-    for (const budget of context.budgets) {
-      const status =
-        budget.percent_used >= 100
-          ? '🔴'
-          : budget.percent_used >= 80
-            ? '🟡'
-            : '🟢';
-      userContextSection += `\n${status} ${budget.category_id}: R$ ${budget.spent}/${budget.amount} (${budget.percent_used}%)`;
-    }
-  }
-
-  // Últimos gastos (com ID para edição direta)
-  if (context.recentExpenses.length > 0) {
-    userContextSection += `\n\nÚLTIMOS GASTOS (use o ID para editar):`;
-    for (const expense of context.recentExpenses.slice(0, 8)) {
-      userContextSection += `\n- [${expense.id}] ${expense.establishment_name}: R$ ${expense.amount} (${expense.category})`;
-    }
-  }
-
-  // Preferências do usuário
-  if (context.preferences.length > 0) {
-    userContextSection += `\n\nPREFERÊNCIAS SALVAS:`;
-    for (const pref of context.preferences.slice(0, 3)) {
-      userContextSection += `\n- ${pref.key}: ${pref.value}`;
-    }
-  }
-
-  // System prompt completo
-  return `Você é Walts, assistente financeiro do Pocket. Ajuda usuários a gerenciar finanças de forma inteligente e personalizada.
-${userContextSection}
-
-REGRAS IMPORTANTES:
-1. USE OS DADOS ACIMA sempre que possível - não precisa buscar se já tem a informação
-2. Responda de forma direta e concisa (máximo 2-3 parágrafos)
-3. Use emojis com moderação (1-2 por mensagem)
-4. Após executar UMA ferramenta, RESPONDA ao usuário imediatamente
-5. NÃO chame múltiplas ferramentas em sequência
-6. Para ações destrutivas (deletar), sempre peça confirmação
-
-CONCEITOS DO APP:
-- CUSTOS FIXOS = categorias ESSENCIAIS: moradia, alimentacao, transporte, saude, educacao
-- CUSTOS VARIÁVEIS = categorias NÃO-ESSENCIAIS: lazer, vestuario, beleza, eletronicos, delivery
-- Para mudar um gasto de "fixo" para "variável", basta mudar sua CATEGORIA para uma não-essencial
-
-FERRAMENTAS DISPONÍVEIS (use apenas quando necessário):
-1. manage_expense(action: create/update/delete) - Registrar, editar ou deletar gastos
-2. manage_budget(action: create/update/delete/check) - Gerenciar orçamentos
-3. sync_bank(action: sync/categorize/statement) - Sincronizar banco/Open Finance
-4. analyze_finances(analysis_type: patterns/savings/forecast/anomaly) - Análises financeiras
-5. get_data(data_type) - Buscar dados específicos (APENAS se não estiver no contexto acima)
-6. manage_memory(action: save/get) - Salvar preferências do usuário
-7. export_data - Exportar dados
-
-REGRA CRÍTICA: Use NO MÁXIMO 1 ferramenta por resposta. Se precisa de mais dados, responda o que sabe e pergunte ao usuário.
-
-Se a informação já está no CONTEXTO acima, RESPONDA DIRETAMENTE sem usar ferramentas!`;
-}
-
-// ============================================================================
-// FALLBACK RESPONSE
-// Gera resposta baseada no contexto quando o loop falha
-// ============================================================================
-
-function generateFallbackResponse(
-  context: UserContext,
-  toolResults: Array<{ tool: string; result: any }>
-): string {
-  // Se temos resultados de ferramentas, tentar usar eles
-  if (toolResults.length > 0) {
-    const lastResult = toolResults[toolResults.length - 1];
-    if (lastResult.result?.success !== false) {
-      return `✅ Ação concluída! ${JSON.stringify(lastResult.result).substring(0, 200)}`;
-    }
-  }
-
-  // Fallback baseado no contexto pré-carregado
-  let response = '';
-
-  if (context.profile?.name) {
-    response += `Olá${context.profile.name ? `, ${context.profile.name}` : ''}! `;
-  }
-
-  response += `📊 Aqui está seu resumo financeiro:\n\n`;
-
-  // Resumo do mês
-  response += `💰 **Este mês:**\n`;
-  response += `- Total gasto: R$ ${context.summary.total_spent_this_month.toLocaleString('pt-BR')}\n`;
-  response += `- ${context.summary.expense_count_this_month} comprovantes registrados\n`;
-
-  if (context.summary.top_categories.length > 0) {
-    response += `\n📈 **Top categorias:**\n`;
-    for (const cat of context.summary.top_categories.slice(0, 3)) {
-      response += `- ${cat.category}: R$ ${cat.total.toLocaleString('pt-BR')}\n`;
-    }
-  }
-
-  // Orçamentos
-  if (context.budgets.length > 0) {
-    response += `\n🎯 **Orçamentos:**\n`;
-    for (const budget of context.budgets) {
-      const status =
-        budget.percent_used >= 100
-          ? '🔴'
-          : budget.percent_used >= 80
-            ? '🟡'
-            : '🟢';
-      response += `${status} ${budget.category_id}: ${budget.percent_used}% usado (R$ ${budget.remaining} restante)\n`;
-    }
-  }
-
-  // Renda
-  if (context.profile?.monthly_salary) {
-    const savings =
-      context.profile.monthly_salary - context.summary.total_spent_this_month;
-    response += `\n💵 **Projeção:**\n`;
-    response += `- Renda: R$ ${context.profile.monthly_salary.toLocaleString('pt-BR')}\n`;
-    response += `- Saldo projetado: R$ ${savings.toLocaleString('pt-BR')}\n`;
-  }
-
-  response += `\nPosso te ajudar com algo mais específico?`;
-
-  return response;
-}
-
-// ============================================================================
-// HANDLERS CONSOLIDADOS
-// Cada handler processa múltiplas ações de uma categoria
-// ============================================================================
-
-async function handleManageExpense(
-  supabase: any,
-  userId: string,
-  args: {
-    action: 'create' | 'update' | 'delete';
-    expense_id?: string;
-    establishment_name?: string;
-    amount?: number;
-    category?: string;
-    subcategory?: string;
-    date?: string;
-    confirm_delete?: boolean;
-    force_create?: boolean;
-  }
-) {
-  console.log(`[handleManageExpense] Action: ${args.action}`);
-
-  switch (args.action) {
-    case 'create':
-      return await createExpense(supabase, userId, {
-        establishment_name: args.establishment_name!,
-        amount: args.amount!,
-        category: args.category!,
-        subcategory: args.subcategory,
-        date: args.date,
-        force_create: args.force_create,
-      });
-
-    case 'update':
-      return await updateExpense(supabase, userId, {
-        expense_id: args.expense_id!,
-        establishment_name: args.establishment_name,
-        amount: args.amount,
-        category: args.category,
-        date: args.date,
-      });
-
-    case 'delete':
-      return await deleteExpense(supabase, userId, {
-        expense_id: args.expense_id!,
-        confirm: args.confirm_delete || false,
-      });
-
-    default:
-      return { success: false, error: `Ação inválida: ${args.action}` };
-  }
-}
-
-async function handleManageBudget(
-  supabase: any,
-  userId: string,
-  args: {
-    action: 'create' | 'update' | 'delete' | 'check';
-    category_id?: string;
-    amount?: number;
-    period_type?: string;
-    notifications_enabled?: boolean;
-    confirm_delete?: boolean;
-  }
-) {
-  console.log(`[handleManageBudget] Action: ${args.action}`);
-
-  switch (args.action) {
-    case 'create':
-      return await createBudget(supabase, userId, {
-        category_id: args.category_id!,
-        amount: args.amount!,
-        period_type: args.period_type,
-        notifications_enabled: args.notifications_enabled,
-      });
-
-    case 'update':
-      return await updateBudget(supabase, userId, {
-        category_id: args.category_id!,
-        amount: args.amount,
-        period_type: args.period_type,
-        notifications_enabled: args.notifications_enabled,
-      });
-
-    case 'delete':
-      return await deleteBudget(supabase, userId, {
-        category_id: args.category_id!,
-        confirm: args.confirm_delete || false,
-      });
-
-    case 'check':
-      return await checkBudgetStatus(supabase, userId, {
-        category_id: args.category_id,
-      });
-
-    default:
-      return { success: false, error: `Ação inválida: ${args.action}` };
-  }
-}
-
-async function handleSyncBank(
-  supabase: any,
-  userId: string,
-  args: {
-    action: 'sync' | 'categorize' | 'statement' | 'preview_categories';
-    days?: number;
-    account_name?: string;
-    only_uncategorized?: boolean;
-  }
-) {
-  console.log(`[handleSyncBank] Action: ${args.action}`);
-
-  switch (args.action) {
-    case 'sync':
-      return await syncOpenFinanceTransactions(supabase, userId, {
-        days: args.days || 7,
-        account_name: args.account_name,
-      });
-
-    case 'categorize':
-      return await categorizeOpenFinanceTransactions(supabase, userId, {
-        only_uncategorized: args.only_uncategorized ?? true,
-      });
-
-    case 'statement':
-      return await getBankStatement(supabase, userId, {
-        days: args.days || 30,
-        account_name: args.account_name,
-      });
-
-    case 'preview_categories':
-      return await previewTransactionCategories(supabase, userId, {
-        days: args.days || 30,
-        account_name: args.account_name,
-      });
-
-    default:
-      return { success: false, error: `Ação inválida: ${args.action}` };
-  }
-}
-
-async function handleAnalyzeFinances(
-  supabase: any,
-  userId: string,
-  args: {
-    analysis_type: 'patterns' | 'savings' | 'forecast' | 'anomaly';
-    category?: string;
-    months?: number;
-    savings_goal?: number;
-  }
-) {
-  console.log(`[handleAnalyzeFinances] Type: ${args.analysis_type}`);
-
-  switch (args.analysis_type) {
-    case 'patterns':
-      return await analyzeSpendingPattern(supabase, userId, {
-        months: args.months || 3,
-        category: args.category,
-      });
-
-    case 'savings':
-      return await suggestSavings(supabase, userId, {
-        target_amount: args.savings_goal,
-      });
-
-    case 'forecast':
-      return await forecastMonthEnd(supabase, userId, {});
-
-    case 'anomaly':
-      return await checkIfAnomaly(supabase, userId, {
-        category: args.category,
-      });
-
-    default:
-      return {
-        success: false,
-        error: `Tipo de análise inválido: ${args.analysis_type}`,
-      };
-  }
-}
-
-async function handleGetData(
-  supabase: any,
-  userId: string,
-  args: {
-    data_type:
-      | 'expenses'
-      | 'profile'
-      | 'bank_accounts'
-      | 'credit_cards'
-      | 'transactions'
-      | 'all';
-    category?: string;
-    days?: number;
-    limit?: number;
-  }
-) {
-  console.log(`[handleGetData] Type: ${args.data_type}`);
-
-  // Mapear para os tipos esperados por getPocketData
-  const typeMapping: { [key: string]: string[] } = {
-    expenses: ['expenses'],
-    profile: ['profile'],
-    bank_accounts: ['bank_accounts'],
-    credit_cards: ['credit_cards'],
-    transactions: ['credit_card_transactions'],
-    all: ['profile', 'expenses', 'bank_accounts', 'credit_cards', 'budgets'],
-  };
-
-  return await getPocketData(supabase, userId, {
-    data_types: typeMapping[args.data_type] || ['all'],
-    days: args.days || 30,
-    limit: args.limit || 50,
-    category: args.category ? [args.category] : undefined,
-  });
-}
-
-async function handleManageMemory(
-  supabase: any,
-  userId: string,
-  args: {
-    action: 'save' | 'get';
-    memory_type?: string;
-    key?: string;
-    value?: string;
-  }
-) {
-  console.log(`[handleManageMemory] Action: ${args.action}`);
-
-  switch (args.action) {
-    case 'save':
-      return await saveUserPreference(supabase, userId, {
-        memory_type: args.memory_type || 'preference',
-        key: args.key!,
-        value: args.value!,
-      });
-
-    case 'get':
-      return await getUserContext(supabase, userId, {
-        memory_type: args.memory_type,
-        key: args.key,
-      });
-
-    default:
-      return { success: false, error: `Ação inválida: ${args.action}` };
-  }
-}
+// System prompt para o Walts Agent
+const WALTS_SYSTEM_PROMPT = `Você é o Walts, o GUARDIÃO e agente principal do app Pocket - um assistente financeiro pessoal inteligente e proativo.
+
+VOCÊ TEM ACESSO TOTAL AO POCKET:
+- Você é o agente que vê TUDO do usuário no app
+- Comprovantes, gastos, perfil, salário, cartões, faturas, orçamentos, bancos conectados
+- Histórico de análises, padrões financeiros, memória de preferências
+- Use get_pocket_data para acessar qualquer dado que o usuário perguntar
+
+PERSONALIDADE:
+- Seja amigável, mas profissional
+- Use emojis moderadamente (apenas 1-2 por mensagem)
+- Seja direto e objetivo nas respostas
+- Sempre confirme ações antes de executar
+
+CAPACIDADES:
+Você pode executar ações reais para ajudar o usuário:
+1. Criar comprovantes/gastos manualmente
+2. Buscar e categorizar transações do Open Finance automaticamente
+3. Criar orçamentos para categorias de gastos
+4. Atualizar orçamentos existentes
+5. Verificar status de orçamentos
+6. Consultar extrato bancário e transações do Open Finance
+7. Analisar padrões de gastos e detectar anomalias
+8. Sugerir onde economizar com base em análise de gastos
+9. Prever fim do mês e projetar saldo final
+10. Salvar preferências e contextos do usuário
+11. Buscar e usar contexto histórico para personalizar respostas
+12. Dar sugestões financeiras personalizadas baseadas em memória
+13. Buscar padrões financeiros aprendidos sobre o usuário
+14. Verificar se um gasto é uma anomalia baseado no histórico
+15. Recategorizar despesas existentes que estão como "outros" ou com categoria errada
+16. Categorizar transações existentes do Open Finance sem criar duplicatas
+17. ACESSAR TODOS OS DADOS DO POCKET: comprovantes, perfil, salário, cartões de crédito, faturas, gastos fixos/variáveis, resumos
+18. EXCLUIR comprovantes/gastos (com confirmação)
+19. EDITAR comprovantes/gastos existentes
+20. EXCLUIR orçamentos (com confirmação)
+21. EXPORTAR dados e gerar link de download
+
+APRENDIZADO E PERSONALIZAÇÃO:
+Você tem acesso a padrões financeiros aprendidos sobre cada usuário. Use-os para:
+- Personalizar suas respostas (ex: "Você costuma gastar R$ 25 no Starbucks, mas hoje gastou R$ 40")
+- Detectar gastos fora do padrão (ex: "Esse gasto está 150% acima da sua média nessa categoria")
+- Dar sugestões baseadas em hábitos reais (ex: "Você gasta mais nos fins de semana, talvez evitar compras impulsivas no sábado")
+- Prever comportamentos (ex: "Você costuma gastar 60% do salário na primeira semana")
+
+IMPORTANTE: Quando o usuário registrar um gasto, use check_if_anomaly para verificar se é fora do padrão e comente se for.
+
+COMO USAR SUAS FERRAMENTAS:
+- "registra um gasto de R$ 50 no Subway" → create_expense_from_description
+- "pega meus gastos do Nubank" → sync_open_finance_transactions
+- "cria um orçamento de R$ 500 para alimentação" → create_budget
+- "aumenta o orçamento de transporte para R$ 300" → update_budget
+- "como estão meus orçamentos?" → check_budget_status
+- "me mostra o extrato dos últimos 30 dias" → get_bank_statement
+- "analisa meus gastos com alimentação" → analyze_spending_pattern
+- "onde posso economizar?" → suggest_savings
+- "vou passar do orçamento esse mês?" → forecast_month_end
+- "recategoriza meus gastos" ou "arruma as categorias" → recategorize_expenses
+- "categoriza as transações do banco" ou "organiza meu extrato" → categorize_open_finance_transactions
+- Quando usuário menciona preferência → save_user_preference (ex: "prefiro gastar mais em lazer")
+- No início de conversas importantes → get_user_context para personalizar resposta
+- SEMPRE confirme com o usuário antes de executar uma ação que modifica dados
+
+CATEGORIZAÇÃO DE TRANSAÇÕES EXISTENTES:
+- Use recategorize_expenses para recategorizar gastos/comprovantes manuais existentes
+- Use categorize_open_finance_transactions para categorizar transações do Open Finance (banco) sem criar duplicatas
+- Ambas as ferramentas usam IA para categorizar automaticamente
+- Não criam duplicatas - apenas atualizam categorias de transações existentes
+
+ACESSO COMPLETO AOS DADOS DO POCKET (use get_pocket_data):
+- "quais comprovantes eu adicionei?" → data_type: expenses
+- "qual meu salário?" ou "meu perfil" → data_type: profile
+- "quais cartões eu tenho?" → data_type: credit_cards
+- "me mostra a fatura do cartão" → data_type: credit_card_transactions
+- "quais contas bancárias?" → data_type: bank_accounts
+- "quais bancos conectei?" → data_type: connected_banks
+- "meus orçamentos" → data_type: budgets
+- "quais meus gastos fixos?" → data_type: fixed_costs
+- "quais meus gastos variáveis?" → data_type: variable_costs
+- "histórico de análises" → data_type: analysis_history
+- "resumo do mês" ou "como estou?" → data_type: summary
+- "me mostra tudo" → data_type: all
+- SEMPRE use get_pocket_data quando o usuário perguntar sobre QUALQUER dado do app
+
+GERENCIAMENTO DE DADOS:
+- "apaga/exclui esse gasto" ou "remove o comprovante do Subway" → delete_expense (SEMPRE confirme antes)
+- "edita/altera o gasto" ou "muda o valor pra R$ 50" → update_expense
+- "remove o orçamento de alimentação" → delete_budget (SEMPRE confirme antes)
+- "exporta meus dados" ou "quero baixar meus gastos" → export_data (retorna link de download)
+
+APRENDIZADO E MEMÓRIA:
+- Quando o usuário mencionar preferências, prioridades ou padrões de comportamento, SEMPRE salve usando save_user_preference
+- Use get_user_context no início de análises ou sugestões para personalizar com base no histórico
+- Exemplos de preferências importantes: categorias favoritas, prioridades financeiras, metas pessoais, dias de pagamento especiais
+- SEMPRE busque contexto antes de dar sugestões importantes
+
+PADRÕES FINANCEIROS:
+- "me conhece bem?" ou "o que você sabe sobre mim?" → get_financial_patterns (type: all)
+- "quais meus lugares favoritos?" → get_financial_patterns (type: favorite_place)
+- "como gasto nas categorias?" → get_financial_patterns (type: spending_habit)
+- Quando usuário registrar gasto → check_if_anomaly para alertar sobre gastos fora do padrão
+- Use os padrões para personalizar TODAS as suas respostas e sugestões
+- Ao analisar gastos, mencione se está acima ou abaixo do padrão do usuário
+
+IMPORTANTE:
+- Seja preciso ao categorizar gastos
+- Pergunte se não tiver certeza sobre alguma informação
+- Informe sempre o que você fez após executar uma ação
+- Ao verificar orçamentos, mostre percentual gasto e valor restante`;
 
 serve(async (req) => {
   const headers = {
@@ -1849,36 +1030,6 @@ serve(async (req) => {
         headers,
       });
     }
-
-    // ========================================
-    // PRÉ-CARREGAR CONTEXTO DO USUÁRIO
-    // Isso reduz drasticamente a necessidade de chamar get_pocket_data
-    // ========================================
-    let userContext: UserContext;
-    try {
-      userContext = await preloadUserContext(supabase, user.id);
-    } catch (contextError) {
-      console.error('[walts-agent] Failed to preload context:', contextError);
-      // Fallback: contexto vazio
-      userContext = {
-        profile: null,
-        budgets: [],
-        recentExpenses: [],
-        preferences: [],
-        summary: {
-          total_spent_this_month: 0,
-          expense_count_this_month: 0,
-          top_categories: [],
-        },
-      };
-    }
-
-    // Gerar system prompt dinâmico com contexto do usuário
-    const dynamicSystemPrompt = generateDynamicSystemPrompt(userContext);
-    console.log(
-      '[walts-agent] Dynamic system prompt generated, length:',
-      dynamicSystemPrompt.length
-    );
 
     const { messages } = await req.json();
 
@@ -1921,35 +1072,26 @@ serve(async (req) => {
     // DeepSeek tem limite de ~32k tokens, precisamos manter o histórico pequeno
     const maxHistoryMessages = 10;
     if (processedMessages.length > maxHistoryMessages) {
-      console.log(
-        '[walts-agent] Trimming message history from',
-        processedMessages.length,
-        'to',
-        maxHistoryMessages
-      );
+      console.log('[walts-agent] Trimming message history from', processedMessages.length, 'to', maxHistoryMessages);
       processedMessages = processedMessages.slice(-maxHistoryMessages);
     }
 
     // Também truncar mensagens muito longas individualmente
     processedMessages = processedMessages.map((msg: any) => ({
       ...msg,
-      content:
-        msg.content?.length > 2000
-          ? msg.content.substring(0, 2000) + '... [mensagem truncada]'
-          : msg.content,
+      content: msg.content?.length > 2000
+        ? msg.content.substring(0, 2000) + '... [mensagem truncada]'
+        : msg.content,
     }));
 
     // Loop do agente - continua até não haver mais tool calls
     let conversationMessages = [
-      { role: 'system', content: dynamicSystemPrompt },
+      { role: 'system', content: WALTS_SYSTEM_PROMPT },
       ...processedMessages,
     ];
 
     // Calcular tamanho aproximado do contexto
-    const contextSize = conversationMessages.reduce(
-      (acc, m) => acc + (m.content?.length || 0),
-      0
-    );
+    const contextSize = conversationMessages.reduce((acc, m) => acc + (m.content?.length || 0), 0);
     const lastUserMessage = processedMessages[processedMessages.length - 1];
 
     console.log('[walts-agent] Context stats:', {
@@ -1960,17 +1102,11 @@ serve(async (req) => {
     });
 
     // IMPORTANTE: Se a última mensagem está vazia, retornar erro ao invés de tentar processar
-    if (
-      !lastUserMessage?.content ||
-      lastUserMessage.content.trim().length === 0
-    ) {
-      console.error(
-        '[walts-agent] Last message is empty! This will cause issues.'
-      );
+    if (!lastUserMessage?.content || lastUserMessage.content.trim().length === 0) {
+      console.error('[walts-agent] Last message is empty! This will cause issues.');
       return new Response(
         JSON.stringify({
-          response:
-            'Desculpe, não consegui processar sua mensagem. Por favor, tente novamente ou envie uma mensagem de texto.',
+          response: 'Desculpe, não consegui processar sua mensagem. Por favor, tente novamente ou envie uma mensagem de texto.',
           error: 'Empty message content',
           debug: {
             lastMessageRole: lastUserMessage?.role,
@@ -1982,26 +1118,14 @@ serve(async (req) => {
       );
     }
 
-    let maxIterations = 2; // Reduzido para evitar loops
+    let maxIterations = 5; // Limite de segurança
     let iteration = 0;
     let toolsCalledThisSession: string[] = [];
-    let lastToolResults: any[] = []; // Guardar resultados para fallback
 
     while (iteration < maxIterations) {
       iteration++;
 
       console.log(`[walts-agent] === ITERATION ${iteration} ===`);
-
-      // IMPORTANTE: Na última iteração, FORÇAR resposta sem ferramentas
-      const isLastIteration = iteration === maxIterations;
-      const hasCalledTools = toolsCalledThisSession.length > 0;
-
-      // Se já chamou ferramentas ou é última iteração, forçar resposta de texto
-      const shouldForceResponse = isLastIteration || hasCalledTools;
-
-      console.log(
-        `[walts-agent] shouldForceResponse: ${shouldForceResponse}, hasCalledTools: ${hasCalledTools}, isLastIteration: ${isLastIteration}`
-      );
 
       // Chamar DeepSeek com function calling
       const deepseekResponse = await fetch(
@@ -2015,11 +1139,10 @@ serve(async (req) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: conversationMessages,
-            // CRÍTICO: Desabilitar ferramentas quando precisar forçar resposta
-            tools: shouldForceResponse ? undefined : WALTS_TOOLS,
-            tool_choice: shouldForceResponse ? undefined : 'auto',
+            tools: WALTS_TOOLS,
+            tool_choice: 'auto',
             temperature: 0.7,
-            max_tokens: 2048,
+            max_tokens: 2048, // Limitar tamanho da resposta
           }),
         }
       );
@@ -2030,8 +1153,7 @@ serve(async (req) => {
         // Retornar erro mais informativo ao invés de looping
         return new Response(
           JSON.stringify({
-            response:
-              'Desculpe, houve um erro ao processar sua mensagem. Tente enviar uma mensagem mais curta ou inicie uma nova conversa.',
+            response: 'Desculpe, houve um erro ao processar sua mensagem. Tente enviar uma mensagem mais curta ou inicie uma nova conversa.',
             error: `DeepSeek error: ${deepseekResponse.status}`,
           }),
           { headers }
@@ -2041,19 +1163,11 @@ serve(async (req) => {
       const deepseekData = await deepseekResponse.json();
 
       // Verificar se a resposta é válida
-      if (
-        !deepseekData.choices ||
-        !deepseekData.choices[0] ||
-        !deepseekData.choices[0].message
-      ) {
-        console.error(
-          '[walts-agent] Invalid DeepSeek response:',
-          JSON.stringify(deepseekData)
-        );
+      if (!deepseekData.choices || !deepseekData.choices[0] || !deepseekData.choices[0].message) {
+        console.error('[walts-agent] Invalid DeepSeek response:', JSON.stringify(deepseekData));
         return new Response(
           JSON.stringify({
-            response:
-              'Desculpe, recebi uma resposta inválida. Tente novamente.',
+            response: 'Desculpe, recebi uma resposta inválida. Tente novamente.',
             error: 'Invalid response structure',
           }),
           { headers }
@@ -2076,11 +1190,9 @@ serve(async (req) => {
         assistantMessage.tool_calls.length === 0
       ) {
         console.log('[walts-agent] No tool calls, returning final response');
-        // Limpar possível XML/DSML vazado do DeepSeek
-        const cleanedResponse = cleanResponseContent(assistantMessage.content);
         return new Response(
           JSON.stringify({
-            response: cleanedResponse || 'Como posso te ajudar?',
+            response: assistantMessage.content,
             tool_calls_executed: iteration - 1,
           }),
           { headers }
@@ -2088,22 +1200,16 @@ serve(async (req) => {
       }
 
       // Executar cada tool call
-      const toolNames = assistantMessage.tool_calls.map(
-        (tc: any) => tc.function.name
-      );
+      const toolNames = assistantMessage.tool_calls.map((tc: any) => tc.function.name);
       console.log(`[walts-agent] Tools being called:`, toolNames);
       toolsCalledThisSession.push(...toolNames);
 
       // Detectar loop infinito (mesmo tool sendo chamado repetidamente)
       if (toolsCalledThisSession.length > 10) {
-        console.warn(
-          '[walts-agent] Too many tool calls, breaking loop. Tools called:',
-          toolsCalledThisSession
-        );
+        console.warn('[walts-agent] Too many tool calls, breaking loop. Tools called:', toolsCalledThisSession);
         return new Response(
           JSON.stringify({
-            response:
-              'Desculpe, houve um problema ao processar sua solicitação. Por favor, tente com uma pergunta mais simples.',
+            response: 'Desculpe, houve um problema ao processar sua solicitação. Por favor, tente com uma pergunta mais simples.',
             error: 'Too many tool calls',
             toolsCalled: toolsCalledThisSession,
           }),
@@ -2123,44 +1229,8 @@ serve(async (req) => {
         let toolResult;
 
         try {
-          // ========================================
-          // DISPATCHER DE FERRAMENTAS CONSOLIDADAS
-          // ========================================
-
-          // Ferramentas consolidadas (novas)
-          if (functionName === 'manage_expense') {
-            toolResult = await handleManageExpense(
-              supabase,
-              user.id,
-              functionArgs
-            );
-          } else if (functionName === 'manage_budget') {
-            toolResult = await handleManageBudget(
-              supabase,
-              user.id,
-              functionArgs
-            );
-          } else if (functionName === 'sync_bank') {
-            toolResult = await handleSyncBank(supabase, user.id, functionArgs);
-          } else if (functionName === 'analyze_finances') {
-            toolResult = await handleAnalyzeFinances(
-              supabase,
-              user.id,
-              functionArgs
-            );
-          } else if (functionName === 'get_data') {
-            toolResult = await handleGetData(supabase, user.id, functionArgs);
-          } else if (functionName === 'manage_memory') {
-            toolResult = await handleManageMemory(
-              supabase,
-              user.id,
-              functionArgs
-            );
-          } else if (functionName === 'export_data') {
-            toolResult = await exportData(supabase, user.id, functionArgs);
-          }
-          // Ferramentas legadas (compatibilidade)
-          else if (functionName === 'create_expense_from_description') {
+          // Executar a ferramenta apropriada
+          if (functionName === 'create_expense_from_description') {
             toolResult = await createExpense(supabase, user.id, functionArgs);
           } else if (functionName === 'sync_open_finance_transactions') {
             toolResult = await syncOpenFinanceTransactions(
@@ -2234,20 +1304,16 @@ serve(async (req) => {
             toolResult = await updateExpense(supabase, user.id, functionArgs);
           } else if (functionName === 'delete_budget') {
             toolResult = await deleteBudget(supabase, user.id, functionArgs);
+          } else if (functionName === 'export_data') {
+            toolResult = await exportData(supabase, user.id, functionArgs);
           } else {
             toolResult = {
               success: false,
-              error: `Ferramenta desconhecida: ${functionName}`,
+              error: `Unknown tool: ${functionName}`,
             };
           }
 
           console.log(`[walts-agent] Tool result:`, toolResult);
-
-          // Guardar resultado para possível fallback
-          lastToolResults.push({
-            tool: functionName,
-            result: toolResult,
-          });
         } catch (error) {
           console.error(`[walts-agent] Tool execution error:`, error);
           toolResult = {
@@ -2263,31 +1329,16 @@ serve(async (req) => {
           content: JSON.stringify(toolResult),
         });
       }
-
-      // Adicionar instrução para responder (vai ser usada na próxima iteração com tools desabilitadas)
-      conversationMessages.push({
-        role: 'system',
-        content:
-          'Agora responda ao usuário de forma direta e concisa com base nos dados obtidos.',
-      });
     }
 
-    // Se chegou aqui, significa que o loop terminou
-    // Isso NÃO deveria acontecer com a nova lógica, mas vamos ter um fallback inteligente
-    console.warn(
-      '[walts-agent] Loop ended unexpectedly. Generating fallback response...'
-    );
-
-    // Fallback: gerar resposta baseada no contexto pré-carregado
-    const fallbackResponse = generateFallbackResponse(
-      userContext,
-      lastToolResults
-    );
+    // Se chegou aqui, excedeu o limite de iterações
+    console.warn('[walts-agent] Max iterations reached. Last conversation length:', conversationMessages.length);
+    console.warn('[walts-agent] This usually means DeepSeek kept calling tools without stopping');
     return new Response(
       JSON.stringify({
-        response: fallbackResponse,
-        tool_calls_executed: toolsCalledThisSession.length,
-        fallback: true,
+        response:
+          'Desculpe, encontrei um problema ao processar sua solicitação (loop de ferramentas). Tente novamente com uma pergunta mais simples.',
+        error: 'Max iterations exceeded',
       }),
       { headers }
     );
@@ -2311,7 +1362,6 @@ async function createExpense(
     category: string;
     subcategory?: string;
     date?: string;
-    force_create?: boolean;
   }
 ) {
   try {
@@ -2325,53 +1375,6 @@ async function createExpense(
       const brazilOffset = -3 * 60; // -180 minutos
       const localTime = new Date(now.getTime() + brazilOffset * 60 * 1000);
       expenseDate = localTime.toISOString().split('T')[0];
-    }
-
-    // VERIFICAR DUPLICAÇÃO: Buscar gastos similares antes de criar
-    if (!args.force_create) {
-      const dateMinus1 = new Date(expenseDate);
-      dateMinus1.setDate(dateMinus1.getDate() - 1);
-      const datePlus1 = new Date(expenseDate);
-      datePlus1.setDate(datePlus1.getDate() + 1);
-
-      const { data: similarExpenses } = await supabase
-        .from('expenses')
-        .select('id, establishment_name, amount, date, category')
-        .eq('user_id', userId)
-        .gte('date', dateMinus1.toISOString().split('T')[0])
-        .lte('date', datePlus1.toISOString().split('T')[0]);
-
-      if (similarExpenses && similarExpenses.length > 0) {
-        // Verificar se há gasto com mesmo valor E estabelecimento similar
-        const establishmentLower = args.establishment_name.toLowerCase();
-        const duplicate = similarExpenses.find((exp: any) => {
-          const expNameLower = exp.establishment_name.toLowerCase();
-          const amountMatch = Math.abs(exp.amount - args.amount) < 0.01;
-          const nameMatch =
-            expNameLower.includes(establishmentLower) ||
-            establishmentLower.includes(expNameLower) ||
-            expNameLower === establishmentLower;
-          return amountMatch && nameMatch;
-        });
-
-        if (duplicate) {
-          console.log(
-            `[createExpense] Duplicate found: ${duplicate.establishment_name} R$${duplicate.amount} on ${duplicate.date}`
-          );
-          return {
-            success: false,
-            is_duplicate: true,
-            existing_expense: {
-              id: duplicate.id,
-              establishment_name: duplicate.establishment_name,
-              amount: duplicate.amount,
-              date: duplicate.date,
-              category: duplicate.category,
-            },
-            message: `⚠️ Já existe um gasto similar registrado: ${duplicate.establishment_name} - R$ ${duplicate.amount.toFixed(2)} em ${duplicate.date}. Se quiser registrar mesmo assim, me avise.`,
-          };
-        }
-      }
     }
 
     // Gerar PDF do comprovante
@@ -2533,10 +1536,10 @@ async function syncOpenFinanceTransactions(
           amount: Math.abs(tx.amount),
         });
 
-        // Marcar transação como sincronizada E vincular ao expense criado
+        // Marcar transação como sincronizada
         await supabase
           .from('pluggy_transactions')
-          .update({ synced: true, expense_id: expense.id })
+          .update({ synced: true })
           .eq('id', tx.id);
       }
     }
@@ -2864,203 +1867,6 @@ async function checkBudgetStatus(
     return {
       success: false,
       error: error.message || 'Erro desconhecido',
-    };
-  }
-}
-
-// ============================================================================
-// PREVIEW DE CATEGORIAS PARA TRANSAÇÕES DO EXTRATO
-// Mostra categorias sugeridas SEM registrar como expenses
-// ============================================================================
-
-async function previewTransactionCategories(
-  supabase: any,
-  userId: string,
-  args: { days?: number; account_name?: string }
-) {
-  try {
-    const days = args.days || 30;
-
-    console.log(
-      `[previewTransactionCategories] Starting for user ${userId}, days=${days}`
-    );
-
-    const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - days);
-    const fromDateStr = fromDate.toISOString().split('T')[0];
-    const toDateStr = new Date().toISOString().split('T')[0];
-
-    // Buscar contas do Open Finance
-    let accountsQuery = supabase
-      .from('pluggy_accounts')
-      .select('id, name, type')
-      .eq('user_id', userId);
-
-    if (args.account_name) {
-      accountsQuery = accountsQuery.ilike('name', `%${args.account_name}%`);
-    }
-
-    const { data: accounts, error: accountsError } = await accountsQuery;
-
-    if (accountsError || !accounts || accounts.length === 0) {
-      return {
-        success: false,
-        error: args.account_name
-          ? `Conta "${args.account_name}" não encontrada`
-          : 'Nenhuma conta bancária conectada via Open Finance',
-      };
-    }
-
-    const accountIds = accounts.map((acc: any) => acc.id);
-
-    // Buscar transações do período (débitos = gastos)
-    const { data: allTransactions, error: txError } = await supabase
-      .from('pluggy_transactions')
-      .select('id, description, amount, date, type, expense_id')
-      .in('account_id', accountIds)
-      .eq('type', 'DEBIT')
-      .gte('date', fromDateStr)
-      .lte('date', toDateStr)
-      .order('date', { ascending: false })
-      .limit(100);
-
-    if (txError) {
-      console.error('[previewTransactionCategories] Error:', txError);
-      return {
-        success: false,
-        error: `Erro ao buscar transações: ${txError.message}`,
-      };
-    }
-
-    if (!allTransactions || allTransactions.length === 0) {
-      return {
-        success: true,
-        message: `Nenhuma transação encontrada nos últimos ${days} dias.`,
-        transactions: [],
-      };
-    }
-
-    // Separar transações já importadas das não importadas
-    const alreadyImportedTx = allTransactions.filter(
-      (tx: any) => tx.expense_id
-    );
-    const notImportedTx = allTransactions.filter((tx: any) => !tx.expense_id);
-
-    console.log(
-      `[previewTransactionCategories] Found ${allTransactions.length} transactions: ${notImportedTx.length} not imported, ${alreadyImportedTx.length} already imported`
-    );
-
-    // Se não há transações novas para categorizar
-    if (notImportedTx.length === 0) {
-      return {
-        success: true,
-        message: `✅ Todas as ${alreadyImportedTx.length} transações dos últimos ${days} dias já estão registradas no app!`,
-        transactions: [],
-        total_transactions: allTransactions.length,
-        already_imported: alreadyImportedTx.length,
-        not_imported: 0,
-      };
-    }
-
-    // Categorizar APENAS transações NÃO importadas (sem salvar, apenas preview)
-    const categorizedTransactions: Array<{
-      id: string;
-      description: string;
-      amount: number;
-      date: string;
-      suggested_category: string;
-      suggested_subcategory: string;
-      confidence: string;
-    }> = [];
-
-    // Processar em lotes de 5 para não sobrecarregar
-    const batchSize = 5;
-    const transactionsToProcess = notImportedTx.slice(0, 30); // Limitar a 30 para não demorar muito
-
-    for (let i = 0; i < transactionsToProcess.length; i += batchSize) {
-      const batch = transactionsToProcess.slice(i, i + batchSize);
-
-      const results = await Promise.all(
-        batch.map(async (tx: any) => {
-          try {
-            const categorization = await categorizeWithWalts(tx.description, {
-              amount: Math.abs(tx.amount),
-            });
-
-            return {
-              id: tx.id,
-              description: tx.description,
-              amount: Math.abs(tx.amount),
-              date: tx.date,
-              suggested_category: categorization.category,
-              suggested_subcategory: categorization.subcategory,
-              confidence: categorization.confidence || 'medium',
-            };
-          } catch (err) {
-            console.error(
-              `[previewTransactionCategories] Error categorizing ${tx.id}:`,
-              err
-            );
-            return {
-              id: tx.id,
-              description: tx.description,
-              amount: Math.abs(tx.amount),
-              date: tx.date,
-              suggested_category: 'outros',
-              suggested_subcategory: 'Outros',
-              confidence: 'low',
-            };
-          }
-        })
-      );
-
-      categorizedTransactions.push(...results);
-    }
-
-    // Agrupar por categoria para resumo
-    const categorySummary: { [key: string]: { count: number; total: number } } =
-      {};
-    for (const tx of categorizedTransactions) {
-      if (!categorySummary[tx.suggested_category]) {
-        categorySummary[tx.suggested_category] = { count: 0, total: 0 };
-      }
-      categorySummary[tx.suggested_category].count++;
-      categorySummary[tx.suggested_category].total += tx.amount;
-    }
-
-    // Formatar para exibição
-    const summaryText = Object.entries(categorySummary)
-      .sort((a, b) => b[1].total - a[1].total)
-      .map(
-        ([cat, data]) =>
-          `${cat}: ${data.count} transações (R$ ${data.total.toFixed(2)})`
-      )
-      .join('\n');
-
-    // Formatar lista de transações categorizadas
-    const txListText = categorizedTransactions
-      .slice(0, 10)
-      .map(
-        (tx) =>
-          `• ${tx.description}: R$ ${tx.amount.toFixed(2)} → ${tx.suggested_category}/${tx.suggested_subcategory}`
-      )
-      .join('\n');
-
-    return {
-      success: true,
-      message: `📊 Categorização de ${categorizedTransactions.length} transações NÃO registradas (últimos ${days} dias):\n\n**Por categoria:**\n${summaryText}\n\n**Detalhes:**\n${txListText}${categorizedTransactions.length > 10 ? `\n... e mais ${categorizedTransactions.length - 10} transações` : ''}\n\n📌 ${alreadyImportedTx.length} transações já estão registradas no app (não foram processadas)`,
-      transactions: categorizedTransactions,
-      summary: categorySummary,
-      total_transactions: allTransactions.length,
-      already_imported: alreadyImportedTx.length,
-      not_imported: notImportedTx.length,
-      categorized: categorizedTransactions.length,
-    };
-  } catch (error: any) {
-    console.error('[previewTransactionCategories] Exception:', error);
-    return {
-      success: false,
-      error: error.message || 'Erro ao processar preview de categorias',
     };
   }
 }

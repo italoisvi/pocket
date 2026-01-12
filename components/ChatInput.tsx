@@ -417,6 +417,9 @@ export function ChatInput({
             multiline
             maxLength={1000}
             editable={!loading && !isProcessing}
+            autoCorrect={true}
+            autoCapitalize="sentences"
+            spellCheck={true}
           />
         ) : (
           <TouchableOpacity

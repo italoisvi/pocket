@@ -166,6 +166,48 @@ export default function CameraScreen() {
     }
   };
 
+  // Função auxiliar para salvar gasto sem verificação de duplicata
+  const saveExpenseWithoutDuplicateCheck = async (
+    editedData: ReceiptData,
+    imageUrl: string | null,
+    userId: string
+  ) => {
+    setSaving(true);
+    try {
+      const categorization = await categorizeWithWalts(
+        editedData.establishmentName,
+        {
+          amount: editedData.amount,
+          items: editedData.items,
+        }
+      );
+
+      const { error } = await supabase.from('expenses').insert({
+        user_id: userId,
+        establishment_name: editedData.establishmentName,
+        amount: editedData.amount,
+        date: editedData.date,
+        image_url: imageUrl,
+        items: editedData.items,
+        category: categorization.category,
+        subcategory: categorization.subcategory,
+      });
+
+      if (error) throw error;
+
+      setShowConfirmModal(false);
+      setReceiptData(null);
+      setCurrentImageUri(null);
+      Alert.alert('Sucesso', 'Gasto registrado com sucesso!');
+      router.replace('/(tabs)/home');
+    } catch (error) {
+      console.error('Erro ao salvar despesa:', error);
+      Alert.alert('Erro', 'Não foi possível salvar a despesa.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleConfirmExpense = async (editedData: ReceiptData) => {
     if (!currentImageUri) {
       Alert.alert('Erro', 'Nenhuma imagem selecionada.');
@@ -237,6 +279,55 @@ export default function CameraScreen() {
         );
         // Continuar sem a imagem se o upload falhar
         publicUrl = null;
+      }
+
+      // VERIFICAR DUPLICAÇÃO: Buscar gastos similares antes de criar
+      console.log('[Camera] Verificando duplicatas...');
+      const dateMinus1 = new Date(editedData.date);
+      dateMinus1.setDate(dateMinus1.getDate() - 1);
+      const datePlus1 = new Date(editedData.date);
+      datePlus1.setDate(datePlus1.getDate() + 1);
+
+      const { data: similarExpenses } = await supabase
+        .from('expenses')
+        .select('id, establishment_name, amount, date')
+        .eq('user_id', user.id)
+        .gte('date', dateMinus1.toISOString().split('T')[0])
+        .lte('date', datePlus1.toISOString().split('T')[0]);
+
+      if (similarExpenses && similarExpenses.length > 0) {
+        const establishmentLower = editedData.establishmentName.toLowerCase();
+        const duplicate = similarExpenses.find((exp) => {
+          const expNameLower = exp.establishment_name.toLowerCase();
+          const amountMatch = Math.abs(exp.amount - editedData.amount) < 0.01;
+          const nameMatch =
+            expNameLower.includes(establishmentLower) ||
+            establishmentLower.includes(expNameLower) ||
+            expNameLower === establishmentLower;
+          return amountMatch && nameMatch;
+        });
+
+        if (duplicate) {
+          console.log('[Camera] Duplicata encontrada:', duplicate);
+          setSaving(false);
+          Alert.alert(
+            'Gasto já registrado',
+            `Já existe um gasto similar:\n\n${duplicate.establishment_name}\nR$ ${duplicate.amount.toFixed(2)}\n${duplicate.date}\n\nDeseja registrar mesmo assim?`,
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Registrar mesmo assim',
+                onPress: () =>
+                  saveExpenseWithoutDuplicateCheck(
+                    editedData,
+                    publicUrl,
+                    user.id
+                  ),
+              },
+            ]
+          );
+          return;
+        }
       }
 
       // Usar Walts para categorização inteligente

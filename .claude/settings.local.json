@@ -71,7 +71,8 @@
       "Bash(del \"C:\\\\Users\\\\italo\\\\source\\\\repo\\\\pocket\\\\app\\\\dividas-pessoais.tsx\")",
       "Bash(del \"C:\\\\Users\\\\italo\\\\source\\\\repo\\\\pocket\\\\app\\\\dividas-settings.tsx\")",
       "WebSearch",
-      "WebFetch(domain:supabase.com)"
+      "WebFetch(domain:supabase.com)",
+      "Bash(deno check:*)"
     ]
   }
 }
