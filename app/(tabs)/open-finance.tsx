@@ -34,6 +34,7 @@ type PluggyItem = {
   connector_name: string;
   status: string;
   last_updated_at: string | null;
+  last_sync_at: string | null;
   created_at: string;
   imageUrl?: string;
   primaryColor?: string;
@@ -572,14 +573,17 @@ export default function OpenFinanceScreen() {
                       {getStatusText(item.status)}
                     </Text>
                   </View>
-                  {item.last_updated_at && (
+                  {item.last_sync_at && (
                     <Text
                       style={[styles.cardDate, { color: theme.textSecondary }]}
                     >
-                      Atualizado:{' '}
-                      {new Date(item.last_updated_at).toLocaleDateString(
-                        'pt-BR'
-                      )}
+                      Sincronizado:{' '}
+                      {new Date(item.last_sync_at).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </Text>
                   )}
                 </View>

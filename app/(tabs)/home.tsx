@@ -169,42 +169,51 @@ export default function HomeScreen() {
       const lastDay = new Date(year, month + 1, 0).getDate();
       const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-      const { data: expensesData, error: expError } = await supabase
+      // Buscar TODOS os gastos do mês (para exibição)
+      const { data: allExpensesData, error: expError } = await supabase
         .from('expenses')
-        .select('amount, created_at')
+        .select('amount, created_at, source')
         .eq('user_id', user.id)
         .gte('date', startDateStr)
         .lte('date', endDateStr);
 
+      // Filtrar apenas gastos MANUAIS (foto/upload) para cálculo do saldo
+      // Gastos importados do extrato (source = 'import') já estão refletidos no saldo do banco
+      // Gastos do Walts (source = 'walts') NÃO debitam pois geralmente são baseados no extrato
+      // Apenas gastos via câmera/upload (source = null ou 'manual') debitam
+      const manualExpenses = (allExpensesData || []).filter(
+        (exp) => !exp.source || exp.source === 'manual'
+      );
+
       console.log('[Home] Expenses query:', {
         startDateStr,
         endDateStr,
-        expensesCount: expensesData?.length,
+        allExpensesCount: allExpensesData?.length,
+        manualExpensesCount: manualExpenses.length,
         lastSyncAt,
         error: expError,
       });
 
-      const totalExpenses = expensesData
-        ? expensesData.reduce(
-            (sum, exp) =>
-              sum +
-              (typeof exp.amount === 'string'
-                ? parseFloat(exp.amount)
-                : exp.amount),
-            0
-          )
-        : 0;
+      // Total de gastos MANUAIS (para cálculo do saldo)
+      const totalExpenses = manualExpenses.reduce(
+        (sum, exp) =>
+          sum +
+          (typeof exp.amount === 'string'
+            ? parseFloat(exp.amount)
+            : exp.amount),
+        0
+      );
 
-      // Calcular gastos RECENTES (criados DEPOIS da última sincronização do Open Finance)
-      // Esses gastos ainda não estão refletidos no saldo do banco
+      // Calcular gastos RECENTES MANUAIS (criados DEPOIS da última sincronização)
+      // Apenas esses gastos ainda não estão refletidos no saldo do banco
       let recentExpenses = 0;
-      if (expensesData) {
+      if (manualExpenses.length > 0) {
         // Se tiver data de sincronização, usa ela; senão, considera gastos das últimas 24h como recentes
         const cutoffDate = lastSyncAt
           ? new Date(lastSyncAt)
           : new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 horas atrás
 
-        recentExpenses = expensesData
+        recentExpenses = manualExpenses
           .filter((exp) => new Date(exp.created_at) > cutoffDate)
           .reduce(
             (sum, exp) =>

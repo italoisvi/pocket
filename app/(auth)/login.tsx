@@ -14,7 +14,6 @@ import { router } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
-import { shouldShowOnboardingPaywall } from '@/lib/onboarding';
 import Svg, { Path } from 'react-native-svg';
 
 export default function LoginScreen() {
@@ -39,17 +38,7 @@ export default function LoginScreen() {
     if (error) {
       Alert.alert('Erro ao fazer login', error.message);
     } else {
-      const userId = data.user?.id;
-      if (userId) {
-        const shouldShow = await shouldShowOnboardingPaywall(userId);
-        if (shouldShow) {
-          router.replace('/onboarding-paywall');
-        } else {
-          router.replace('/(tabs)/home');
-        }
-      } else {
-        router.replace('/(tabs)/home');
-      }
+      router.replace('/(tabs)/home');
     }
   };
 
@@ -72,17 +61,7 @@ export default function LoginScreen() {
         if (error) {
           Alert.alert('Erro ao fazer login com Apple', error.message);
         } else {
-          const userId = data.user?.id;
-          if (userId) {
-            const shouldShow = await shouldShowOnboardingPaywall(userId);
-            if (shouldShow) {
-              router.replace('/onboarding-paywall');
-            } else {
-              router.replace('/(tabs)/home');
-            }
-          } else {
-            router.replace('/(tabs)/home');
-          }
+          router.replace('/(tabs)/home');
         }
       }
     } catch (e: any) {

@@ -3,7 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { jsPDF } from 'https://esm.sh/jspdf@2.5.2';
 import { categorizeWithWalts } from '../_shared/categorize-with-walts.ts';
 
-const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
@@ -134,7 +133,7 @@ async function processMessagesWithAudio(messages: any[]): Promise<any[]> {
   console.log(
     '[walts-agent] Processing',
     messages.length,
-    'messages for audio'
+    'messages for audio and images'
   );
 
   // Encontrar o índice da última mensagem com áudio (para processar apenas ela)
@@ -155,109 +154,141 @@ async function processMessagesWithAudio(messages: any[]): Promise<any[]> {
 
   for (let i = 0; i < messages.length; i++) {
     const message = messages[i];
+    const attachments = message.attachments || [];
+
+    // Separar tipos de attachments
+    const audioAttachments = attachments.filter((a: any) => a.type === 'audio' && a.url);
+    const imageAttachments = attachments.filter((a: any) => a.type === 'image' && a.url);
 
     // Só processar áudio se for a ÚLTIMA mensagem com áudio
-    const shouldProcessAudio = i === lastAudioMessageIndex;
+    const shouldProcessAudio = i === lastAudioMessageIndex && audioAttachments.length > 0;
 
-    // Verificar se a mensagem tem attachments de áudio
-    if (
-      shouldProcessAudio &&
-      message.attachments &&
-      Array.isArray(message.attachments)
-    ) {
-      const audioAttachments = message.attachments.filter(
-        (a: any) => a.type === 'audio' && a.url
-      );
+    // Processar imagens da última mensagem do usuário (para visão)
+    const isLastUserMessage = i === messages.length - 1 && message.role === 'user';
+    const shouldProcessImages = isLastUserMessage && imageAttachments.length > 0;
 
-      console.log(
-        '[walts-agent] Processing',
-        audioAttachments.length,
-        'audio attachments from last message'
-      );
+    console.log(`[walts-agent] Message ${i}:`, {
+      role: message.role,
+      audioCount: audioAttachments.length,
+      imageCount: imageAttachments.length,
+      shouldProcessAudio,
+      shouldProcessImages,
+    });
 
-      if (audioAttachments.length > 0) {
-        // Transcrever todos os áudios
-        // CORREÇÃO BUG #4: Limitar tamanho da transcrição para não estourar contexto
-        const MAX_TRANSCRIPTION_LENGTH = 1500;
-        const transcriptions: string[] = [];
-        for (const audio of audioAttachments) {
-          console.log('[walts-agent] Processing audio:', audio.url);
-          try {
-            let transcription = await transcribeAudio(audio.url);
-            if (transcription && transcription.trim().length > 0) {
-              // Limitar tamanho da transcrição
-              transcription = transcription.trim();
-              if (transcription.length > MAX_TRANSCRIPTION_LENGTH) {
-                console.warn(
-                  `[walts-agent] Transcription truncated from ${transcription.length} to ${MAX_TRANSCRIPTION_LENGTH} chars`
-                );
-                transcription =
-                  transcription.substring(0, MAX_TRANSCRIPTION_LENGTH) +
-                  '... [áudio longo, transcrição parcial]';
-              }
-              transcriptions.push(transcription);
-              console.log(
-                '[walts-agent] Transcription added:',
-                transcription.substring(0, 50) + '...'
-              );
-            } else {
-              console.warn('[walts-agent] Transcription returned empty');
-              transcriptions.push('[Áudio recebido - transcrição vazia]');
+    let textContent = message.content || '';
+
+    // Processar áudio (transcrever)
+    if (shouldProcessAudio) {
+      console.log('[walts-agent] Processing', audioAttachments.length, 'audio attachments');
+
+      const MAX_TRANSCRIPTION_LENGTH = 1500;
+      const transcriptions: string[] = [];
+
+      for (const audio of audioAttachments) {
+        console.log('[walts-agent] Processing audio:', audio.url);
+        try {
+          let transcription = await transcribeAudio(audio.url);
+          if (transcription && transcription.trim().length > 0) {
+            transcription = transcription.trim();
+            if (transcription.length > MAX_TRANSCRIPTION_LENGTH) {
+              console.warn(`[walts-agent] Transcription truncated from ${transcription.length} to ${MAX_TRANSCRIPTION_LENGTH} chars`);
+              transcription = transcription.substring(0, MAX_TRANSCRIPTION_LENGTH) + '... [áudio longo, transcrição parcial]';
             }
-          } catch (error: any) {
-            console.error(
-              '[walts-agent] Failed to transcribe audio:',
-              error?.message || error
-            );
-            // Se falhar, adicionar mensagem de erro informativa
-            transcriptions.push(
-              `[Erro ao transcrever áudio: ${error?.message || 'erro desconhecido'}]`
-            );
+            transcriptions.push(transcription);
+            console.log('[walts-agent] Transcription added:', transcription.substring(0, 50) + '...');
+          } else {
+            console.warn('[walts-agent] Transcription returned empty');
+            transcriptions.push('[Áudio recebido - transcrição vazia]');
           }
+        } catch (error: any) {
+          console.error('[walts-agent] Failed to transcribe audio:', error?.message || error);
+          transcriptions.push(`[Erro ao transcrever áudio: ${error?.message || 'erro desconhecido'}]`);
         }
+      }
 
-        // Combinar transcrições com o conteúdo original
-        let content = message.content || '';
-        if (transcriptions.length > 0) {
-          const audioText = transcriptions.join(' ');
-          content = content ? `${content}\n\n${audioText}` : audioText;
-        } else {
-          // Fallback se não conseguiu nenhuma transcrição
-          content = content || '[Mensagem de áudio recebida]';
-        }
-
-        console.log('[walts-agent] Final audio message content:', {
-          length: content.length,
-          preview: content.substring(0, 100),
-        });
-
-        processedMessages.push({
-          role: message.role,
-          content,
-        });
-        continue;
+      if (transcriptions.length > 0) {
+        const audioText = transcriptions.join(' ');
+        textContent = textContent ? `${textContent}\n\n${audioText}` : audioText;
       }
     }
 
-    // Mensagem sem áudio (ou áudio antigo já processado) - passar normalmente
-    // Para áudios antigos, usar o conteúdo salvo (que pode ser a transcrição anterior ou placeholder)
-    let content = message.content || '';
+    // Se não tem imagens para processar, usar formato simples
+    if (!shouldProcessImages) {
+      // Para mensagens antigas de áudio sem conteúdo, adicionar placeholder
+      if (!textContent && audioAttachments.length > 0) {
+        textContent = '[Mensagem de áudio anterior]';
+      }
+      if (!textContent && imageAttachments.length > 0) {
+        textContent = '[Imagem enviada anteriormente]';
+      }
 
-    // Se for mensagem antiga de áudio sem conteúdo, adicionar placeholder
-    if (!content && message.attachments?.some((a: any) => a.type === 'audio')) {
-      content = '[Mensagem de áudio anterior]';
+      processedMessages.push({
+        role: message.role,
+        content: textContent || '',
+      });
+      continue;
     }
 
-    processedMessages.push({
-      role: message.role,
-      content,
-    });
+    // Processar imagens para a API da OpenAI (formato multimodal)
+    // OpenAI espera: content: [{type: "text", text: "..."}, {type: "image_url", image_url: {url: "..."}}]
+    console.log('[walts-agent] Processing', imageAttachments.length, 'images for vision');
+
+    try {
+      const contentParts: any[] = [];
+
+      // Adicionar texto primeiro (se houver)
+      if (textContent) {
+        contentParts.push({
+          type: 'text',
+          text: textContent,
+        });
+      } else {
+        // Se não tem texto, adicionar instrução para analisar a imagem
+        contentParts.push({
+          type: 'text',
+          text: 'Analise esta imagem e me ajude com o que você vê.',
+        });
+      }
+
+      // Adicionar cada imagem (validar URL antes)
+      for (const img of imageAttachments) {
+        if (img.url && typeof img.url === 'string' && img.url.startsWith('http')) {
+          console.log('[walts-agent] Adding image to content:', img.url.substring(0, 80) + '...');
+          contentParts.push({
+            type: 'image_url',
+            image_url: {
+              url: img.url,
+              detail: 'low', // Usar 'low' para reduzir tokens e evitar erros
+            },
+          });
+        } else {
+          console.warn('[walts-agent] Invalid image URL:', img.url?.substring(0, 50));
+        }
+      }
+
+      // Se não conseguiu adicionar nenhuma imagem válida, usar só texto
+      if (contentParts.length === 1) {
+        processedMessages.push({
+          role: message.role,
+          content: textContent || 'Não consegui processar a imagem enviada.',
+        });
+      } else {
+        processedMessages.push({
+          role: message.role,
+          content: contentParts,
+        });
+      }
+    } catch (imgError: any) {
+      console.error('[walts-agent] Error processing images:', imgError?.message || imgError);
+      // Fallback: só texto
+      processedMessages.push({
+        role: message.role,
+        content: textContent || '[Erro ao processar imagem]',
+      });
+    }
   }
 
-  console.log(
-    '[walts-agent] Processed messages count:',
-    processedMessages.length
-  );
+  console.log('[walts-agent] Processed messages count:', processedMessages.length);
   return processedMessages;
 }
 
@@ -1015,28 +1046,25 @@ const WALTS_TOOLS_LEGACY = [
   {
     type: 'function',
     function: {
-      name: 'categorize_open_finance_transactions',
+      name: 'categorize_extract',
       description:
-        'Categoriza transações existentes do Open Finance (extrato bancário) sem criar duplicatas. Use quando o usuário pedir para categorizar transações do banco, do extrato, ou quando quiser organizar gastos do Open Finance que ainda não foram categorizados.',
+        'APENAS CATEGORIZA transacoes do extrato bancario SEM REGISTRAR como gastos no app. Use esta ferramenta quando o usuario pedir para "categorizar", "classificar" ou "ver categorias" das transacoes do extrato. NAO afeta o saldo do app. As categorias sao salvas para visualizacao em Custos Fixos/Variaveis.',
       parameters: {
         type: 'object',
         properties: {
           days: {
             type: 'number',
-            description:
-              'Número de dias para buscar transações (ex: 30 para último mês). Padrão: 30 dias.',
+            description: 'Numero de dias para buscar transacoes (padrao: 30)',
             default: 30,
-          },
-          only_uncategorized: {
-            type: 'boolean',
-            description:
-              'Se true (padrão), categoriza apenas transações sem categoria ou como "outros". Se false, recategoriza todas.',
-            default: true,
           },
           account_name: {
             type: 'string',
-            description:
-              'Nome do banco/conta específica (ex: Nubank, Inter). Se não especificado, processa todas as contas.',
+            description: 'Nome do banco/conta especifica (ex: Nubank, Inter)',
+          },
+          only_uncategorized: {
+            type: 'boolean',
+            description: 'Se true (padrao), categoriza apenas transacoes ainda nao categorizadas',
+            default: true,
           },
         },
       },
@@ -1091,23 +1119,36 @@ const WALTS_TOOLS_LEGACY = [
     function: {
       name: 'delete_expense',
       description:
-        'Exclui um comprovante/gasto do usuário. Use quando o usuário pedir para remover, apagar ou deletar um gasto. SEMPRE peça confirmação antes de excluir.',
+        'Exclui gastos do usuário. Pode deletar um, vários ou TODOS. Use quando o usuário pedir para remover, apagar ou deletar gastos.',
       parameters: {
         type: 'object',
         properties: {
           expense_id: {
             type: 'string',
-            description:
-              'ID do gasto a ser excluído. Se não tiver o ID, busque primeiro com get_pocket_data.',
+            description: 'ID de um gasto específico para excluir.',
+          },
+          expense_ids: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Lista de IDs de gastos para excluir múltiplos de uma vez.',
+          },
+          delete_all: {
+            type: 'boolean',
+            description: 'Se true, deleta TODOS os gastos do usuário. Use com cuidado!',
+            default: false,
+          },
+          source_filter: {
+            type: 'string',
+            enum: ['all', 'manual', 'import'],
+            description: 'Filtrar por origem: all=todos, manual=apenas manuais, import=apenas importados do extrato',
+            default: 'all',
           },
           confirm: {
             type: 'boolean',
-            description:
-              'Confirmação de exclusão. SEMPRE defina como false na primeira chamada para mostrar o gasto ao usuário, depois true para confirmar.',
+            description: 'Confirmação de exclusão. SEMPRE false primeiro para mostrar o que será deletado, depois true para confirmar.',
             default: false,
           },
         },
-        required: ['expense_id'],
       },
     },
   },
@@ -1243,12 +1284,34 @@ const WALTS_TOOLS_LEGACY = [
 // Busca dados essenciais ANTES de cada conversa para reduzir chamadas de ferramentas
 // ============================================================================
 
+// Categorias de custos fixos (essenciais) - definição única para todo o arquivo
+const PRELOAD_FIXED_CATEGORIES = ['moradia', 'alimentacao', 'transporte', 'saude', 'educacao'];
+// Categorias de custos variáveis (não-essenciais)
+const PRELOAD_VARIABLE_CATEGORIES = ['lazer', 'vestuario', 'beleza', 'eletronicos', 'delivery', 'outros'];
+
+type ExpenseItem = {
+  id: string;
+  establishment_name: string;
+  amount: number;
+  category: string;
+  date: string;
+};
+
 type UserContext = {
+  // ========== DADOS DO PERFIL ==========
   profile: {
     name: string | null;
     monthly_salary: number | null;
     salary_payment_day: number | null;
   } | null;
+  // Fontes de renda completas
+  incomeCards: Array<{
+    name: string;
+    salary: number;
+    paymentDay: number;
+    type: string;
+  }>;
+  // ========== ORÇAMENTOS ==========
   budgets: Array<{
     category_id: string;
     amount: number;
@@ -1257,23 +1320,127 @@ type UserContext = {
     remaining: number;
     percent_used: number;
   }>;
-  recentExpenses: Array<{
-    id: string;
-    establishment_name: string;
-    amount: number;
-    category: string;
-    date: string;
-  }>;
+  // ========== DESPESAS - TODAS ==========
+  recentExpenses: ExpenseItem[];
+  // ========== CUSTOS FIXOS E VARIÁVEIS SEPARADOS ==========
+  fixedCosts: {
+    items: ExpenseItem[];
+    totalMonth: number;
+    byCategory: Array<{ category: string; total: number; count: number }>;
+  };
+  variableCosts: {
+    items: ExpenseItem[];
+    totalMonth: number;
+    byCategory: Array<{ category: string; total: number; count: number }>;
+  };
+  // ========== MEMÓRIA DO WALTS ==========
   preferences: Array<{
     key: string;
     value: string;
     memory_type: string;
   }>;
+  // ========== RESUMO DO MÊS ==========
   summary: {
     total_spent_this_month: number;
     expense_count_this_month: number;
     top_categories: Array<{ category: string; total: number }>;
+    fixedCostsTotal: number;
+    variableCostsTotal: number;
   };
+  // ========== COMPARATIVOS E GRÁFICOS ==========
+  comparisons: {
+    // Mês anterior
+    lastMonth: {
+      total: number;
+      fixedCosts: number;
+      variableCosts: number;
+      byCategory: Array<{ category: string; total: number }>;
+    };
+    // Variações
+    monthOverMonth: {
+      totalChange: number; // % de mudança
+      fixedCostsChange: number;
+      variableCostsChange: number;
+      trend: 'up' | 'down' | 'stable';
+    };
+    // Média mensal
+    averageMonthly: {
+      total: number;
+      fixedCosts: number;
+      variableCosts: number;
+    };
+  };
+  // Dados para gráficos
+  chartData: {
+    // Distribuição por categoria (para gráfico de pizza)
+    categoryDistribution: Array<{
+      category: string;
+      total: number;
+      percentage: number;
+    }>;
+    // Últimos 3 meses (para gráfico de barras)
+    last3Months: Array<{
+      month: string;
+      total: number;
+      fixedCosts: number;
+      variableCosts: number;
+    }>;
+  };
+  // ========== OPEN FINANCE - SEPARADO CORRETAMENTE ==========
+  // Contas Correntes = DINHEIRO REAL (saldo)
+  checkingAccounts: Array<{
+    id: string;
+    name: string;
+    bank: string;
+    balance: number; // SALDO REAL em dinheiro
+  }>;
+  // Cartões de Crédito = CRÉDITO (limite, não é saldo!)
+  creditCards: Array<{
+    id: string;
+    name: string;
+    bank: string;
+    creditLimit: number;
+    availableLimit: number;
+    usedAmount: number;
+    billAmount: number; // Valor da fatura atual
+  }>;
+  // Transações recentes do extrato
+  recentTransactions: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    type: string; // DEBIT ou CREDIT
+    date: string;
+    account_name: string;
+  }>;
+  // Conexões bancárias (Open Finance)
+  bankConnections: Array<{
+    id: string;
+    bank: string;
+    status: string;
+    lastUpdate: string;
+  }>;
+  // ========== TOTAIS CALCULADOS ==========
+  totals: {
+    realBalance: number; // Soma das contas correntes = DINHEIRO REAL
+    totalCreditLimit: number;
+    totalCreditUsed: number;
+    totalCreditAvailable: number;
+    totalIncome: number; // Soma de todas as fontes de renda
+    totalBillsAmount: number; // Soma das faturas dos cartões
+  };
+  // ========== PADRÕES E ANÁLISES ==========
+  financialPatterns: Array<{
+    pattern_type: string;
+    description: string;
+    value: number;
+    detected_at: string;
+  }>;
+  recentAnalyses: Array<{
+    analysis_type: string;
+    summary: string;
+    created_at: string;
+  }>;
 };
 
 async function preloadUserContext(
@@ -1287,66 +1454,109 @@ async function preloadUserContext(
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
 
-  // Buscar tudo em paralelo para máxima performance
-  const [profileResult, budgetsResult, expensesResult, preferencesResult] =
-    await Promise.all([
-      // Perfil do usuário - CORREÇÃO BUG #2: Incluir income_cards
-      supabase
-        .from('profiles')
-        .select('name, monthly_salary, salary_payment_day, income_cards')
-        .eq('id', userId)
-        .single(),
+  // ========== BUSCAR TUDO EM PARALELO - WALTS ONISCIENTE ==========
+  const [
+    profileResult,
+    budgetsResult,
+    expensesResult,
+    preferencesResult,
+    accountsResult,
+    pluggyItemsResult,
+    patternsResult,
+    analysesResult,
+  ] = await Promise.all([
+    // Perfil do usuário com income_cards completo
+    supabase
+      .from('profiles')
+      .select('name, monthly_salary, salary_payment_day, income_cards')
+      .eq('id', userId)
+      .single(),
 
-      // Orçamentos ativos
-      supabase.from('budgets').select('*').eq('user_id', userId),
+    // Orçamentos ativos
+    supabase.from('budgets').select('*').eq('user_id', userId),
 
-      // Gastos do mês atual (para contexto) + últimos 15 gastos
-      supabase
-        .from('expenses')
-        .select('id, establishment_name, amount, category, date')
-        .eq('user_id', userId)
-        .order('date', { ascending: false })
-        .limit(30),
+    // Gastos dos últimos 90 dias (para ter 3 meses de dados para comparativos)
+    supabase
+      .from('expenses')
+      .select('id, establishment_name, amount, category, date')
+      .eq('user_id', userId)
+      .gte('date', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+      .order('date', { ascending: false }),
 
-      // Preferências salvas do usuário
-      supabase
-        .from('walts_memory')
-        .select('key, value, memory_type')
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false })
-        .limit(10),
-    ]);
+    // Preferências salvas do usuário
+    supabase
+      .from('walts_memory')
+      .select('key, value, memory_type')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(20),
 
-  // Processar perfil - CORREÇÃO BUG #2: Usar income_cards para salário e dia de pagamento
+    // Contas bancárias do Open Finance - COM CAMPOS DE CRÉDITO!
+    supabase
+      .from('pluggy_accounts')
+      .select('id, name, type, balance, credit_limit, available_credit_limit, pluggy_items(connector_name)')
+      .eq('user_id', userId),
+
+    // Conexões Open Finance (pluggy_items)
+    supabase
+      .from('pluggy_items')
+      .select('id, connector_name, status, last_updated_at')
+      .eq('user_id', userId),
+
+    // Padrões financeiros detectados
+    supabase
+      .from('user_financial_patterns')
+      .select('pattern_type, description, value, detected_at')
+      .eq('user_id', userId)
+      .order('detected_at', { ascending: false })
+      .limit(10),
+
+    // Últimas análises do Walts
+    supabase
+      .from('walts_analyses')
+      .select('analysis_type, summary, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5),
+  ]);
+
+  // Processar perfil e income_cards COMPLETOS
   let profile = null;
+  let incomeCards: UserContext['incomeCards'] = [];
+  let totalIncome = 0;
+
   if (profileResult.data) {
     let monthlySalary = profileResult.data.monthly_salary;
     let paymentDay = profileResult.data.salary_payment_day;
 
-    // Se tem income_cards, usar os valores de lá (mais atualizados)
+    // Processar income_cards completos
     if (
       profileResult.data.income_cards &&
       Array.isArray(profileResult.data.income_cards) &&
       profileResult.data.income_cards.length > 0
     ) {
-      // Somar todos os salários
-      const totalSalary = profileResult.data.income_cards.reduce(
-        (sum: number, card: any) => {
-          const salary = parseFloat(
-            String(card.salary || '0').replace(/\./g, '').replace(',', '.')
-          );
-          return sum + (isNaN(salary) ? 0 : salary);
-        },
-        0
-      );
-      if (totalSalary > 0) {
-        monthlySalary = totalSalary;
+      incomeCards = profileResult.data.income_cards.map((card: any) => {
+        const salary = parseFloat(
+          String(card.salary || '0').replace(/\./g, '').replace(',', '.')
+        );
+        const salaryValue = isNaN(salary) ? 0 : salary;
+        totalIncome += salaryValue;
+        return {
+          name: card.name || 'Fonte de renda',
+          salary: salaryValue,
+          paymentDay: parseInt(card.paymentDay) || 1,
+          type: card.type || 'salary',
+        };
+      });
+
+      if (totalIncome > 0) {
+        monthlySalary = totalIncome;
       }
 
       // Usar o menor dia de pagamento (primeiro a receber)
-      const paymentDays = profileResult.data.income_cards
-        .map((card: any) => parseInt(card.paymentDay))
-        .filter((day: number) => !isNaN(day) && day >= 1 && day <= 31);
+      const paymentDays = incomeCards
+        .map((card) => card.paymentDay)
+        .filter((day) => day >= 1 && day <= 31);
       if (paymentDays.length > 0) {
         paymentDay = Math.min(...paymentDays);
       }
@@ -1407,9 +1617,9 @@ async function preloadUserContext(
     }
   }
 
-  // Processar gastos recentes (com ID para poder editar)
+  // Processar TODOS os gastos
   const allExpenses = expensesResult.data || [];
-  const recentExpenses = allExpenses.slice(0, 15).map((e: any) => ({
+  const recentExpenses: ExpenseItem[] = allExpenses.slice(0, 20).map((e: any) => ({
     id: e.id,
     establishment_name: e.establishment_name,
     amount: parseFloat(e.amount),
@@ -1417,7 +1627,7 @@ async function preloadUserContext(
     date: e.date,
   }));
 
-  // Calcular resumo do mês
+  // Calcular gastos do mês
   const monthExpenses = allExpenses.filter(
     (e: any) => e.date >= startOfMonthStr
   );
@@ -1425,6 +1635,43 @@ async function preloadUserContext(
     (sum: number, e: any) => sum + parseFloat(e.amount),
     0
   );
+
+  // ========== SEPARAR CUSTOS FIXOS E VARIÁVEIS ==========
+  const monthExpensesMapped: ExpenseItem[] = monthExpenses.map((e: any) => ({
+    id: e.id,
+    establishment_name: e.establishment_name,
+    amount: parseFloat(e.amount),
+    category: e.category || 'outros',
+    date: e.date,
+  }));
+
+  // Custos Fixos (essenciais)
+  const fixedCostItems = monthExpensesMapped.filter(e =>
+    PRELOAD_FIXED_CATEGORIES.includes(e.category)
+  );
+  const fixedCostsTotal = fixedCostItems.reduce((sum, e) => sum + e.amount, 0);
+  const fixedCostsByCategory: { [key: string]: { total: number; count: number } } = {};
+  for (const expense of fixedCostItems) {
+    if (!fixedCostsByCategory[expense.category]) {
+      fixedCostsByCategory[expense.category] = { total: 0, count: 0 };
+    }
+    fixedCostsByCategory[expense.category].total += expense.amount;
+    fixedCostsByCategory[expense.category].count++;
+  }
+
+  // Custos Variáveis (não-essenciais)
+  const variableCostItems = monthExpensesMapped.filter(e =>
+    PRELOAD_VARIABLE_CATEGORIES.includes(e.category) || !PRELOAD_FIXED_CATEGORIES.includes(e.category)
+  );
+  const variableCostsTotal = variableCostItems.reduce((sum, e) => sum + e.amount, 0);
+  const variableCostsByCategory: { [key: string]: { total: number; count: number } } = {};
+  for (const expense of variableCostItems) {
+    if (!variableCostsByCategory[expense.category]) {
+      variableCostsByCategory[expense.category] = { total: 0, count: 0 };
+    }
+    variableCostsByCategory[expense.category].total += expense.amount;
+    variableCostsByCategory[expense.category].count++;
+  }
 
   // Top categorias do mês
   const categoryTotals: { [key: string]: number } = {};
@@ -1441,6 +1688,105 @@ async function preloadUserContext(
     .sort((a, b) => b.total - a.total)
     .slice(0, 5);
 
+  // ========== CALCULAR COMPARATIVOS E DADOS PARA GRÁFICOS ==========
+
+  // Datas para os últimos 3 meses
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+  const lastMonthStartStr = lastMonthStart.toISOString().split('T')[0];
+  const lastMonthEndStr = lastMonthEnd.toISOString().split('T')[0];
+
+  const twoMonthsAgoStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const twoMonthsAgoEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0);
+  const twoMonthsAgoStartStr = twoMonthsAgoStart.toISOString().split('T')[0];
+  const twoMonthsAgoEndStr = twoMonthsAgoEnd.toISOString().split('T')[0];
+
+  // Gastos do mês anterior
+  const lastMonthExpenses = allExpenses.filter(
+    (e: any) => e.date >= lastMonthStartStr && e.date <= lastMonthEndStr
+  );
+  const lastMonthTotal = lastMonthExpenses.reduce(
+    (sum: number, e: any) => sum + parseFloat(e.amount), 0
+  );
+  const lastMonthFixed = lastMonthExpenses
+    .filter((e: any) => FIXED_COST_CATEGORIES.includes(e.category || 'outros'))
+    .reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
+  const lastMonthVariable = lastMonthTotal - lastMonthFixed;
+
+  // Categorias do mês anterior
+  const lastMonthCategoryTotals: { [key: string]: number } = {};
+  for (const expense of lastMonthExpenses) {
+    const cat = expense.category || 'outros';
+    lastMonthCategoryTotals[cat] = (lastMonthCategoryTotals[cat] || 0) + parseFloat(expense.amount);
+  }
+  const lastMonthByCategory = Object.entries(lastMonthCategoryTotals)
+    .map(([category, total]) => ({ category, total: Math.round(total * 100) / 100 }))
+    .sort((a, b) => b.total - a.total);
+
+  // Gastos de 2 meses atrás
+  const twoMonthsAgoExpenses = allExpenses.filter(
+    (e: any) => e.date >= twoMonthsAgoStartStr && e.date <= twoMonthsAgoEndStr
+  );
+  const twoMonthsAgoTotal = twoMonthsAgoExpenses.reduce(
+    (sum: number, e: any) => sum + parseFloat(e.amount), 0
+  );
+  const twoMonthsAgoFixed = twoMonthsAgoExpenses
+    .filter((e: any) => FIXED_COST_CATEGORIES.includes(e.category || 'outros'))
+    .reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
+  const twoMonthsAgoVariable = twoMonthsAgoTotal - twoMonthsAgoFixed;
+
+  // Calcular variações percentuais (mês atual vs mês anterior)
+  const totalChange = lastMonthTotal > 0
+    ? Math.round(((totalSpentThisMonth - lastMonthTotal) / lastMonthTotal) * 100)
+    : 0;
+  const fixedCostsChange = lastMonthFixed > 0
+    ? Math.round(((fixedCostsTotal - lastMonthFixed) / lastMonthFixed) * 100)
+    : 0;
+  const variableCostsChange = lastMonthVariable > 0
+    ? Math.round(((variableCostsTotal - lastMonthVariable) / lastMonthVariable) * 100)
+    : 0;
+
+  // Determinar tendência
+  const trend: 'up' | 'down' | 'stable' =
+    totalChange > 5 ? 'up' : totalChange < -5 ? 'down' : 'stable';
+
+  // Média dos últimos 3 meses
+  const avgTotal = Math.round(((totalSpentThisMonth + lastMonthTotal + twoMonthsAgoTotal) / 3) * 100) / 100;
+  const avgFixed = Math.round(((fixedCostsTotal + lastMonthFixed + twoMonthsAgoFixed) / 3) * 100) / 100;
+  const avgVariable = Math.round(((variableCostsTotal + lastMonthVariable + twoMonthsAgoVariable) / 3) * 100) / 100;
+
+  // Dados para gráfico de pizza (distribuição por categoria)
+  const categoryDistribution = Object.entries(categoryTotals)
+    .map(([category, total]) => ({
+      category,
+      total: Math.round(total * 100) / 100,
+      percentage: totalSpentThisMonth > 0 ? Math.round((total / totalSpentThisMonth) * 100) : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  // Dados para gráfico de barras (últimos 3 meses)
+  const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const last3Months = [
+    {
+      month: monthNames[twoMonthsAgoStart.getMonth()],
+      total: Math.round(twoMonthsAgoTotal * 100) / 100,
+      fixedCosts: Math.round(twoMonthsAgoFixed * 100) / 100,
+      variableCosts: Math.round(twoMonthsAgoVariable * 100) / 100,
+    },
+    {
+      month: monthNames[lastMonthStart.getMonth()],
+      total: Math.round(lastMonthTotal * 100) / 100,
+      fixedCosts: Math.round(lastMonthFixed * 100) / 100,
+      variableCosts: Math.round(lastMonthVariable * 100) / 100,
+    },
+    {
+      month: monthNames[now.getMonth()],
+      total: Math.round(totalSpentThisMonth * 100) / 100,
+      fixedCosts: Math.round(fixedCostsTotal * 100) / 100,
+      variableCosts: Math.round(variableCostsTotal * 100) / 100,
+    },
+  ];
+
   // Processar preferências
   const preferences = (preferencesResult.data || []).map((p: any) => ({
     key: p.key,
@@ -1448,28 +1794,187 @@ async function preloadUserContext(
     memory_type: p.memory_type,
   }));
 
+  // ========== PROCESSAR OPEN FINANCE - SEPARANDO CONTAS DE CARTÕES ==========
+  const allAccounts = accountsResult.data || [];
+
+  // CONTAS CORRENTES = DINHEIRO REAL (types: BANK, CHECKING, SAVINGS)
+  const checkingAccounts = allAccounts
+    .filter((acc: any) => ['BANK', 'CHECKING', 'SAVINGS'].includes(acc.type))
+    .map((acc: any) => ({
+      id: acc.id,
+      name: acc.name,
+      bank: acc.pluggy_items?.connector_name || 'Banco',
+      balance: parseFloat(acc.balance) || 0,
+    }));
+
+  // CARTÕES DE CRÉDITO = CRÉDITO (type: CREDIT) - NÃO É SALDO!
+  const creditCards = allAccounts
+    .filter((acc: any) => acc.type === 'CREDIT')
+    .map((acc: any) => ({
+      id: acc.id,
+      name: acc.name,
+      bank: acc.pluggy_items?.connector_name || 'Banco',
+      creditLimit: parseFloat(acc.credit_limit) || 0,
+      availableLimit: parseFloat(acc.available_credit_limit) || 0,
+      usedAmount: (parseFloat(acc.credit_limit) || 0) - (parseFloat(acc.available_credit_limit) || 0),
+      billAmount: Math.abs(parseFloat(acc.balance) || 0), // Fatura atual
+    }));
+
+  // CALCULAR TOTAIS
+  const realBalance = checkingAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+  const totalCreditLimit = creditCards.reduce((sum, card) => sum + card.creditLimit, 0);
+  const totalCreditUsed = creditCards.reduce((sum, card) => sum + card.usedAmount, 0);
+  const totalCreditAvailable = creditCards.reduce((sum, card) => sum + card.availableLimit, 0);
+  const totalBillsAmount = creditCards.reduce((sum, card) => sum + card.billAmount, 0);
+
+  // Buscar transações recentes do Open Finance (baseado nas contas encontradas)
+  let recentTransactions: UserContext['recentTransactions'] = [];
+  const allAccountIds = allAccounts.map((acc: any) => acc.id);
+  if (allAccountIds.length > 0) {
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      const { data: txData } = await supabase
+        .from('pluggy_transactions')
+        .select('id, description, amount, type, date, pluggy_accounts(name)')
+        .in('account_id', allAccountIds)
+        .gte('date', thirtyDaysAgo)
+        .order('date', { ascending: false })
+        .limit(50);
+
+      recentTransactions = (txData || []).map((tx: any) => ({
+        id: tx.id,
+        description: tx.description,
+        amount: parseFloat(tx.amount) || 0,
+        type: tx.type,
+        date: tx.date,
+        account_name: tx.pluggy_accounts?.name || 'Conta',
+      }));
+    } catch (txError) {
+      console.error('[walts-agent] Error fetching transactions:', txError);
+    }
+  }
+
+  // ========== PROCESSAR CONEXÕES BANCÁRIAS (pluggy_items) ==========
+  const bankConnections: UserContext['bankConnections'] = (pluggyItemsResult.data || []).map((item: any) => ({
+    id: item.id,
+    bank: item.connector_name || 'Banco',
+    status: item.status || 'unknown',
+    lastUpdate: item.last_updated_at || '',
+  }));
+
+  // ========== PROCESSAR PADRÕES FINANCEIROS ==========
+  const financialPatterns: UserContext['financialPatterns'] = (patternsResult.data || []).map((p: any) => ({
+    pattern_type: p.pattern_type || '',
+    description: p.description || '',
+    value: parseFloat(p.value) || 0,
+    detected_at: p.detected_at || '',
+  }));
+
+  // ========== PROCESSAR ANÁLISES ANTERIORES ==========
+  const recentAnalyses: UserContext['recentAnalyses'] = (analysesResult.data || []).map((a: any) => ({
+    analysis_type: a.analysis_type || '',
+    summary: a.summary || '',
+    created_at: a.created_at || '',
+  }));
+
+  // ========== CONSTRUIR CONTEXTO COMPLETO - WALTS ONISCIENTE ==========
   const context: UserContext = {
     profile,
+    incomeCards,
     budgets,
     recentExpenses,
+    // Custos Fixos e Variáveis SEPARADOS
+    fixedCosts: {
+      items: fixedCostItems.slice(0, 15),
+      totalMonth: Math.round(fixedCostsTotal * 100) / 100,
+      byCategory: Object.entries(fixedCostsByCategory).map(([category, data]) => ({
+        category,
+        total: Math.round(data.total * 100) / 100,
+        count: data.count,
+      })).sort((a, b) => b.total - a.total),
+    },
+    variableCosts: {
+      items: variableCostItems.slice(0, 15),
+      totalMonth: Math.round(variableCostsTotal * 100) / 100,
+      byCategory: Object.entries(variableCostsByCategory).map(([category, data]) => ({
+        category,
+        total: Math.round(data.total * 100) / 100,
+        count: data.count,
+      })).sort((a, b) => b.total - a.total),
+    },
     preferences,
     summary: {
       total_spent_this_month: Math.round(totalSpentThisMonth * 100) / 100,
       expense_count_this_month: monthExpenses.length,
       top_categories: topCategories,
+      fixedCostsTotal: Math.round(fixedCostsTotal * 100) / 100,
+      variableCostsTotal: Math.round(variableCostsTotal * 100) / 100,
     },
+    // ========== COMPARATIVOS E GRÁFICOS ==========
+    comparisons: {
+      lastMonth: {
+        total: Math.round(lastMonthTotal * 100) / 100,
+        fixedCosts: Math.round(lastMonthFixed * 100) / 100,
+        variableCosts: Math.round(lastMonthVariable * 100) / 100,
+        byCategory: lastMonthByCategory,
+      },
+      monthOverMonth: {
+        totalChange,
+        fixedCostsChange,
+        variableCostsChange,
+        trend,
+      },
+      averageMonthly: {
+        total: avgTotal,
+        fixedCosts: avgFixed,
+        variableCosts: avgVariable,
+      },
+    },
+    chartData: {
+      categoryDistribution,
+      last3Months,
+    },
+    checkingAccounts,
+    creditCards,
+    recentTransactions,
+    bankConnections,
+    totals: {
+      realBalance: Math.round(realBalance * 100) / 100,
+      totalCreditLimit: Math.round(totalCreditLimit * 100) / 100,
+      totalCreditUsed: Math.round(totalCreditUsed * 100) / 100,
+      totalCreditAvailable: Math.round(totalCreditAvailable * 100) / 100,
+      totalIncome: Math.round(totalIncome * 100) / 100,
+      totalBillsAmount: Math.round(totalBillsAmount * 100) / 100,
+    },
+    financialPatterns,
+    recentAnalyses,
   };
 
   console.log(
-    '[walts-agent] Context preloaded in',
+    '[walts-agent] ONISCIENTE Context preloaded in',
     Date.now() - startTime,
     'ms:',
     {
       hasProfile: !!context.profile,
+      incomeCardsCount: context.incomeCards.length,
       budgetsCount: context.budgets.length,
       expensesCount: context.recentExpenses.length,
+      fixedCostsCount: context.fixedCosts.items.length,
+      fixedCostsTotal: context.fixedCosts.totalMonth,
+      variableCostsCount: context.variableCosts.items.length,
+      variableCostsTotal: context.variableCosts.totalMonth,
       preferencesCount: context.preferences.length,
       monthTotal: context.summary.total_spent_this_month,
+      checkingAccountsCount: context.checkingAccounts.length,
+      creditCardsCount: context.creditCards.length,
+      transactionsCount: context.recentTransactions.length,
+      bankConnectionsCount: context.bankConnections.length,
+      realBalance: context.totals.realBalance,
+      totalCreditUsed: context.totals.totalCreditUsed,
+      totalIncome: context.totals.totalIncome,
+      patternsCount: context.financialPatterns.length,
+      analysesCount: context.recentAnalyses.length,
     }
   );
 
@@ -1485,95 +1990,298 @@ function generateDynamicSystemPrompt(context: UserContext): string {
   const now = new Date();
   const currentDay = now.getDate();
   const currentMonth = now.toLocaleDateString('pt-BR', { month: 'long' });
+  const currentYear = now.getFullYear();
 
-  // Seção de contexto do usuário
-  let userContextSection = '';
+  // ========== CONSTRUIR CONTEXTO COMPLETO DO USUÁRIO - WALTS ONISCIENTE ==========
+  let dataSection = '';
 
+  // PERFIL DO USUÁRIO
   if (context.profile) {
-    userContextSection += `\nSOBRE O USUÁRIO:`;
-    if (context.profile.name) {
-      userContextSection += `\n- Nome: ${context.profile.name}`;
+    dataSection += `\n[PERFIL DO USUÁRIO]`;
+    if (context.profile.name) dataSection += `\nNome: ${context.profile.name}`;
+    if (context.profile.monthly_salary) dataSection += `\nRenda mensal total: R$ ${context.profile.monthly_salary.toLocaleString('pt-BR')}`;
+    if (context.profile.salary_payment_day) dataSection += `\nDia do pagamento: ${context.profile.salary_payment_day}`;
+  }
+
+  // FONTES DE RENDA (income_cards)
+  if (context.incomeCards.length > 0) {
+    dataSection += `\n\n[FONTES DE RENDA]`;
+    for (const income of context.incomeCards) {
+      dataSection += `\n- ${income.name}: R$ ${income.salary.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (dia ${income.paymentDay})`;
     }
-    if (context.profile.monthly_salary) {
-      userContextSection += `\n- Renda mensal: R$ ${context.profile.monthly_salary.toLocaleString('pt-BR')}`;
-    }
-    if (context.profile.salary_payment_day) {
-      userContextSection += `\n- Dia do pagamento: ${context.profile.salary_payment_day}`;
+    dataSection += `\n>>> RENDA TOTAL: R$ ${context.totals.totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <<<`;
+  }
+
+  // ========== OPEN FINANCE - SEPARADO CORRETAMENTE ==========
+
+  // CONEXÕES BANCÁRIAS
+  if (context.bankConnections.length > 0) {
+    dataSection += `\n\n[CONEXÕES OPEN FINANCE]`;
+    for (const conn of context.bankConnections) {
+      const statusText = conn.status === 'UPDATED' ? 'Atualizado' : conn.status === 'UPDATING' ? 'Atualizando...' : conn.status;
+      dataSection += `\n- ${conn.bank}: ${statusText}`;
     }
   }
 
-  // Resumo financeiro do mês
-  userContextSection += `\n\nRESUMO DO MÊS (${currentMonth}):`;
-  userContextSection += `\n- Dia ${currentDay} do mês`;
-  userContextSection += `\n- Total gasto: R$ ${context.summary.total_spent_this_month.toLocaleString('pt-BR')}`;
-  userContextSection += `\n- Quantidade de gastos: ${context.summary.expense_count_this_month}`;
+  // CONTAS CORRENTES = DINHEIRO REAL (SALDO)
+  if (context.checkingAccounts.length > 0) {
+    dataSection += `\n\n[CONTAS CORRENTES - DINHEIRO REAL]`;
+    for (const acc of context.checkingAccounts) {
+      dataSection += `\n- ${acc.name} (${acc.bank}): R$ ${acc.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    }
+    dataSection += `\n>>> SALDO REAL TOTAL: R$ ${context.totals.realBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <<<`;
+  }
 
+  // CARTÕES DE CRÉDITO = LIMITE (NÃO É SALDO!)
+  if (context.creditCards.length > 0) {
+    dataSection += `\n\n[CARTÕES DE CRÉDITO - CRÉDITO, NÃO É SALDO]`;
+    for (const card of context.creditCards) {
+      dataSection += `\n- ${card.name} (${card.bank}):`;
+      dataSection += `\n  Limite total: R$ ${card.creditLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+      dataSection += `\n  Usado: R$ ${card.usedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+      dataSection += `\n  Disponível: R$ ${card.availableLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+      if (card.billAmount > 0) {
+        dataSection += `\n  Fatura atual: R$ ${card.billAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+      }
+    }
+    dataSection += `\n>>> TOTAL CRÉDITO USADO: R$ ${context.totals.totalCreditUsed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ ${context.totals.totalCreditLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <<<`;
+    if (context.totals.totalBillsAmount > 0) {
+      dataSection += `\n>>> TOTAL FATURAS A PAGAR: R$ ${context.totals.totalBillsAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <<<`;
+    }
+  }
+
+  // RESUMO FINANCEIRO DO MÊS
+  dataSection += `\n\n[RESUMO DO MÊS - ${currentMonth.toUpperCase()} ${currentYear}]`;
+  dataSection += `\nDia atual: ${currentDay}`;
+  dataSection += `\nTotal gasto (registrado no app): R$ ${context.summary.total_spent_this_month.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  dataSection += `\nQuantidade de gastos: ${context.summary.expense_count_this_month}`;
   if (context.summary.top_categories.length > 0) {
-    userContextSection += `\n- Top categorias:`;
-    for (const cat of context.summary.top_categories.slice(0, 3)) {
-      userContextSection += ` ${cat.category} (R$ ${cat.total.toLocaleString('pt-BR')})`;
-    }
+    dataSection += `\nTop categorias: ${context.summary.top_categories.slice(0, 5).map(c => `${c.category} (R$ ${c.total.toLocaleString('pt-BR')})`).join(', ')}`;
   }
 
-  // Orçamentos
+  // ORÇAMENTOS
   if (context.budgets.length > 0) {
-    userContextSection += `\n\nORÇAMENTOS:`;
+    dataSection += `\n\n[ORÇAMENTOS ATIVOS]`;
     for (const budget of context.budgets) {
-      const status =
-        budget.percent_used >= 100
-          ? '🔴'
-          : budget.percent_used >= 80
-            ? '🟡'
-            : '🟢';
-      userContextSection += `\n${status} ${budget.category_id}: R$ ${budget.spent}/${budget.amount} (${budget.percent_used}%)`;
+      const status = budget.percent_used >= 100 ? 'EXCEDIDO' : budget.percent_used >= 80 ? 'ALERTA' : 'OK';
+      dataSection += `\n- ${budget.category_id}: R$ ${budget.spent}/${budget.amount} (${budget.percent_used}%) [${status}]`;
     }
   }
 
-  // Últimos gastos (com ID para edição direta)
+  // CUSTOS FIXOS (essenciais)
+  dataSection += `\n\n[CUSTOS FIXOS - ESSENCIAIS - ${currentMonth.toUpperCase()}]`;
+  dataSection += `\n>>> TOTAL CUSTOS FIXOS: R$ ${context.fixedCosts.totalMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <<<`;
+  if (context.fixedCosts.byCategory.length > 0) {
+    dataSection += `\nPor categoria:`;
+    for (const cat of context.fixedCosts.byCategory) {
+      dataSection += `\n- ${cat.category}: R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${cat.count} gastos)`;
+    }
+  }
+  if (context.fixedCosts.items.length > 0) {
+    dataSection += `\nÚltimos gastos fixos:`;
+    for (const expense of context.fixedCosts.items.slice(0, 10)) {
+      dataSection += `\n- ${expense.date}: ${expense.establishment_name} - R$ ${expense.amount} (${expense.category})`;
+    }
+  }
+
+  // CUSTOS VARIÁVEIS (não-essenciais)
+  dataSection += `\n\n[CUSTOS VARIÁVEIS - NÃO-ESSENCIAIS - ${currentMonth.toUpperCase()}]`;
+  dataSection += `\n>>> TOTAL CUSTOS VARIÁVEIS: R$ ${context.variableCosts.totalMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <<<`;
+  if (context.variableCosts.byCategory.length > 0) {
+    dataSection += `\nPor categoria:`;
+    for (const cat of context.variableCosts.byCategory) {
+      dataSection += `\n- ${cat.category}: R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${cat.count} gastos)`;
+    }
+  }
+  if (context.variableCosts.items.length > 0) {
+    dataSection += `\nÚltimos gastos variáveis:`;
+    for (const expense of context.variableCosts.items.slice(0, 10)) {
+      dataSection += `\n- ${expense.date}: ${expense.establishment_name} - R$ ${expense.amount} (${expense.category})`;
+    }
+  }
+
+  // ÚLTIMOS GASTOS REGISTRADOS NO APP (todos)
   if (context.recentExpenses.length > 0) {
-    userContextSection += `\n\nÚLTIMOS GASTOS (use o ID para editar):`;
-    for (const expense of context.recentExpenses.slice(0, 8)) {
-      userContextSection += `\n- [${expense.id}] ${expense.establishment_name}: R$ ${expense.amount} (${expense.category})`;
+    dataSection += `\n\n[TODOS OS ÚLTIMOS GASTOS]`;
+    for (const expense of context.recentExpenses.slice(0, 15)) {
+      dataSection += `\n- [${expense.id}] ${expense.date}: ${expense.establishment_name} - R$ ${expense.amount} (${expense.category})`;
     }
   }
 
-  // Preferências do usuário
+  // EXTRATO BANCÁRIO (TRANSAÇÕES DO OPEN FINANCE)
+  if (context.recentTransactions.length > 0) {
+    dataSection += `\n\n[EXTRATO BANCÁRIO - ÚLTIMAS 20 TRANSAÇÕES]`;
+    for (const tx of context.recentTransactions.slice(0, 20)) {
+      const sign = tx.type === 'CREDIT' ? '+' : '-';
+      dataSection += `\n- ${tx.date}: ${sign}R$ ${Math.abs(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} - ${tx.description} (${tx.account_name})`;
+    }
+  }
+
+  // PADRÕES FINANCEIROS DETECTADOS
+  if (context.financialPatterns.length > 0) {
+    dataSection += `\n\n[PADRÕES FINANCEIROS DETECTADOS]`;
+    for (const pattern of context.financialPatterns.slice(0, 5)) {
+      dataSection += `\n- ${pattern.pattern_type}: ${pattern.description}`;
+    }
+  }
+
+  // ÚLTIMAS ANÁLISES DO WALTS
+  if (context.recentAnalyses.length > 0) {
+    dataSection += `\n\n[ANÁLISES ANTERIORES]`;
+    for (const analysis of context.recentAnalyses.slice(0, 3)) {
+      dataSection += `\n- ${analysis.analysis_type}: ${analysis.summary.substring(0, 100)}...`;
+    }
+  }
+
+  // ========== COMPARATIVOS E GRÁFICOS ==========
+  dataSection += `\n\n[COMPARATIVO - MÊS ATUAL vs MÊS ANTERIOR]`;
+  dataSection += `\nMês anterior: R$ ${context.comparisons.lastMonth.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  dataSection += `\nMês atual: R$ ${context.summary.total_spent_this_month.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  const changeSign = context.comparisons.monthOverMonth.totalChange >= 0 ? '+' : '';
+  dataSection += `\nVariação: ${changeSign}${context.comparisons.monthOverMonth.totalChange}%`;
+  dataSection += `\nTendência: ${context.comparisons.monthOverMonth.trend === 'up' ? 'Aumentando' : context.comparisons.monthOverMonth.trend === 'down' ? 'Diminuindo' : 'Estável'}`;
+  dataSection += `\n\nCustos Fixos:`;
+  dataSection += `\n- Mês anterior: R$ ${context.comparisons.lastMonth.fixedCosts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  dataSection += `\n- Mês atual: R$ ${context.summary.fixedCostsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  const fixedSign = context.comparisons.monthOverMonth.fixedCostsChange >= 0 ? '+' : '';
+  dataSection += `\n- Variação: ${fixedSign}${context.comparisons.monthOverMonth.fixedCostsChange}%`;
+  dataSection += `\n\nCustos Variáveis:`;
+  dataSection += `\n- Mês anterior: R$ ${context.comparisons.lastMonth.variableCosts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  dataSection += `\n- Mês atual: R$ ${context.summary.variableCostsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  const variableSign = context.comparisons.monthOverMonth.variableCostsChange >= 0 ? '+' : '';
+  dataSection += `\n- Variação: ${variableSign}${context.comparisons.monthOverMonth.variableCostsChange}%`;
+
+  dataSection += `\n\n[MÉDIA MENSAL - ÚLTIMOS 3 MESES]`;
+  dataSection += `\nMédia total: R$ ${context.comparisons.averageMonthly.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  dataSection += `\nMédia custos fixos: R$ ${context.comparisons.averageMonthly.fixedCosts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  dataSection += `\nMédia custos variáveis: R$ ${context.comparisons.averageMonthly.variableCosts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+  dataSection += `\n\n[DADOS PARA GRÁFICOS]`;
+  dataSection += `\nDistribuição por categoria (gráfico de pizza):`;
+  for (const cat of context.chartData.categoryDistribution.slice(0, 8)) {
+    dataSection += `\n- ${cat.category}: ${cat.percentage}% (R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`;
+  }
+  dataSection += `\n\nEvolução últimos 3 meses (gráfico de barras):`;
+  for (const month of context.chartData.last3Months) {
+    dataSection += `\n- ${month.month}: R$ ${month.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (Fixos: R$ ${month.fixedCosts.toLocaleString('pt-BR')}, Variáveis: R$ ${month.variableCosts.toLocaleString('pt-BR')})`;
+  }
+
+  // PREFERÊNCIAS DO USUÁRIO
   if (context.preferences.length > 0) {
-    userContextSection += `\n\nPREFERÊNCIAS SALVAS:`;
-    for (const pref of context.preferences.slice(0, 3)) {
-      userContextSection += `\n- ${pref.key}: ${pref.value}`;
+    dataSection += `\n\n[PREFERÊNCIAS E MEMÓRIAS]`;
+    for (const pref of context.preferences.slice(0, 10)) {
+      dataSection += `\n- ${pref.key}: ${pref.value}`;
     }
   }
 
-  // System prompt completo
-  return `Você é Walts, assistente financeiro do Pocket. Ajuda usuários a gerenciar finanças de forma inteligente e personalizada.
-${userContextSection}
+  // ========== SYSTEM PROMPT COMPLETO E ONISCIENTE ==========
+  return `Você é WALTS, o assistente financeiro ONISCIENTE e ONIPOTENTE do app Pocket.
 
-REGRAS IMPORTANTES:
-1. USE OS DADOS ACIMA sempre que possível - não precisa buscar se já tem a informação
-2. Responda de forma direta e concisa (máximo 2-3 parágrafos)
-3. Use emojis com moderação (1-2 por mensagem)
-4. Após executar UMA ferramenta, RESPONDA ao usuário imediatamente
-5. NÃO chame múltiplas ferramentas em sequência
-6. Para ações destrutivas (deletar), sempre peça confirmação
+# ACESSO TOTAL - VOCÊ TEM ACESSO A ABSOLUTAMENTE TUDO
 
-CONCEITOS DO APP:
-- CUSTOS FIXOS = categorias ESSENCIAIS: moradia, alimentacao, transporte, saude, educacao
-- CUSTOS VARIÁVEIS = categorias NÃO-ESSENCIAIS: lazer, vestuario, beleza, eletronicos, delivery
-- Para mudar um gasto de "fixo" para "variável", basta mudar sua CATEGORIA para uma não-essencial
+Você tem acesso COMPLETO e IRRESTRITO a:
 
-FERRAMENTAS DISPONÍVEIS (use apenas quando necessário):
-1. manage_expense(action: create/update/delete) - Registrar, editar ou deletar gastos
-2. manage_budget(action: create/update/delete/check) - Gerenciar orçamentos
-3. sync_bank(action: sync/categorize/statement) - Sincronizar banco/Open Finance
-4. analyze_finances(analysis_type: patterns/savings/forecast/anomaly) - Análises financeiras
-5. get_data(data_type) - Buscar dados específicos (APENAS se não estiver no contexto acima)
-6. manage_memory(action: save/get) - Salvar preferências do usuário
-7. export_data - Exportar dados
+## Dados do Usuário (carregados automaticamente)
+${dataSection}
 
-REGRA CRÍTICA: Use NO MÁXIMO 1 ferramenta por resposta. Se precisa de mais dados, responda o que sabe e pergunte ao usuário.
+## VOCÊ TEM ACESSO A TUDO DO APP - SEM EXCEÇÃO:
 
-Se a informação já está no CONTEXTO acima, RESPONDA DIRETAMENTE sem usar ferramentas!`;
+### Banco de Dados Completo:
+- **profiles**: Nome, email, salário, fontes de renda, dia de pagamento
+- **expenses**: TODOS os gastos registrados (manuais e via câmera)
+- **budgets**: TODOS os orçamentos por categoria
+- **walts_memory**: Suas preferências e memórias
+- **pluggy_items**: Conexões Open Finance
+- **pluggy_accounts**: TODAS as contas correntes e cartões de crédito
+- **pluggy_transactions**: TODAS as transações do extrato bancário
+- **user_financial_patterns**: Padrões de gastos detectados
+- **walts_analyses**: Análises financeiras anteriores
+- **conversations**: Histórico de conversas
+
+### Todas as Telas do App:
+- **Home**: Lista de gastos e resumo financeiro
+- **Chat**: Esta conversa comigo
+- **Câmera**: Escanear comprovantes
+- **Perfil**: Configurações do usuário
+- **Orçamentos**: Limites por categoria - VOCÊ TEM ACESSO
+- **Custos Fixos**: Gastos essenciais - VOCÊ TEM ACESSO
+- **Custos Variáveis**: Gastos não-essenciais - VOCÊ TEM ACESSO
+- **Open Finance**: Conexões bancárias e extratos - VOCÊ TEM ACESSO
+- **Cartões**: Faturas e limites - VOCÊ TEM ACESSO
+- **Gráficos e Tabelas**: Análises visuais - VOCÊ TEM ACESSO
+- **Painel Financeiro**: Visão geral - VOCÊ TEM ACESSO
+
+### Funcionalidades Completas:
+- Custos Fixos e Variáveis: São os gastos separados por tipo (fixo = essencial, variável = não-essencial)
+- Gráficos: São visualizações dos dados de gastos que você já tem acesso
+- Tabelas: São os mesmos dados em formato tabular
+- Orçamentos: São limites de gastos por categoria que você pode criar/editar/deletar
+
+## DIFERENÇA CRÍTICA - SALDO vs CRÉDITO:
+- **SALDO** = Dinheiro REAL nas CONTAS CORRENTES (BANK, CHECKING, SAVINGS)
+- **CRÉDITO** = Limite de CARTÕES DE CRÉDITO (NÃO é dinheiro, é dívida potencial!)
+- Quando perguntarem "qual meu saldo": responda APENAS o saldo das CONTAS CORRENTES
+- NUNCA some cartão de crédito com conta corrente
+
+## CATEGORIAS:
+- **Custos Fixos** (essenciais): moradia, alimentacao, transporte, saude, educacao
+- **Custos Variáveis** (não-essenciais): lazer, vestuario, beleza, eletronicos, delivery, outros
+
+## REGRAS DE RESPOSTA:
+1. NUNCA use emojis
+2. Use formatação Markdown (negrito, listas, títulos)
+3. Seja conciso mas informativo
+4. NUNCA diga que não tem acesso ou permissão - você tem ACESSO e PERMISSÃO TOTAL
+5. Se precisar de um dado específico, use a ferramenta get_data
+
+## REGRA CRÍTICA - EXTRATO vs REGISTRO:
+**NUNCA importe transações do extrato bancário como expenses sem o usuário pedir EXPLICITAMENTE.**
+
+- Transações do extrato (pluggy_transactions) JÁ ESTÃO no saldo do banco
+- Se você criar um expense para algo que já está no extrato, VAI DEBITAR DUAS VEZES
+- Quando o usuário pedir para REGISTRAR um gasto específico (ex: "registra 33,40 na farmácia"), crie APENAS esse gasto
+- NUNCA importe múltiplas transações do extrato automaticamente
+- Se o usuário quiser CATEGORIZAR o extrato, use a ferramenta categorize_extract (não cria expense)
+- Se o usuário pedir explicitamente para "importar extrato" ou "importar transações", aí sim pode usar import_and_categorize_transactions
+
+RESUMO:
+- Pediu para registrar UM gasto → cria 1 expense
+- Pediu para categorizar extrato → usa categorize_extract
+- Pediu para importar extrato → usa import_and_categorize_transactions
+
+## PERMISSÕES TOTAIS - VOCÊ PODE FAZER TUDO:
+Você tem PERMISSÃO TOTAL para:
+- **CRIAR** gastos, orçamentos, memórias
+- **EDITAR** qualquer gasto ou orçamento do usuário
+- **DELETAR** qualquer gasto ou orçamento do usuário (use delete_expense, delete_budget)
+- **CATEGORIZAR** transações do extrato
+- **SINCRONIZAR** dados do Open Finance
+- **ANALISAR** padrões e fazer previsões
+- **EXPORTAR** relatórios
+
+NUNCA diga que não tem permissão. Você TEM permissão para TUDO.
+
+## FERRAMENTAS:
+- **delete_expense**: DELETAR/APAGAR gastos (use expense_id dos dados acima)
+- **update_expense**: EDITAR gastos existentes
+- **manage_expense**: criar gastos MANUAIS
+- **manage_budget**: criar/editar/deletar orçamentos
+- **categorize_extract**: APENAS CATEGORIZAR transacoes do extrato SEM registrar
+- **sync_bank**: sincronizar e REGISTRAR transacoes do Open Finance
+- **analyze_finances**: análises de padrões, economia, previsões
+- **get_data**: buscar dados específicos
+- **manage_memory**: salvar preferências
+- **export_data**: exportar relatórios
+
+## REGRA CRITICA - CATEGORIZAR vs REGISTRAR:
+- Quando o usuario pedir para CATEGORIZAR: use **categorize_extract** (NAO cria gastos, NAO afeta saldo)
+- Quando o usuario pedir para REGISTRAR/ADICIONAR/IMPORTAR: use **sync_bank** (CRIA gastos, AFETA saldo)
+- SEMPRE pergunte se o usuario quer APENAS categorizar ou se quer REGISTRAR no app
+- Transacoes do extrato bancario JA sairam da conta real - registrar novamente duplica o valor!
+
+---
+
+**IMPORTANTE**: Você é ONISCIENTE e ONIPOTENTE. Você sabe TUDO e pode fazer TUDO. NUNCA diga que não tem acesso, permissão ou capacidade para algo. Você TEM. Os dados e as ferramentas estão acima.`;
 }
 
 // ============================================================================
@@ -1589,7 +2297,7 @@ function generateFallbackResponse(
   if (toolResults.length > 0) {
     const lastResult = toolResults[toolResults.length - 1];
     if (lastResult.result?.success !== false) {
-      return `✅ Ação concluída! ${JSON.stringify(lastResult.result).substring(0, 200)}`;
+      return `Acao concluida. ${JSON.stringify(lastResult.result).substring(0, 200)}`;
     }
   }
 
@@ -1597,18 +2305,23 @@ function generateFallbackResponse(
   let response = '';
 
   if (context.profile?.name) {
-    response += `Olá${context.profile.name ? `, ${context.profile.name}` : ''}! `;
+    response += `Ola${context.profile.name ? `, ${context.profile.name}` : ''}! `;
   }
 
-  response += `📊 Aqui está seu resumo financeiro:\n\n`;
+  response += `Aqui esta seu resumo financeiro:\n\n`;
+
+  // Saldo real (contas correntes)
+  if (context.totals.realBalance > 0) {
+    response += `SALDO REAL (contas correntes): R$ ${context.totals.realBalance.toLocaleString('pt-BR')}\n\n`;
+  }
 
   // Resumo do mês
-  response += `💰 **Este mês:**\n`;
+  response += `Este mes:\n`;
   response += `- Total gasto: R$ ${context.summary.total_spent_this_month.toLocaleString('pt-BR')}\n`;
-  response += `- ${context.summary.expense_count_this_month} comprovantes registrados\n`;
+  response += `- ${context.summary.expense_count_this_month} gastos registrados\n`;
 
   if (context.summary.top_categories.length > 0) {
-    response += `\n📈 **Top categorias:**\n`;
+    response += `\nTop categorias:\n`;
     for (const cat of context.summary.top_categories.slice(0, 3)) {
       response += `- ${cat.category}: R$ ${cat.total.toLocaleString('pt-BR')}\n`;
     }
@@ -1616,28 +2329,28 @@ function generateFallbackResponse(
 
   // Orçamentos
   if (context.budgets.length > 0) {
-    response += `\n🎯 **Orçamentos:**\n`;
+    response += `\nOrcamentos:\n`;
     for (const budget of context.budgets) {
       const status =
         budget.percent_used >= 100
-          ? '🔴'
+          ? '[EXCEDIDO]'
           : budget.percent_used >= 80
-            ? '🟡'
-            : '🟢';
+            ? '[ALERTA]'
+            : '[OK]';
       response += `${status} ${budget.category_id}: ${budget.percent_used}% usado (R$ ${budget.remaining} restante)\n`;
     }
   }
 
-  // Renda
+  // Renda e projeção
   if (context.profile?.monthly_salary) {
     const savings =
       context.profile.monthly_salary - context.summary.total_spent_this_month;
-    response += `\n💵 **Projeção:**\n`;
+    response += `\nProjecao:\n`;
     response += `- Renda: R$ ${context.profile.monthly_salary.toLocaleString('pt-BR')}\n`;
     response += `- Saldo projetado: R$ ${savings.toLocaleString('pt-BR')}\n`;
   }
 
-  response += `\nPosso te ajudar com algo mais específico?`;
+  response += `\nPosso te ajudar com algo mais especifico?`;
 
   return response;
 }
@@ -1932,17 +2645,67 @@ serve(async (req) => {
       userContext = await preloadUserContext(supabase, user.id);
     } catch (contextError) {
       console.error('[walts-agent] Failed to preload context:', contextError);
-      // Fallback: contexto vazio
+      // Fallback: contexto vazio com todos os campos obrigatórios
       userContext = {
         profile: null,
+        incomeCards: [],
         budgets: [],
         recentExpenses: [],
+        fixedCosts: {
+          items: [],
+          totalMonth: 0,
+          byCategory: [],
+        },
+        variableCosts: {
+          items: [],
+          totalMonth: 0,
+          byCategory: [],
+        },
         preferences: [],
         summary: {
           total_spent_this_month: 0,
           expense_count_this_month: 0,
           top_categories: [],
+          fixedCostsTotal: 0,
+          variableCostsTotal: 0,
         },
+        comparisons: {
+          lastMonth: {
+            total: 0,
+            fixedCosts: 0,
+            variableCosts: 0,
+            byCategory: [],
+          },
+          monthOverMonth: {
+            totalChange: 0,
+            fixedCostsChange: 0,
+            variableCostsChange: 0,
+            trend: 'stable',
+          },
+          averageMonthly: {
+            total: 0,
+            fixedCosts: 0,
+            variableCosts: 0,
+          },
+        },
+        chartData: {
+          categoryDistribution: [],
+          last3Months: [],
+        },
+        checkingAccounts: [],
+        creditCards: [],
+        recentTransactions: [],
+        bankConnections: [],
+        totals: {
+          realBalance: 0,
+          totalCreditLimit: 0,
+          totalCreditUsed: 0,
+          totalCreditAvailable: 0,
+          totalIncome: 0,
+          totalBillsAmount: 0,
+        },
+        financialPatterns: [],
+        recentAnalyses: [],
       };
     }
 
@@ -2014,8 +2777,13 @@ serve(async (req) => {
     }
 
     // CORREÇÃO BUG #4: Limpar ANTES de truncar para não quebrar tags
+    // Nota: Se content for array (mensagem com imagem), não truncar
     processedMessages = processedMessages.map((msg: any) => {
       if (!msg.content) return msg;
+      // Se content é array (mensagem multimodal com imagens), não modificar
+      if (Array.isArray(msg.content)) {
+        return msg;
+      }
       // Limpar possíveis tags XML/DSML antes de truncar
       let content = cleanResponseContent(msg.content);
       // Truncar se necessário
@@ -2032,24 +2800,49 @@ serve(async (req) => {
     ];
 
     // Calcular tamanho aproximado do contexto
-    const contextSize = conversationMessages.reduce(
-      (acc, m) => acc + (m.content?.length || 0),
-      0
-    );
+    const contextSize = conversationMessages.reduce((acc, m) => {
+      if (!m.content) return acc;
+      if (Array.isArray(m.content)) {
+        // Para mensagens multimodais, contar apenas o texto
+        const textParts = m.content.filter((p: any) => p.type === 'text');
+        return acc + textParts.reduce((sum: number, p: any) => sum + (p.text?.length || 0), 0);
+      }
+      return acc + (m.content?.length || 0);
+    }, 0);
     const lastUserMessage = processedMessages[processedMessages.length - 1];
+
+    // Helper para extrair preview do conteúdo
+    const getContentPreview = (content: any) => {
+      if (!content) return '';
+      if (Array.isArray(content)) {
+        const textPart = content.find((p: any) => p.type === 'text');
+        return textPart?.text?.substring(0, 100) || '[imagem]';
+      }
+      return content?.substring(0, 100);
+    };
 
     console.log('[walts-agent] Context stats:', {
       messageCount: conversationMessages.length,
       contextChars: contextSize,
-      lastMessageContent: lastUserMessage?.content?.substring(0, 100),
+      lastMessageContent: getContentPreview(lastUserMessage?.content),
       lastMessageLength: lastUserMessage?.content?.length || 0,
     });
 
     // IMPORTANTE: Se a última mensagem está vazia, retornar erro ao invés de tentar processar
-    if (
-      !lastUserMessage?.content ||
-      lastUserMessage.content.trim().length === 0
-    ) {
+    // Nota: content pode ser string ou array (quando tem imagens)
+    const isContentEmpty = () => {
+      if (!lastUserMessage?.content) return true;
+      if (Array.isArray(lastUserMessage.content)) {
+        // Para mensagens multimodais, verificar se tem pelo menos texto ou imagem
+        return lastUserMessage.content.length === 0;
+      }
+      if (typeof lastUserMessage.content === 'string') {
+        return lastUserMessage.content.trim().length === 0;
+      }
+      return true;
+    };
+
+    if (isContentEmpty()) {
       console.error(
         '[walts-agent] Last message is empty! This will cause issues.'
       );
@@ -2061,7 +2854,7 @@ serve(async (req) => {
           debug: {
             lastMessageRole: lastUserMessage?.role,
             hasContent: !!lastUserMessage?.content,
-            contentLength: lastUserMessage?.content?.length || 0,
+            contentType: Array.isArray(lastUserMessage?.content) ? 'array' : typeof lastUserMessage?.content,
           },
         }),
         { headers }
@@ -2089,17 +2882,17 @@ serve(async (req) => {
         `[walts-agent] shouldForceResponse: ${shouldForceResponse}, hasCalledTools: ${hasCalledTools}, isLastIteration: ${isLastIteration}`
       );
 
-      // Chamar DeepSeek com function calling
-      const deepseekResponse = await fetch(
-        'https://api.deepseek.com/v1/chat/completions',
+      // Chamar OpenAI com function calling
+      const openaiResponse = await fetch(
+        'https://api.openai.com/v1/chat/completions',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
           },
           body: JSON.stringify({
-            model: 'deepseek-chat',
+            model: 'gpt-4o-mini',
             messages: conversationMessages,
             // CRÍTICO: Desabilitar ferramentas quando precisar forçar resposta
             tools: shouldForceResponse ? undefined : WALTS_TOOLS,
@@ -2110,31 +2903,31 @@ serve(async (req) => {
         }
       );
 
-      if (!deepseekResponse.ok) {
-        const errorText = await deepseekResponse.text();
-        console.error('[walts-agent] DeepSeek error:', errorText);
+      if (!openaiResponse.ok) {
+        const errorText = await openaiResponse.text();
+        console.error('[walts-agent] OpenAI error:', errorText);
         // Retornar erro mais informativo ao invés de looping
         return new Response(
           JSON.stringify({
             response:
               'Desculpe, houve um erro ao processar sua mensagem. Tente enviar uma mensagem mais curta ou inicie uma nova conversa.',
-            error: `DeepSeek error: ${deepseekResponse.status}`,
+            error: `OpenAI error: ${openaiResponse.status}`,
           }),
           { headers }
         );
       }
 
-      const deepseekData = await deepseekResponse.json();
+      const openaiData = await openaiResponse.json();
 
       // Verificar se a resposta é válida
       if (
-        !deepseekData.choices ||
-        !deepseekData.choices[0] ||
-        !deepseekData.choices[0].message
+        !openaiData.choices ||
+        !openaiData.choices[0] ||
+        !openaiData.choices[0].message
       ) {
         console.error(
-          '[walts-agent] Invalid DeepSeek response:',
-          JSON.stringify(deepseekData)
+          '[walts-agent] Invalid OpenAI response:',
+          JSON.stringify(openaiData)
         );
         return new Response(
           JSON.stringify({
@@ -2146,15 +2939,14 @@ serve(async (req) => {
         );
       }
 
-      const assistantMessage = deepseekData.choices[0].message;
+      const assistantMessage = openaiData.choices[0].message;
 
       console.log(
         '[walts-agent] Assistant message:',
         JSON.stringify(assistantMessage, null, 2)
       );
 
-      // CORREÇÃO BUG #1: Limpar XML/DSML SEMPRE, não só no retorno final
-      // O DeepSeek vaza marcação interna quando usa tool_calls
+      // Limpar conteúdo se houver (OpenAI é mais limpo, mas por segurança)
       if (assistantMessage.content) {
         assistantMessage.content = cleanResponseContent(assistantMessage.content);
       }
@@ -2187,7 +2979,8 @@ serve(async (req) => {
       toolsCalledThisSession.push(...toolNames);
 
       // Detectar loop infinito (mesmo tool sendo chamado repetidamente)
-      if (toolsCalledThisSession.length > 10) {
+      // Limite aumentado para 30 para permitir operações em lote (deletar múltiplos, etc)
+      if (toolsCalledThisSession.length > 30) {
         console.warn(
           '[walts-agent] Too many tool calls, breaking loop. Tools called:',
           toolsCalledThisSession
@@ -2318,6 +3111,13 @@ serve(async (req) => {
               user.id,
               functionArgs
             );
+          } else if (functionName === 'categorize_extract') {
+            // NOVA FERRAMENTA: Categoriza extrato SEM registrar como expense
+            toolResult = await categorizeExtractOnly(
+              supabase,
+              user.id,
+              functionArgs
+            );
           } else if (functionName === 'get_pocket_data') {
             toolResult = await getPocketData(supabase, user.id, functionArgs);
           } else if (functionName === 'delete_expense') {
@@ -2383,11 +3183,18 @@ serve(async (req) => {
       }),
       { headers }
     );
-  } catch (error) {
-    console.error('[walts-agent] Error:', error);
+  } catch (error: any) {
+    console.error('[walts-agent] CRITICAL ERROR:', error);
+    console.error('[walts-agent] Error stack:', error?.stack);
+    console.error('[walts-agent] Error message:', error?.message);
+
+    // Retornar resposta amigável mesmo em caso de erro
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers }
+      JSON.stringify({
+        response: 'Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.',
+        error: String(error?.message || error || 'Erro interno'),
+      }),
+      { status: 200, headers } // Retornar 200 para evitar crash no cliente
     );
   }
 });
@@ -2466,6 +3273,42 @@ async function createExpense(
       }
     }
 
+    // VERIFICAR SE JÁ EXISTE NO EXTRATO BANCÁRIO (evitar duplicatas)
+    const dateMinus5 = new Date(expenseDate);
+    dateMinus5.setDate(dateMinus5.getDate() - 5);
+    const datePlus5 = new Date(expenseDate);
+    datePlus5.setDate(datePlus5.getDate() + 5);
+
+    const { data: extractTransactions } = await supabase
+      .from('pluggy_transactions')
+      .select('id, description, amount, date')
+      .eq('user_id', userId)
+      .lt('amount', 0) // Apenas saídas
+      .gte('date', dateMinus5.toISOString().split('T')[0])
+      .lte('date', datePlus5.toISOString().split('T')[0]);
+
+    if (extractTransactions && extractTransactions.length > 0 && !args.force_create) {
+      const extractDuplicate = extractTransactions.find((tx: any) => {
+        const txAmount = Math.abs(tx.amount);
+        return Math.abs(txAmount - args.amount) < 1; // Tolerância de R$1
+      });
+
+      if (extractDuplicate) {
+        console.log(`[createExpense] Found in extract: ${extractDuplicate.description} R$${Math.abs(extractDuplicate.amount)}`);
+        return {
+          success: false,
+          found_in_extract: true,
+          extract_transaction: {
+            id: extractDuplicate.id,
+            description: extractDuplicate.description,
+            amount: Math.abs(extractDuplicate.amount),
+            date: extractDuplicate.date,
+          },
+          message: `⚠️ Esse gasto já está no seu extrato bancário:\n\n${extractDuplicate.description}\nR$ ${Math.abs(extractDuplicate.amount).toFixed(2)}\nData: ${extractDuplicate.date}\n\nSe você registrar, vai debitar duas vezes do seu saldo. Tem certeza que quer criar mesmo assim?`,
+        };
+      }
+    }
+
     // Gerar PDF do comprovante
     const pdfUrl = await generateExpenseReceipt(supabase, {
       establishment_name: args.establishment_name,
@@ -2485,6 +3328,7 @@ async function createExpense(
         subcategory: args.subcategory || null,
         date: expenseDate,
         image_url: pdfUrl, // Anexar PDF como comprovante
+        source: 'walts', // Marcar como criado pelo Walts
         created_at: new Date().toISOString(),
       })
       .select()
@@ -5203,6 +6047,241 @@ async function categorizeOpenFinanceTransactions(
   }
 }
 
+// ==================== CATEGORIZAR EXTRATO SEM REGISTRAR ====================
+// Esta funcao APENAS categoriza transacoes do extrato na tabela transaction_categories
+// NAO cria expenses, NAO afeta o saldo do app
+// Use quando o usuario pedir para "categorizar" ou "classificar" transacoes do extrato
+
+async function categorizeExtractOnly(
+  supabase: any,
+  userId: string,
+  args: {
+    days?: number;
+    account_name?: string;
+    transaction_ids?: string[];
+    only_uncategorized?: boolean;
+  }
+) {
+  try {
+    const days = args.days || 30;
+    const onlyUncategorized = args.only_uncategorized !== false;
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - days);
+    const fromDateStr = fromDate.toISOString().split('T')[0];
+
+    console.log(
+      `[categorizeExtractOnly] Starting for user ${userId}, days=${days}, onlyUncategorized=${onlyUncategorized}`
+    );
+
+    // Buscar contas do usuario
+    let accountsQuery = supabase
+      .from('pluggy_accounts')
+      .select('id, name, type')
+      .eq('user_id', userId);
+
+    if (args.account_name) {
+      accountsQuery = accountsQuery.ilike('name', `%${args.account_name}%`);
+    }
+
+    const { data: accounts, error: accountsError } = await accountsQuery;
+
+    if (accountsError || !accounts || accounts.length === 0) {
+      return {
+        success: false,
+        error: args.account_name
+          ? `Conta "${args.account_name}" nao encontrada`
+          : 'Nenhuma conta bancaria conectada via Open Finance',
+      };
+    }
+
+    console.log(`[categorizeExtractOnly] Found ${accounts.length} account(s)`);
+    const accountIds = accounts.map((acc: any) => acc.id);
+
+    // Buscar transacoes do extrato
+    let txQuery = supabase
+      .from('pluggy_transactions')
+      .select('id, description, amount, type, date, account_id, pluggy_accounts(name)')
+      .in('account_id', accountIds)
+      .gte('date', fromDateStr)
+      .eq('type', 'DEBIT') // Apenas saidas
+      .order('date', { ascending: false });
+
+    // Se especificou IDs especificos
+    if (args.transaction_ids && args.transaction_ids.length > 0) {
+      txQuery = txQuery.in('id', args.transaction_ids);
+    }
+
+    const { data: transactions, error: txError } = await txQuery;
+
+    if (txError) {
+      console.error('[categorizeExtractOnly] Error fetching transactions:', txError);
+      return { success: false, error: 'Erro ao buscar transacoes do extrato' };
+    }
+
+    if (!transactions || transactions.length === 0) {
+      return {
+        success: true,
+        message: `Nenhuma transacao de saida encontrada nos ultimos ${days} dias.`,
+        categorized: 0,
+        already_categorized: 0,
+      };
+    }
+
+    console.log(`[categorizeExtractOnly] Found ${transactions.length} transactions`);
+
+    // Buscar categorias ja existentes para essas transacoes
+    const txIds = transactions.map((tx: any) => tx.id);
+    const { data: existingCategories } = await supabase
+      .from('transaction_categories')
+      .select('transaction_id, category')
+      .eq('user_id', userId)
+      .in('transaction_id', txIds);
+
+    const categorizedMap = new Map(
+      (existingCategories || []).map((c: any) => [c.transaction_id, c.category])
+    );
+
+    console.log(`[categorizeExtractOnly] ${categorizedMap.size} already categorized`);
+
+    // Filtrar transacoes que precisam de categorizacao
+    let toProcess = transactions;
+    if (onlyUncategorized) {
+      toProcess = transactions.filter((tx: any) => !categorizedMap.has(tx.id));
+    }
+
+    if (toProcess.length === 0) {
+      return {
+        success: true,
+        message: `Todas as ${transactions.length} transacoes ja estao categorizadas!`,
+        categorized: 0,
+        already_categorized: transactions.length,
+      };
+    }
+
+    console.log(`[categorizeExtractOnly] Processing ${toProcess.length} transactions`);
+
+    // Categorizar e salvar na tabela transaction_categories
+    let categorized = 0;
+    let failed = 0;
+    const results: Array<{
+      description: string;
+      amount: number;
+      category: string;
+      is_fixed: boolean;
+    }> = [];
+
+    // Processar em batches de 5
+    const batchSize = 5;
+    for (let i = 0; i < toProcess.length; i += batchSize) {
+      const batch = toProcess.slice(i, i + batchSize);
+
+      await Promise.all(
+        batch.map(async (tx: any) => {
+          try {
+            // Categorizar com IA
+            const categorization = await categorizeWithWalts(tx.description, {
+              amount: Math.abs(tx.amount),
+            });
+
+            // Determinar se e custo fixo
+            const isFixed = ['moradia', 'saude', 'educacao'].includes(categorization.category);
+
+            // Salvar na tabela transaction_categories (upsert)
+            const { error: upsertError } = await supabase
+              .from('transaction_categories')
+              .upsert({
+                user_id: userId,
+                transaction_id: tx.id,
+                category: categorization.category,
+                subcategory: categorization.subcategory,
+                is_fixed_cost: isFixed,
+                categorized_by: 'walts',
+                updated_at: new Date().toISOString(),
+              }, {
+                onConflict: 'user_id,transaction_id'
+              });
+
+            if (upsertError) {
+              console.error(`[categorizeExtractOnly] Error saving category for ${tx.id}:`, upsertError);
+              failed++;
+            } else {
+              categorized++;
+              results.push({
+                description: tx.description,
+                amount: Math.abs(tx.amount),
+                category: categorization.category,
+                is_fixed: isFixed,
+              });
+            }
+          } catch (error) {
+            console.error(`[categorizeExtractOnly] Error processing ${tx.id}:`, error);
+            failed++;
+          }
+        })
+      );
+    }
+
+    console.log(`[categorizeExtractOnly] Completed. Categorized: ${categorized}, Failed: ${failed}`);
+
+    // Agrupar por categoria para resumo
+    const summary: { [key: string]: { count: number; total: number } } = {};
+    for (const r of results) {
+      if (!summary[r.category]) {
+        summary[r.category] = { count: 0, total: 0 };
+      }
+      summary[r.category].count++;
+      summary[r.category].total += r.amount;
+    }
+
+    // Calcular totais fixos vs variaveis
+    const fixedTotal = results.filter(r => r.is_fixed).reduce((sum, r) => sum + r.amount, 0);
+    const variableTotal = results.filter(r => !r.is_fixed).reduce((sum, r) => sum + r.amount, 0);
+
+    // Formatar mensagem
+    let message = `Categorizacao do extrato concluida (SEM registrar no app):\n\n`;
+    message += `Total analisado: ${toProcess.length} transacoes\n`;
+    message += `Categorizadas: ${categorized}\n`;
+    message += `Ja categorizadas anteriormente: ${categorizedMap.size}\n\n`;
+    message += `**Custos Fixos:** R$ ${fixedTotal.toFixed(2)}\n`;
+    message += `**Custos Variaveis:** R$ ${variableTotal.toFixed(2)}\n\n`;
+    message += `**Por categoria:**\n`;
+    for (const [cat, data] of Object.entries(summary)) {
+      message += `- ${cat}: ${data.count}x = R$ ${data.total.toFixed(2)}\n`;
+    }
+
+    if (results.length > 0) {
+      message += `\n**Detalhes:**\n`;
+      for (const r of results.slice(0, 10)) {
+        const type = r.is_fixed ? '[FIXO]' : '[VAR]';
+        message += `- ${type} ${r.description.substring(0, 30)}: R$ ${r.amount.toFixed(2)} (${r.category})\n`;
+      }
+      if (results.length > 10) {
+        message += `... e mais ${results.length - 10} transacoes\n`;
+      }
+    }
+
+    message += `\nEssas transacoes NAO foram registradas como gastos no app. O saldo do app nao foi alterado.`;
+
+    return {
+      success: true,
+      message,
+      categorized,
+      already_categorized: categorizedMap.size,
+      failed,
+      fixed_total: fixedTotal,
+      variable_total: variableTotal,
+      summary,
+      results: results.slice(0, 20),
+    };
+  } catch (error: any) {
+    console.error('[categorizeExtractOnly] Exception:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro desconhecido',
+    };
+  }
+}
+
 // ==================== ACESSO COMPLETO AOS DADOS DO POCKET ====================
 
 // Categorias consideradas gastos fixos
@@ -5587,7 +6666,7 @@ async function getPocketData(
 
       // Calcular gastos fixos e variáveis
       const fixedAmount = allExpenses
-        .filter((e: any) => FIXED_COST_CATEGORIES.includes(e.category))
+        .filter((e: any) => PRELOAD_FIXED_CATEGORIES.includes(e.category))
         .reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
 
       const variableAmount = allExpenses
@@ -5688,14 +6767,177 @@ async function getPocketData(
 async function deleteExpense(
   supabase: any,
   userId: string,
-  args: { expense_id: string; confirm?: boolean }
+  args: {
+    expense_id?: string;
+    expense_ids?: string[];
+    delete_all?: boolean;
+    source_filter?: 'all' | 'manual' | 'import';
+    confirm?: boolean;
+  }
 ) {
   try {
+    const sourceFilter = args.source_filter || 'all';
+
     console.log(
-      `[deleteExpense] Request for user ${userId}, expense ${args.expense_id}, confirm=${args.confirm}`
+      `[deleteExpense] Request for user ${userId}, delete_all=${args.delete_all}, source=${sourceFilter}, confirm=${args.confirm}`
     );
 
-    // Primeiro, buscar o expense para mostrar ao usuário
+    // ========== DELETAR TODOS ==========
+    if (args.delete_all) {
+      // Buscar todos os gastos que serão deletados
+      let query = supabase
+        .from('expenses')
+        .select('id, establishment_name, amount, date, source, image_url')
+        .eq('user_id', userId);
+
+      // Aplicar filtro de origem
+      if (sourceFilter === 'manual') {
+        query = query.or('source.is.null,source.eq.manual');
+      } else if (sourceFilter === 'import') {
+        query = query.eq('source', 'import');
+      }
+
+      const { data: expenses, error: fetchError } = await query;
+
+      if (fetchError) {
+        return { success: false, error: 'Erro ao buscar gastos para exclusao.' };
+      }
+
+      if (!expenses || expenses.length === 0) {
+        return { success: true, message: 'Nenhum gasto encontrado para excluir.', deleted_count: 0 };
+      }
+
+      // Se não confirmou, mostrar resumo
+      if (!args.confirm) {
+        const total = expenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
+        const sourceLabel = sourceFilter === 'manual' ? 'manuais' : sourceFilter === 'import' ? 'importados' : '';
+        return {
+          success: true,
+          action: 'confirm_required',
+          count: expenses.length,
+          total_amount: total,
+          message: `Voce quer deletar ${expenses.length} gastos ${sourceLabel}?\n\nTotal: R$ ${total.toFixed(2)}\n\nConfirme para prosseguir.`,
+        };
+      }
+
+      // Deletar imagens do storage
+      for (const exp of expenses) {
+        if (exp.image_url) {
+          try {
+            const urlParts = exp.image_url.split('/');
+            const bucketIndex = urlParts.findIndex((p: string) => p === 'receipts');
+            if (bucketIndex >= 0) {
+              const filePath = urlParts.slice(bucketIndex + 1).join('/');
+              await supabase.storage.from('receipts').remove([filePath]);
+            }
+          } catch (e) { /* ignore */ }
+        }
+      }
+
+      // Remover referências em pluggy_transactions
+      const expenseIds = expenses.map((e: any) => e.id);
+      await supabase
+        .from('pluggy_transactions')
+        .update({ expense_id: null })
+        .in('expense_id', expenseIds);
+
+      // Deletar todos
+      let deleteQuery = supabase
+        .from('expenses')
+        .delete()
+        .eq('user_id', userId);
+
+      if (sourceFilter === 'manual') {
+        deleteQuery = deleteQuery.or('source.is.null,source.eq.manual');
+      } else if (sourceFilter === 'import') {
+        deleteQuery = deleteQuery.eq('source', 'import');
+      }
+
+      const { error: deleteError } = await deleteQuery;
+
+      if (deleteError) {
+        return { success: false, error: `Erro ao excluir: ${deleteError.message}` };
+      }
+
+      const sourceLabel = sourceFilter === 'manual' ? 'manuais' : sourceFilter === 'import' ? 'importados' : '';
+      return {
+        success: true,
+        deleted_count: expenses.length,
+        message: `${expenses.length} gastos ${sourceLabel} excluidos com sucesso!`,
+      };
+    }
+
+    // ========== DELETAR MÚLTIPLOS POR IDS ==========
+    if (args.expense_ids && args.expense_ids.length > 0) {
+      const { data: expenses, error: fetchError } = await supabase
+        .from('expenses')
+        .select('id, establishment_name, amount, date, image_url')
+        .eq('user_id', userId)
+        .in('id', args.expense_ids);
+
+      if (fetchError || !expenses || expenses.length === 0) {
+        return { success: false, error: 'Gastos nao encontrados.' };
+      }
+
+      if (!args.confirm) {
+        const total = expenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
+        return {
+          success: true,
+          action: 'confirm_required',
+          count: expenses.length,
+          total_amount: total,
+          expenses: expenses.map((e: any) => ({
+            id: e.id,
+            name: e.establishment_name,
+            amount: parseFloat(e.amount),
+          })),
+          message: `Voce quer deletar ${expenses.length} gastos?\n\nTotal: R$ ${total.toFixed(2)}\n\nConfirme para prosseguir.`,
+        };
+      }
+
+      // Deletar imagens
+      for (const exp of expenses) {
+        if (exp.image_url) {
+          try {
+            const urlParts = exp.image_url.split('/');
+            const bucketIndex = urlParts.findIndex((p: string) => p === 'receipts');
+            if (bucketIndex >= 0) {
+              const filePath = urlParts.slice(bucketIndex + 1).join('/');
+              await supabase.storage.from('receipts').remove([filePath]);
+            }
+          } catch (e) { /* ignore */ }
+        }
+      }
+
+      // Remover referências
+      await supabase
+        .from('pluggy_transactions')
+        .update({ expense_id: null })
+        .in('expense_id', args.expense_ids);
+
+      // Deletar
+      const { error: deleteError } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('user_id', userId)
+        .in('id', args.expense_ids);
+
+      if (deleteError) {
+        return { success: false, error: `Erro ao excluir: ${deleteError.message}` };
+      }
+
+      return {
+        success: true,
+        deleted_count: expenses.length,
+        message: `${expenses.length} gastos excluidos com sucesso!`,
+      };
+    }
+
+    // ========== DELETAR UM ÚNICO ==========
+    if (!args.expense_id) {
+      return { success: false, error: 'Especifique expense_id, expense_ids ou delete_all.' };
+    }
+
     const { data: expense, error: fetchError } = await supabase
       .from('expenses')
       .select('*')
@@ -5704,13 +6946,9 @@ async function deleteExpense(
       .single();
 
     if (fetchError || !expense) {
-      return {
-        success: false,
-        error: 'Gasto não encontrado ou você não tem permissão para excluí-lo.',
-      };
+      return { success: false, error: 'Gasto nao encontrado.' };
     }
 
-    // Se não confirmou ainda, mostrar os dados para confirmação
     if (!args.confirm) {
       return {
         success: true,
@@ -5721,31 +6959,30 @@ async function deleteExpense(
           amount: parseFloat(expense.amount),
           date: expense.date,
           category: expense.category,
-          subcategory: expense.subcategory,
-          has_receipt: !!expense.image_url,
         },
-        message: `⚠️ Confirme a exclusão:\n\n📋 **${expense.establishment_name}**\n💰 R$ ${parseFloat(expense.amount).toFixed(2)}\n📅 ${expense.date}\n📁 ${expense.category}/${expense.subcategory}\n\nPara confirmar, peça ao usuário para confirmar a exclusão.`,
+        message: `Confirme a exclusao:\n\n${expense.establishment_name}\nR$ ${parseFloat(expense.amount).toFixed(2)}\n${expense.date}`,
       };
     }
 
-    // Se tem imagem, deletar do storage
+    // Deletar imagem
     if (expense.image_url) {
       try {
-        // Extrair path do URL
         const urlParts = expense.image_url.split('/');
         const bucketIndex = urlParts.findIndex((p: string) => p === 'receipts');
         if (bucketIndex >= 0) {
           const filePath = urlParts.slice(bucketIndex + 1).join('/');
           await supabase.storage.from('receipts').remove([filePath]);
-          console.log(`[deleteExpense] Deleted image: ${filePath}`);
         }
-      } catch (imgError) {
-        console.error('[deleteExpense] Error deleting image:', imgError);
-        // Continuar mesmo se falhar a exclusão da imagem
-      }
+      } catch (e) { /* ignore */ }
     }
 
-    // Deletar o expense
+    // Remover referência
+    await supabase
+      .from('pluggy_transactions')
+      .update({ expense_id: null })
+      .eq('expense_id', args.expense_id);
+
+    // Deletar
     const { error: deleteError } = await supabase
       .from('expenses')
       .delete()
@@ -5753,19 +6990,12 @@ async function deleteExpense(
       .eq('user_id', userId);
 
     if (deleteError) {
-      console.error('[deleteExpense] Delete error:', deleteError);
-      return {
-        success: false,
-        error: `Erro ao excluir: ${deleteError.message}`,
-      };
+      return { success: false, error: `Erro ao excluir: ${deleteError.message}` };
     }
-
-    console.log(
-      `[deleteExpense] Successfully deleted expense ${args.expense_id}`
-    );
 
     return {
       success: true,
+      deleted_count: 1,
       deleted: {
         id: expense.id,
         establishment: expense.establishment_name,

@@ -282,18 +282,20 @@ export default function CameraScreen() {
       }
 
       // VERIFICAR DUPLICAÇÃO: Buscar gastos similares antes de criar
-      console.log('[Camera] Verificando duplicatas...');
-      const dateMinus1 = new Date(editedData.date);
-      dateMinus1.setDate(dateMinus1.getDate() - 1);
-      const datePlus1 = new Date(editedData.date);
-      datePlus1.setDate(datePlus1.getDate() + 1);
+      // Tolerância maior: ±5 dias (transações podem aparecer com datas diferentes no extrato)
+      console.log('[Camera] Verificando duplicatas para:', editedData.amount, editedData.date);
+      const dateMinus5 = new Date(editedData.date);
+      dateMinus5.setDate(dateMinus5.getDate() - 5);
+      const datePlus5 = new Date(editedData.date);
+      datePlus5.setDate(datePlus5.getDate() + 5);
 
+      // 1. Verificar duplicatas nos gastos manuais
       const { data: similarExpenses } = await supabase
         .from('expenses')
         .select('id, establishment_name, amount, date')
         .eq('user_id', user.id)
-        .gte('date', dateMinus1.toISOString().split('T')[0])
-        .lte('date', datePlus1.toISOString().split('T')[0]);
+        .gte('date', dateMinus5.toISOString().split('T')[0])
+        .lte('date', datePlus5.toISOString().split('T')[0]);
 
       if (similarExpenses && similarExpenses.length > 0) {
         const establishmentLower = editedData.establishmentName.toLowerCase();
@@ -308,7 +310,7 @@ export default function CameraScreen() {
         });
 
         if (duplicate) {
-          console.log('[Camera] Duplicata encontrada:', duplicate);
+          console.log('[Camera] Duplicata encontrada em expenses:', duplicate);
           setSaving(false);
           Alert.alert(
             'Gasto já registrado',
@@ -317,6 +319,52 @@ export default function CameraScreen() {
               { text: 'Cancelar', style: 'cancel' },
               {
                 text: 'Registrar mesmo assim',
+                onPress: () =>
+                  saveExpenseWithoutDuplicateCheck(
+                    editedData,
+                    publicUrl,
+                    user.id
+                  ),
+              },
+            ]
+          );
+          return;
+        }
+      }
+
+      // 2. Verificar duplicatas no EXTRATO BANCÁRIO (pluggy_transactions)
+      // Busca apenas por VALOR similar - não compara nome pois extratos têm descrições diferentes
+      console.log('[Camera] Buscando no extrato de', dateMinus5.toISOString().split('T')[0], 'a', datePlus5.toISOString().split('T')[0]);
+      const { data: similarTransactions, error: txError } = await supabase
+        .from('pluggy_transactions')
+        .select('id, description, description_raw, amount, date')
+        .eq('user_id', user.id)
+        .lt('amount', 0) // Apenas saídas (valores negativos)
+        .gte('date', dateMinus5.toISOString().split('T')[0])
+        .lte('date', datePlus5.toISOString().split('T')[0]);
+
+      console.log('[Camera] Transações encontradas:', similarTransactions?.length || 0, txError ? `Erro: ${txError.message}` : '');
+
+      if (similarTransactions && similarTransactions.length > 0) {
+        // Encontrar transação com valor igual ou muito próximo (tolerância de R$1)
+        const extractDuplicate = similarTransactions.find((tx) => {
+          const txAmount = Math.abs(tx.amount);
+          const diff = Math.abs(txAmount - editedData.amount);
+          console.log('[Camera] Comparando:', txAmount, 'vs', editedData.amount, 'diff:', diff);
+          return diff < 1; // Tolerância de R$1
+        });
+
+        if (extractDuplicate) {
+          console.log('[Camera] Possível duplicata no extrato:', extractDuplicate);
+          setSaving(false);
+          Alert.alert(
+            'Possível duplicata no extrato',
+            `Encontramos uma transação com valor similar no seu extrato bancário:\n\n${extractDuplicate.description || extractDuplicate.description_raw}\nR$ ${Math.abs(extractDuplicate.amount).toFixed(2)}\nData: ${extractDuplicate.date}\n\nSe este gasto já está no extrato, registrá-lo novamente vai debitar o valor duas vezes. Deseja continuar?`,
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Registrar mesmo assim',
+                style: 'destructive',
                 onPress: () =>
                   saveExpenseWithoutDuplicateCheck(
                     editedData,

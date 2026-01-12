@@ -20,6 +20,8 @@ type SubcategoryExpense = {
   category: ExpenseCategory;
   subcategory: string;
   total: number;
+  source?: 'manual' | 'extrato'; // Flag para indicar origem
+  count?: number; // Quantidade de transacoes
 };
 
 export default function CustosVariaveisScreen() {
@@ -79,19 +81,57 @@ export default function CustosVariaveisScreen() {
       const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1);
       const lastDayOfMonth = new Date(selectedYear, selectedMonth + 1, 0);
 
-      // Buscar expenses (inclui tanto manuais quanto do Open Finance)
-      // As transações do Open Finance são convertidas em expenses pelo webhook
-      // com categorização inteligente via Walts (IA)
+      // Buscar expenses MANUAIS
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category, subcategory')
+        .select('amount, category, subcategory, source')
         .eq('user_id', user.id)
         .gte('date', firstDayOfMonth.toISOString().split('T')[0])
         .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
 
+      // Buscar transacoes do extrato categorizadas (tabela transaction_categories)
+      const { data: accounts } = await supabase
+        .from('pluggy_accounts')
+        .select('id')
+        .eq('user_id', user.id);
+
+      let extractTransactions: any[] = [];
+      if (accounts && accounts.length > 0) {
+        const accountIds = accounts.map((a: any) => a.id);
+
+        // Buscar transacoes com categoria (custos variaveis = is_fixed_cost = false)
+        const { data: categorizedTx } = await supabase
+          .from('transaction_categories')
+          .select(`
+            category,
+            subcategory,
+            is_fixed_cost,
+            pluggy_transactions!inner(
+              amount,
+              date,
+              account_id
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('is_fixed_cost', false);
+
+        if (categorizedTx) {
+          // Filtrar por periodo e contas
+          extractTransactions = categorizedTx.filter((tx: any) => {
+            const txDate = tx.pluggy_transactions?.date;
+            const txAccountId = tx.pluggy_transactions?.account_id;
+            if (!txDate || !txAccountId) return false;
+            if (!accountIds.includes(txAccountId)) return false;
+            const date = new Date(txDate);
+            return date >= firstDayOfMonth && date <= lastDayOfMonth;
+          });
+        }
+      }
+
       // Agrupar por categoria + subcategoria (apenas não essenciais)
       const subcategoryMap = new Map<string, SubcategoryExpense>();
 
+      // Processar expenses manuais
       if (expensesData) {
         expensesData
           .filter((exp) => {
@@ -106,20 +146,45 @@ export default function CustosVariaveisScreen() {
           .forEach((exp) => {
             const category = (exp.category as ExpenseCategory) || 'outros';
             const subcategory = exp.subcategory || 'Outros';
-            const key = `${category}-${subcategory}`;
+            const key = `manual-${category}-${subcategory}`;
 
             if (subcategoryMap.has(key)) {
               const existing = subcategoryMap.get(key)!;
               existing.total += exp.amount;
+              existing.count = (existing.count || 1) + 1;
             } else {
               subcategoryMap.set(key, {
                 category,
                 subcategory,
                 total: exp.amount,
+                source: 'manual',
+                count: 1,
               });
             }
           });
       }
+
+      // Processar transacoes do extrato categorizadas
+      extractTransactions.forEach((tx: any) => {
+        const category = (tx.category as ExpenseCategory) || 'outros';
+        const subcategory = tx.subcategory || 'Extrato';
+        const amount = Math.abs(tx.pluggy_transactions?.amount || 0);
+        const key = `extrato-${category}-${subcategory}`;
+
+        if (subcategoryMap.has(key)) {
+          const existing = subcategoryMap.get(key)!;
+          existing.total += amount;
+          existing.count = (existing.count || 1) + 1;
+        } else {
+          subcategoryMap.set(key, {
+            category,
+            subcategory,
+            total: amount,
+            source: 'extrato',
+            count: 1,
+          });
+        }
+      });
 
       const subcategories: SubcategoryExpense[] = Array.from(
         subcategoryMap.values()
@@ -194,15 +259,17 @@ export default function CustosVariaveisScreen() {
               const categoryInfo = CATEGORIES[item.category];
               const percentage =
                 totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
+              const isExtract = item.source === 'extrato';
 
               return (
                 <View
-                  key={`${item.category}-${item.subcategory}`}
+                  key={`${item.source}-${item.category}-${item.subcategory}`}
                   style={[
                     styles.card,
                     {
                       backgroundColor: theme.card,
-                      borderColor: theme.cardBorder,
+                      borderColor: isExtract ? theme.primary : theme.cardBorder,
+                      borderWidth: isExtract ? 1.5 : 1,
                     },
                   ]}
                 >
@@ -210,21 +277,28 @@ export default function CustosVariaveisScreen() {
                     <View style={styles.categoryLeft}>
                       <CategoryIcon categoryInfo={categoryInfo} size={24} />
                       <View>
-                        <Text
-                          style={[
-                            styles.subcategoryName,
-                            { color: theme.text },
-                          ]}
-                        >
-                          {item.subcategory}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text
+                            style={[
+                              styles.subcategoryName,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {item.subcategory}
+                          </Text>
+                          {isExtract && (
+                            <View style={[styles.extractBadge, { backgroundColor: theme.primary }]}>
+                              <Text style={styles.extractBadgeText}>Extrato</Text>
+                            </View>
+                          )}
+                        </View>
                         <Text
                           style={[
                             styles.categoryLabel,
                             { color: theme.textSecondary },
                           ]}
                         >
-                          {categoryInfo.name}
+                          {categoryInfo.name} {item.count && item.count > 1 ? `(${item.count}x)` : ''}
                         </Text>
                       </View>
                     </View>
@@ -374,5 +448,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
+  },
+  extractBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  extractBadgeText: {
+    fontSize: 10,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    color: '#FFF',
+    textTransform: 'uppercase',
   },
 });

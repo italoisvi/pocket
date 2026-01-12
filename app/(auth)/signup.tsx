@@ -86,7 +86,7 @@ export default function SignupScreen() {
     }
 
     setLoading(false);
-    router.replace('/onboarding-paywall');
+    router.replace('/(tabs)/home');
   };
 
   const handleAppleSignUp = async () => {
@@ -139,7 +139,7 @@ export default function SignupScreen() {
               );
           }
 
-          router.replace('/onboarding-paywall');
+          router.replace('/(tabs)/home');
         }
       }
     } catch (e: any) {

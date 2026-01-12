@@ -161,11 +161,17 @@ export async function syncTransactions(
 
 /**
  * Busca todos os Items (bancos) conectados do usuário
+ * Inclui a última sincronização das contas associadas
  */
 export async function getConnectedItems() {
   const { data, error } = await supabase
     .from('pluggy_items')
-    .select('*')
+    .select(`
+      *,
+      pluggy_accounts (
+        last_sync_at
+      )
+    `)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -173,7 +179,26 @@ export async function getConnectedItems() {
     throw error;
   }
 
-  return data || [];
+  // Processar para pegar a última sincronização mais recente de cada item
+  const itemsWithLastSync = (data || []).map((item: any) => {
+    const accounts = item.pluggy_accounts || [];
+    const lastSyncDates = accounts
+      .map((acc: any) => acc.last_sync_at)
+      .filter((date: any) => date !== null);
+
+    const lastSyncAt = lastSyncDates.length > 0
+      ? lastSyncDates.sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime())[0]
+      : null;
+
+    // Remover o array de contas e adicionar apenas o last_sync_at
+    const { pluggy_accounts, ...rest } = item;
+    return {
+      ...rest,
+      last_sync_at: lastSyncAt,
+    };
+  });
+
+  return itemsWithLastSync;
 }
 
 /**

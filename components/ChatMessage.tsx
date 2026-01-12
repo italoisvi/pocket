@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Modal,
   Dimensions,
-  Linking,
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { useTheme } from '@/lib/theme';
@@ -64,77 +63,6 @@ export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
 
   // Limpar tags internas do conteúdo
   const cleanedContent = cleanAgentTags(content);
-
-  const handleLinkPress = (url: string) => {
-    Linking.openURL(url);
-    return false;
-  };
-
-  const markdownStyles = {
-    body: {
-      color: theme.text,
-      fontSize: 20,
-      fontFamily: 'CormorantGaramond-Regular',
-      lineHeight: 26,
-    },
-    text: {
-      color: theme.text,
-      fontSize: 20,
-      fontFamily: 'CormorantGaramond-Regular',
-      lineHeight: 26,
-    },
-    strong: {
-      fontFamily: 'CormorantGaramond-SemiBold',
-      fontWeight: '600' as const,
-      color: theme.text,
-    },
-    em: {
-      fontFamily: 'CormorantGaramond-Italic',
-      fontStyle: 'italic' as const,
-      color: theme.text,
-    },
-    bullet_list: {
-      marginVertical: 4,
-    },
-    ordered_list: {
-      marginVertical: 4,
-    },
-    list_item: {
-      marginVertical: 2,
-      color: theme.text,
-    },
-    paragraph: {
-      marginVertical: 4,
-      color: theme.text,
-      fontSize: 20,
-      fontFamily: 'CormorantGaramond-Regular',
-      lineHeight: 26,
-    },
-    heading1: {
-      color: theme.text,
-      fontSize: 28,
-      fontFamily: 'CormorantGaramond-SemiBold',
-    },
-    heading2: {
-      color: theme.text,
-      fontSize: 24,
-      fontFamily: 'CormorantGaramond-SemiBold',
-    },
-    code_inline: {
-      color: theme.text,
-      fontFamily: 'CormorantGaramond-Regular',
-      backgroundColor: theme.card,
-    },
-    fence: {
-      color: theme.text,
-      fontFamily: 'CormorantGaramond-Regular',
-      backgroundColor: theme.card,
-    },
-    link: {
-      color: theme.primary,
-      textDecorationLine: 'underline' as const,
-    },
-  };
 
   const isDarkMode = theme.background === '#000';
   const imageAttachments = attachments?.filter((a) => a.type === 'image') || [];
@@ -244,20 +172,92 @@ export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
     return null;
   }
 
+  // Estilos do Markdown para o tema atual
+  const markdownStyles = {
+    body: {
+      fontSize: 20,
+      fontFamily: 'CormorantGaramond-Regular',
+      lineHeight: 28,
+      color: theme.text,
+    },
+    heading1: {
+      fontSize: 24,
+      fontFamily: 'CormorantGaramond-SemiBold',
+      marginBottom: 8,
+      marginTop: 12,
+      color: theme.text,
+    },
+    heading2: {
+      fontSize: 22,
+      fontFamily: 'CormorantGaramond-SemiBold',
+      marginBottom: 6,
+      marginTop: 10,
+      color: theme.text,
+    },
+    heading3: {
+      fontSize: 20,
+      fontFamily: 'CormorantGaramond-SemiBold',
+      marginBottom: 4,
+      marginTop: 8,
+      color: theme.text,
+    },
+    paragraph: {
+      marginBottom: 8,
+      marginTop: 0,
+    },
+    strong: {
+      fontFamily: 'CormorantGaramond-Bold',
+    },
+    em: {
+      fontFamily: 'CormorantGaramond-Italic',
+    },
+    bullet_list: {
+      marginBottom: 8,
+    },
+    ordered_list: {
+      marginBottom: 8,
+    },
+    list_item: {
+      marginBottom: 4,
+    },
+    code_inline: {
+      backgroundColor: isDarkMode ? '#333' : '#f0f0f0',
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+      borderRadius: 4,
+      fontFamily: 'monospace',
+      fontSize: 16,
+    },
+    code_block: {
+      backgroundColor: isDarkMode ? '#333' : '#f0f0f0',
+      padding: 12,
+      borderRadius: 8,
+      marginVertical: 8,
+      fontFamily: 'monospace',
+      fontSize: 14,
+    },
+    blockquote: {
+      borderLeftWidth: 3,
+      borderLeftColor: theme.primary,
+      paddingLeft: 12,
+      marginVertical: 8,
+      opacity: 0.8,
+    },
+    hr: {
+      backgroundColor: theme.cardBorder,
+      height: 1,
+      marginVertical: 12,
+    },
+    link: {
+      color: theme.primary,
+      textDecorationLine: 'underline',
+    },
+  };
+
   return (
     <View style={[styles.wrapper, styles.assistantWrapper]}>
       <View style={styles.assistantBubble}>
-        <Markdown
-          style={markdownStyles}
-          onLinkPress={handleLinkPress}
-          rules={{
-            text: (node, children, parent, styles) => (
-              <Text key={node.key} style={styles.text} selectable={true}>
-                {node.content}
-              </Text>
-            ),
-          }}
-        >
+        <Markdown style={markdownStyles} selectable={true}>
           {cleanedContent}
         </Markdown>
       </View>
@@ -296,6 +296,11 @@ const styles = StyleSheet.create({
   },
   assistantBubble: {
     paddingVertical: 4,
+  },
+  assistantText: {
+    fontSize: 20,
+    fontFamily: 'CormorantGaramond-Regular',
+    lineHeight: 26,
   },
   attachmentsContainer: {
     flexDirection: 'row',

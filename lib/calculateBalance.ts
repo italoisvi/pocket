@@ -1,11 +1,14 @@
 /**
- * Calcula o saldo restante usando a lógica conservadora (Opção 3)
- * Usa o MENOR valor entre:
- * 1. Salário - Gastos manuais (comprovantes + Walts)
- * 2. Saldo real da conta bancária vinculada
+ * Calcula o saldo restante usando o EXTRATO BANCÁRIO como fonte da verdade
  *
- * Isso garante que o usuário nunca veja um saldo maior do que a realidade,
- * mesmo quando o Open Finance ainda não sincronizou os últimos gastos.
+ * Lógica:
+ * 1. Se tem conta vinculada (Open Finance), usa o saldo do BANCO como base
+ * 2. Desconta apenas gastos MANUAIS adicionados APÓS a última sincronização
+ * 3. Quando sincroniza o Open Finance, o saldo volta a ser o do banco
+ * 4. Se não tem conta vinculada, usa cálculo manual (salário - gastos)
+ *
+ * O saldo do extrato bancário é a FONTE DA VERDADE.
+ * Gastos manuais são débitos temporários até a próxima sincronização.
  */
 
 export type BalanceSource = 'manual' | 'bank' | 'none';
@@ -142,21 +145,16 @@ export function calculateTotalBalance(
     };
   }
 
-  // Ajustar saldo do banco: descontar apenas gastos RECENTES (após última sincronização)
-  // Gastos antigos já estão refletidos no saldo do banco
+  // SALDO DO BANCO É A FONTE DA VERDADE
+  // Descontar apenas gastos RECENTES (manuais adicionados após última sincronização)
+  // Gastos antigos já estão refletidos no saldo do banco (já saíram da conta)
   const adjustedBankBalance = totalBankBalance - recentExpenses;
 
-  // Usar o menor valor entre:
-  // - Saldo do banco ajustado (banco - gastos recentes)
-  // - Cálculo manual (salário - todos os gastos)
-  const useBank = adjustedBankBalance <= manualBalance;
-
+  // Usar SEMPRE o saldo do banco quando disponível (é a fonte da verdade)
+  // Gastos manuais são débitos temporários até a próxima sincronização
   return {
-    remainingBalance: Math.max(
-      0,
-      useBank ? adjustedBankBalance : manualBalance
-    ),
-    source: useBank ? 'bank' : 'manual',
+    remainingBalance: Math.max(0, adjustedBankBalance),
+    source: 'bank',
     manualBalance,
     bankBalance: totalBankBalance,
     totalSalary,
