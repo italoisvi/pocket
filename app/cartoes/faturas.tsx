@@ -4,7 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity} from 'react-native';
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -42,7 +43,8 @@ export default function FaturasScreen() {
     const generateMonths = async () => {
       try {
         const {
-          data: { user }} = await supabase.auth.getUser();
+          data: { user },
+        } = await supabase.auth.getUser();
 
         if (!user) return;
 
@@ -102,7 +104,8 @@ export default function FaturasScreen() {
           setTimeout(() => {
             monthScrollRef.current?.scrollTo({
               x: currentMonthIndex * 88,
-              animated: false});
+              animated: false,
+            });
           }, 300);
         }
       }
@@ -117,7 +120,8 @@ export default function FaturasScreen() {
   const loadCardExpenses = async () => {
     try {
       const {
-        data: { user }} = await supabase.auth.getUser();
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) return;
 
@@ -215,7 +219,8 @@ export default function FaturasScreen() {
   const loadTransactions = async () => {
     try {
       const {
-        data: { user }} = await supabase.auth.getUser();
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) return;
 
@@ -290,7 +295,8 @@ export default function FaturasScreen() {
               month.getFullYear() === selectedMonth.getFullYear();
             const monthLabel = month.toLocaleDateString('pt-BR', {
               month: 'short',
-              year: '2-digit'});
+              year: '2-digit',
+            });
             const formattedLabel =
               monthLabel.charAt(0).toUpperCase() +
               monthLabel.slice(1).replace('.', '');
@@ -301,7 +307,8 @@ export default function FaturasScreen() {
                   styles.monthButton,
                   {
                     backgroundColor: isSelected ? theme.primary : theme.card,
-                    borderColor: theme.cardBorder},
+                    borderColor: theme.cardBorder,
+                  },
                 ]}
                 onPress={() => setSelectedMonth(month)}
               >
@@ -309,7 +316,8 @@ export default function FaturasScreen() {
                   style={[
                     styles.monthButtonText,
                     {
-                      color: isSelected ? theme.background : theme.text},
+                      color: isSelected ? theme.background : theme.text,
+                    },
                   ]}
                 >
                   {formattedLabel}
@@ -332,7 +340,8 @@ export default function FaturasScreen() {
                   styles.balanceCard,
                   {
                     backgroundColor: theme.card,
-                    borderColor: theme.cardBorder},
+                    borderColor: theme.cardBorder,
+                  },
                   getCardShadowStyle(isDark),
                 ]}
               >
@@ -359,7 +368,8 @@ export default function FaturasScreen() {
                   styles.totalCard,
                   {
                     backgroundColor: theme.card,
-                    borderColor: theme.cardBorder},
+                    borderColor: theme.cardBorder,
+                  },
                   getCardShadowStyle(isDark),
                 ]}
               >
@@ -407,7 +417,8 @@ export default function FaturasScreen() {
                     styles.card,
                     {
                       backgroundColor: theme.card,
-                      borderColor: theme.cardBorder},
+                      borderColor: theme.cardBorder,
+                    },
                     getCardShadowStyle(isDark),
                   ]}
                   onPress={() =>
@@ -483,7 +494,8 @@ export default function FaturasScreen() {
                                   color:
                                     tx.type === 'DEBIT'
                                       ? '#10b981'
-                                      : theme.text},
+                                      : theme.text,
+                                },
                               ]}
                             >
                               {tx.type === 'DEBIT' ? '+' : ''}
@@ -515,154 +527,194 @@ export default function FaturasScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1},
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12},
+    paddingBottom: 12,
+  },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   title: {
     flex: 1,
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
     textAlign: 'center',
-    marginHorizontal: 8},
+    marginHorizontal: 8,
+  },
   placeholder: {
-    width: 40},
+    width: 40,
+  },
   content: {
-    flex: 1},
+    flex: 1,
+  },
   monthSelector: {
     marginTop: 16,
     marginBottom: 16,
-    paddingLeft: 24},
+    paddingLeft: 24,
+  },
   monthSelectorContent: {
     flexDirection: 'row',
     gap: 8,
-    paddingRight: 24},
+    paddingRight: 24,
+  },
   monthButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 2,
-    marginRight: 8},
+    marginRight: 8,
+  },
   monthButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   loadingContainer: {
     padding: 40,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   emptyContainer: {
     padding: 40,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   invoicesContainer: {
-    padding: 24},
+    padding: 24,
+  },
   emptyText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    marginBottom: 8},
+    marginBottom: 8,
+  },
   emptySubtext: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    textAlign: 'center'},
+    textAlign: 'center',
+  },
   totalCard: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
     borderWidth: 2,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   totalLabel: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 8},
+    marginBottom: 8,
+  },
   totalValue: {
     fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold'},
+    fontFamily: 'CormorantGaramond-Bold',
+  },
   card: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 2},
+    borderWidth: 2,
+  },
   cardContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   cardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1},
+    flex: 1,
+  },
   bankIndicator: {
     width: 4,
     height: 24,
-    borderRadius: 2},
+    borderRadius: 2,
+  },
   bankName: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 4},
+    marginBottom: 4,
+  },
   monthText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   cardValue: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   expandedContent: {
-    marginTop: 16},
+    marginTop: 16,
+  },
   divider: {
     height: 1,
-    marginBottom: 16},
+    marginBottom: 16,
+  },
   transactionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)'},
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
   transactionLeft: {
     flex: 1,
-    marginRight: 12},
+    marginRight: 12,
+  },
   transactionDescription: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 4},
+    marginBottom: 4,
+  },
   transactionDate: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   transactionAmount: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   noTransactions: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    paddingVertical: 20},
+    paddingVertical: 20,
+  },
   balanceCard: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
     borderWidth: 2,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   balanceLabel: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 8},
+    marginBottom: 8,
+  },
   balanceValue: {
     fontSize: 28,
-    fontFamily: 'CormorantGaramond-Bold'},
+    fontFamily: 'CormorantGaramond-Bold',
+  },
   balanceHint: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 8},
+    marginTop: 8,
+  },
   totalHint: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 8},
+    marginTop: 8,
+  },
   emptyMonthContainer: {
     padding: 40,
-    alignItems: 'center'}});
+    alignItems: 'center',
+  },
+});

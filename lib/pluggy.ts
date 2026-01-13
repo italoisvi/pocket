@@ -166,12 +166,14 @@ export async function syncTransactions(
 export async function getConnectedItems() {
   const { data, error } = await supabase
     .from('pluggy_items')
-    .select(`
+    .select(
+      `
       *,
       pluggy_accounts (
         last_sync_at
       )
-    `)
+    `
+    )
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -186,9 +188,13 @@ export async function getConnectedItems() {
       .map((acc: any) => acc.last_sync_at)
       .filter((date: any) => date !== null);
 
-    const lastSyncAt = lastSyncDates.length > 0
-      ? lastSyncDates.sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime())[0]
-      : null;
+    const lastSyncAt =
+      lastSyncDates.length > 0
+        ? lastSyncDates.sort(
+            (a: string, b: string) =>
+              new Date(b).getTime() - new Date(a).getTime()
+          )[0]
+        : null;
 
     // Remover o array de contas e adicionar apenas o last_sync_at
     const { pluggy_accounts, ...rest } = item;

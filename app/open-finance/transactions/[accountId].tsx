@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  RefreshControl} from 'react-native';
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
@@ -19,7 +20,8 @@ import { BoletoIcon } from '@/components/BoletoIcon';
 import {
   getTransactionsByAccount,
   syncTransactions as syncTransactionsAPI,
-  syncItem} from '@/lib/pluggy';
+  syncItem,
+} from '@/lib/pluggy';
 import { supabase } from '@/lib/supabase';
 
 type PluggyTransaction = {
@@ -55,7 +57,8 @@ export default function TransactionsScreen() {
   const loadTransactions = async () => {
     try {
       const data = await getTransactionsByAccount(accountId, {
-        limit: 100});
+        limit: 100,
+      });
       setTransactions(data);
     } catch (error) {
       console.error('Error loading transactions:', error);
@@ -169,14 +172,16 @@ export default function TransactionsScreen() {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'BRL'}).format(Math.abs(value));
+      currency: 'BRL',
+    }).format(Math.abs(value));
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString + 'T00:00:00');
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
-      month: 'short'});
+      month: 'short',
+    });
   };
 
   const getTransactionColor = (transaction: PluggyTransaction) => {
@@ -233,7 +238,8 @@ export default function TransactionsScreen() {
       const date = new Date(tx.date + 'T00:00:00');
       const key = date.toLocaleDateString('pt-BR', {
         year: 'numeric',
-        month: 'long'});
+        month: 'long',
+      });
 
       if (!groups[key]) {
         groups[key] = [];
@@ -270,7 +276,8 @@ export default function TransactionsScreen() {
                 theme.background === '#000' ? theme.card : theme.primary,
               borderWidth: 2,
               borderColor:
-                theme.background === '#000' ? theme.cardBorder : theme.primary},
+                theme.background === '#000' ? theme.cardBorder : theme.primary,
+            },
           ]}
           onPress={handleSync}
           disabled={syncing}
@@ -314,7 +321,8 @@ export default function TransactionsScreen() {
                     styles.transactionCard,
                     {
                       backgroundColor: theme.card,
-                      borderColor: theme.cardBorder},
+                      borderColor: theme.cardBorder,
+                    },
                   ]}
                 >
                   <View style={styles.transactionLeft}>
@@ -397,7 +405,8 @@ export default function TransactionsScreen() {
                   borderColor:
                     theme.background === '#000'
                       ? theme.cardBorder
-                      : theme.primary},
+                      : theme.primary,
+                },
               ]}
               onPress={handleSync}
               disabled={syncing}
@@ -409,7 +418,8 @@ export default function TransactionsScreen() {
                   style={[
                     styles.emptyButtonText,
                     {
-                      color: theme.background === '#000' ? theme.text : '#fff'},
+                      color: theme.background === '#000' ? theme.text : '#fff',
+                    },
                   ]}
                 >
                   Sincronizar
@@ -425,101 +435,127 @@ export default function TransactionsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1},
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12},
+    paddingBottom: 12,
+  },
   backButton: {
-    padding: 4},
+    padding: 4,
+  },
   title: {
     flex: 1,
     fontSize: 22,
     fontFamily: 'CormorantGaramond-SemiBold',
     textAlign: 'center',
-    marginHorizontal: 8},
+    marginHorizontal: 8,
+  },
   syncButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
     minWidth: 60,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   syncButtonText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   content: {
     flex: 1,
-    paddingHorizontal: 16},
+    paddingHorizontal: 16,
+  },
   loader: {
-    marginTop: 40},
+    marginTop: 40,
+  },
   monthHeader: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
     marginTop: 16,
     marginBottom: 8,
-    textTransform: 'capitalize'},
+    textTransform: 'capitalize',
+  },
   transactionCard: {
     borderRadius: 12,
     borderWidth: 2,
     padding: 12,
     marginBottom: 8,
     flexDirection: 'row',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   transactionLeft: {
     marginRight: 12,
     justifyContent: 'center',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   transactionMiddle: {
-    flex: 1},
+    flex: 1,
+  },
   transactionDescription: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 4},
+    marginBottom: 4,
+  },
   transactionMeta: {
     flexDirection: 'row',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   transactionCategory: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
-    marginRight: 8},
+    marginRight: 8,
+  },
   statusBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4},
+    borderRadius: 4,
+  },
   statusText: {
     fontSize: 10,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#000'},
+    color: '#000',
+  },
   transactionRight: {
     marginLeft: 8,
-    alignItems: 'flex-end'},
+    alignItems: 'flex-end',
+  },
   transactionAmount: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   transactionDate: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 2},
+    marginTop: 2,
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60},
+    paddingVertical: 60,
+  },
   emptyTitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 8},
+    marginBottom: 8,
+  },
   emptyDescription: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
     paddingHorizontal: 32,
-    marginBottom: 24},
+    marginBottom: 24,
+  },
   emptyButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8},
+    borderRadius: 8,
+  },
   emptyButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold'}});
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+});

@@ -10,7 +10,8 @@ serve(async (req) => {
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type',
   };
 
   if (req.method === 'OPTIONS') {
@@ -31,7 +32,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[pluggy-sync-cron] Syncing account ${accountId} for user ${userId}`);
+    console.log(
+      `[pluggy-sync-cron] Syncing account ${accountId} for user ${userId}`
+    );
 
     // Buscar dados da conta
     const { data: accountData, error: accountError } = await supabase
@@ -42,10 +45,10 @@ serve(async (req) => {
 
     if (accountError || !accountData) {
       console.error('[pluggy-sync-cron] Account not found:', accountError);
-      return new Response(
-        JSON.stringify({ error: 'Account not found' }),
-        { status: 404, headers }
-      );
+      return new Response(JSON.stringify({ error: 'Account not found' }), {
+        status: 404,
+        headers,
+      });
     }
 
     // Gerar API Key do Pluggy
@@ -76,7 +79,9 @@ serve(async (req) => {
 
     const transactionsUrl = `https://api.pluggy.ai/transactions?accountId=${accountId}&from=${from}&to=${to}&pageSize=500`;
 
-    console.log(`[pluggy-sync-cron] Fetching transactions from ${from} to ${to}`);
+    console.log(
+      `[pluggy-sync-cron] Fetching transactions from ${from} to ${to}`
+    );
 
     const transactionsResponse = await fetch(transactionsUrl, {
       headers: { 'X-API-KEY': apiKey },
@@ -84,7 +89,10 @@ serve(async (req) => {
 
     if (!transactionsResponse.ok) {
       const errorText = await transactionsResponse.text();
-      console.error('[pluggy-sync-cron] Failed to fetch transactions:', errorText);
+      console.error(
+        '[pluggy-sync-cron] Failed to fetch transactions:',
+        errorText
+      );
       return new Response(
         JSON.stringify({ error: 'Failed to fetch transactions from Pluggy' }),
         { status: 500, headers }
@@ -131,16 +139,22 @@ serve(async (req) => {
         });
 
       if (transactionError) {
-        console.error(`[pluggy-sync-cron] Failed to save transaction ${transaction.id}:`, transactionError);
+        console.error(
+          `[pluggy-sync-cron] Failed to save transaction ${transaction.id}:`,
+          transactionError
+        );
       } else {
         savedCount++;
       }
     }
 
     // Atualizar saldo da conta
-    const balanceResponse = await fetch(`https://api.pluggy.ai/accounts/${accountId}`, {
-      headers: { 'X-API-KEY': apiKey },
-    });
+    const balanceResponse = await fetch(
+      `https://api.pluggy.ai/accounts/${accountId}`,
+      {
+        headers: { 'X-API-KEY': apiKey },
+      }
+    );
 
     if (balanceResponse.ok) {
       const accountInfo = await balanceResponse.json();
@@ -155,7 +169,9 @@ serve(async (req) => {
       console.log(`[pluggy-sync-cron] Updated balance: ${accountInfo.balance}`);
     }
 
-    console.log(`[pluggy-sync-cron] Sync completed: ${savedCount} saved, ${skippedCount} skipped`);
+    console.log(
+      `[pluggy-sync-cron] Sync completed: ${savedCount} saved, ${skippedCount} skipped`
+    );
 
     return new Response(
       JSON.stringify({

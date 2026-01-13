@@ -7,6 +7,8 @@ import { OpenFinanceIcon } from '@/components/OpenFinanceIcon';
 import { OpenFinanceIconFilled } from '@/components/OpenFinanceIconFilled';
 import { CameraIcon } from '@/components/CameraIcon';
 import { CameraIconFilled } from '@/components/CameraIconFilled';
+import { ComenteMedicalIcon } from '@/components/ComenteMedicalIcon';
+import { ComenteMedicalIconFilled } from '@/components/ComenteMedicalIconFilled';
 import { useTheme } from '@/lib/theme';
 
 export default function TabsLayout() {
@@ -36,8 +38,8 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: theme.surface,
           borderTopWidth: 0,
-          height: 85,
-          paddingBottom: 16,
+          height: 95,
+          paddingBottom: 26,
           paddingTop: 16,
           shadowColor: theme.background === '#000' ? '#fff' : '#000',
           shadowOffset: {
@@ -71,18 +73,33 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="dividir-conta"
+        name="camera"
         options={{
-          title: 'Dividir',
+          title: 'Adicionar',
           tabBarIcon: ({ color, size, focused }) =>
             focused ? (
-              <DividirContaIconFilled size={size} color={color} />
+              <CameraIconFilled size={size} color={color} />
             ) : (
-              <DividirContaIcon size={size} color={color} />
+              <CameraIcon size={size} color={color} />
             ),
         }}
         listeners={{
-          tabPress: handleTabPress('dividir-conta'),
+          tabPress: handleTabPress('camera'),
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Walts',
+          tabBarIcon: ({ color, size, focused }) =>
+            focused ? (
+              <ComenteMedicalIconFilled size={size} color={color} />
+            ) : (
+              <ComenteMedicalIcon size={size} color={color} />
+            ),
+        }}
+        listeners={{
+          tabPress: handleTabPress('chat'),
         }}
       />
       <Tabs.Screen
@@ -101,18 +118,18 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="camera"
+        name="dividir-conta"
         options={{
-          title: 'Adicionar',
+          title: 'Dividir Conta',
           tabBarIcon: ({ color, size, focused }) =>
             focused ? (
-              <CameraIconFilled size={size} color={color} />
+              <DividirContaIconFilled size={size} color={color} />
             ) : (
-              <CameraIcon size={size} color={color} />
+              <DividirContaIcon size={size} color={color} />
             ),
         }}
         listeners={{
-          tabPress: handleTabPress('camera'),
+          tabPress: handleTabPress('dividir-conta'),
         }}
       />
       <Tabs.Screen

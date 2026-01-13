@@ -39,14 +39,21 @@ export async function extractReceiptData(
         {
           role: 'system',
           content:
-            'You are a receipt OCR system. Extract data from receipts and return ONLY valid JSON without any additional text or markdown. If you cannot read the receipt clearly, make your best effort to extract any visible information.',
+            'You are a financial document OCR system. Extract data from receipts, bills, invoices, utility bills, bank statements, or any financial document. Return ONLY valid JSON without any additional text or markdown. Always try to extract information even if the document is not a traditional receipt.',
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: 'Extract the following information from this receipt in JSON format: establishmentName (string), amount (number), date (YYYY-MM-DD string), items (array of objects with name, quantity as number, and price as number). Return ONLY the JSON object, no markdown, no additional text.',
+              text: `Extract the following information from this financial document in JSON format:
+- establishmentName: company/store name (string)
+- amount: total value or amount due (number)
+- date: document date in YYYY-MM-DD format (string)
+- items: list of items/charges if visible (array of {name, quantity, price})
+
+This could be a receipt, bill, invoice, utility bill, etc. Extract whatever information is visible.
+Return ONLY the JSON object, no markdown, no additional text.`,
             },
             {
               type: 'image_url',
@@ -80,11 +87,15 @@ export async function extractReceiptData(
   }
 
   if (!jsonMatch) {
-    console.error('Could not find JSON in response:', content);
-    throw new Error(
-      'Não foi possível extrair dados do comprovante. Resposta: ' +
-        content.substring(0, 100)
+    console.log(
+      '[OCR] Could not find JSON in response, returning default values'
     );
+    return {
+      establishmentName: 'Documento',
+      amount: 0,
+      date: new Date().toISOString().split('T')[0],
+      items: [],
+    };
   }
 
   const jsonString = jsonMatch[1] || jsonMatch[0];

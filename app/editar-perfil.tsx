@@ -8,7 +8,8 @@ import {
   Alert,
   Image,
   Keyboard,
-  TouchableWithoutFeedback} from 'react-native';
+  TouchableWithoutFeedback,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase, supabaseUrl } from '@/lib/supabase';
@@ -32,7 +33,8 @@ export default function EditarPerfilScreen() {
   const loadProfile = async () => {
     try {
       const {
-        data: { user }} = await supabase.auth.getUser();
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) {
         router.replace('/');
@@ -79,7 +81,8 @@ export default function EditarPerfilScreen() {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8});
+        quality: 0.8,
+      });
 
       if (!result.canceled) {
         setProfileImage(result.assets[0].uri);
@@ -104,7 +107,8 @@ export default function EditarPerfilScreen() {
       formData.append('file', {
         uri,
         name: fileName,
-        type: `image/${fileExt}`} as any);
+        type: `image/${fileExt}`,
+      } as any);
 
       console.log('[EditProfile] Uploading to path:', filePath);
 
@@ -119,8 +123,10 @@ export default function EditarPerfilScreen() {
       const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`},
-        body: formData});
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
@@ -130,7 +136,8 @@ export default function EditarPerfilScreen() {
 
       console.log('[EditProfile] Upload successful, getting public URL');
       const {
-        data: { publicUrl }} = supabase.storage.from('profile-images').getPublicUrl(filePath);
+        data: { publicUrl },
+      } = supabase.storage.from('profile-images').getPublicUrl(filePath);
 
       console.log('[EditProfile] Public URL:', publicUrl);
       return publicUrl;
@@ -172,7 +179,8 @@ export default function EditarPerfilScreen() {
           {
             id: userId,
             name: userName.trim(),
-            avatar_url: avatarUrl},
+            avatar_url: avatarUrl,
+          },
           { onConflict: 'id' }
         )
         .select();
@@ -222,7 +230,8 @@ export default function EditarPerfilScreen() {
                   styles.photoButton,
                   {
                     backgroundColor: theme.card,
-                    borderColor: theme.cardBorder},
+                    borderColor: theme.cardBorder,
+                  },
                 ]}
                 onPress={handlePickImage}
               >
@@ -247,7 +256,8 @@ export default function EditarPerfilScreen() {
                 styles.card,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
               ]}
             >
               <Text style={[styles.label, { color: theme.text }]}>Nome</Text>
@@ -257,7 +267,8 @@ export default function EditarPerfilScreen() {
                   {
                     backgroundColor: theme.background,
                     borderColor: theme.cardBorder,
-                    color: theme.text},
+                    color: theme.text,
+                  },
                 ]}
                 value={userName}
                 onChangeText={setUserName}
@@ -277,7 +288,8 @@ export default function EditarPerfilScreen() {
                   borderColor:
                     theme.background === '#000'
                       ? theme.cardBorder
-                      : theme.primary},
+                      : theme.primary,
+                },
                 saving && styles.saveButtonDisabled,
               ]}
               onPress={handleSave}
@@ -290,7 +302,8 @@ export default function EditarPerfilScreen() {
                   style={[
                     styles.saveButtonText,
                     {
-                      color: theme.background === '#000' ? theme.text : '#FFF'},
+                      color: theme.background === '#000' ? theme.text : '#FFF',
+                    },
                   ]}
                 >
                   Salvar Alterações
@@ -306,33 +319,41 @@ export default function EditarPerfilScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1},
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12},
+    paddingBottom: 12,
+  },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   placeholder: {
-    width: 40},
+    width: 40,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   content: {
     flex: 1,
-    padding: 24},
+    padding: 24,
+  },
   photoContainer: {
     alignItems: 'center',
-    marginBottom: 32},
+    marginBottom: 32,
+  },
   photoButton: {
     width: 120,
     height: 120,
@@ -341,35 +362,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     marginBottom: 12,
-    overflow: 'hidden'},
+    overflow: 'hidden',
+  },
   profileImage: {
     width: '100%',
-    height: '100%'},
+    height: '100%',
+  },
   photoText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   card: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
-    borderWidth: 2},
+    borderWidth: 2,
+  },
   label: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 12},
+    marginBottom: 12,
+  },
   input: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
     padding: 16,
     borderRadius: 8,
-    borderWidth: 2},
+    borderWidth: 2,
+  },
   saveButton: {
     padding: 18,
     borderRadius: 12,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   saveButtonDisabled: {
-    opacity: 0.6},
+    opacity: 0.6,
+  },
   saveButtonText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#FFF'}});
+    color: '#FFF',
+  },
+});

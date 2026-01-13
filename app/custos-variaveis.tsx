@@ -4,7 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity} from 'react-native';
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -48,7 +49,8 @@ export default function CustosVariaveisScreen() {
   const loadVariableExpenses = async () => {
     try {
       const {
-        data: { user }} = await supabase.auth.getUser();
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) return;
 
@@ -102,7 +104,8 @@ export default function CustosVariaveisScreen() {
         // Inclui description para granularidade em transferências
         const { data: categorizedTx } = await supabase
           .from('transaction_categories')
-          .select(`
+          .select(
+            `
             category,
             subcategory,
             is_fixed_cost,
@@ -112,7 +115,8 @@ export default function CustosVariaveisScreen() {
               account_id,
               description
             )
-          `)
+          `
+          )
           .eq('user_id', user.id)
           .eq('is_fixed_cost', false);
 
@@ -164,7 +168,8 @@ export default function CustosVariaveisScreen() {
                 total: exp.amount,
                 source: 'manual',
                 count: 1,
-                recipientName: establishmentName});
+                recipientName: establishmentName,
+              });
             }
           });
       }
@@ -191,7 +196,8 @@ export default function CustosVariaveisScreen() {
             total: amount,
             source: 'extrato',
             count: 1,
-            recipientName: description});
+            recipientName: description,
+          });
         }
       });
 
@@ -231,7 +237,8 @@ export default function CustosVariaveisScreen() {
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
             {new Date(selectedYear, selectedMonth).toLocaleDateString('pt-BR', {
               month: 'long',
-              year: 'numeric'})}
+              year: 'numeric',
+            })}
           </Text>
         </View>
         <View style={styles.placeholder} />
@@ -251,7 +258,8 @@ export default function CustosVariaveisScreen() {
                 styles.totalCard,
                 {
                   backgroundColor: theme.surface,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
               ]}
             >
               <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>
@@ -276,14 +284,21 @@ export default function CustosVariaveisScreen() {
                     {
                       backgroundColor: theme.card,
                       borderColor: isExtract ? theme.primary : theme.cardBorder,
-                      borderWidth: isExtract ? 1.5 : 1},
+                      borderWidth: isExtract ? 1.5 : 1,
+                    },
                   ]}
                 >
                   <View style={styles.cardHeader}>
                     <View style={styles.categoryLeft}>
                       <CategoryIcon categoryInfo={categoryInfo} size={24} />
                       <View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
                           <Text
                             style={[
                               styles.subcategoryName,
@@ -293,8 +308,15 @@ export default function CustosVariaveisScreen() {
                             {item.subcategory}
                           </Text>
                           {isExtract && (
-                            <View style={[styles.extractBadge, { backgroundColor: theme.primary }]}>
-                              <Text style={styles.extractBadgeText}>Extrato</Text>
+                            <View
+                              style={[
+                                styles.extractBadge,
+                                { backgroundColor: theme.primary },
+                              ]}
+                            >
+                              <Text style={styles.extractBadgeText}>
+                                Extrato
+                              </Text>
                             </View>
                           )}
                         </View>
@@ -304,7 +326,10 @@ export default function CustosVariaveisScreen() {
                             { color: theme.textSecondary },
                           ]}
                         >
-                          {categoryInfo.name} {item.count && item.count > 1 ? `(${item.count}x)` : ''}
+                          {categoryInfo.name}{' '}
+                          {item.count && item.count > 1
+                            ? `(${item.count}x)`
+                            : ''}
                         </Text>
                       </View>
                     </View>
@@ -353,91 +378,117 @@ export default function CustosVariaveisScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1},
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12},
+    paddingBottom: 12,
+  },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   titleContainer: {
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   subtitle: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    textTransform: 'capitalize'},
+    textTransform: 'capitalize',
+  },
   placeholder: {
-    width: 40},
+    width: 40,
+  },
   content: {
     flex: 1,
-    padding: 24},
+    padding: 24,
+  },
   loadingContainer: {
     padding: 40,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   totalCard: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
     alignItems: 'center',
-    borderWidth: 2},
+    borderWidth: 2,
+  },
   totalLabel: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 8},
+    marginBottom: 8,
+  },
   totalValue: {
     fontSize: 36,
-    fontFamily: 'CormorantGaramond-Bold'},
+    fontFamily: 'CormorantGaramond-Bold',
+  },
   card: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 2},
+    borderWidth: 2,
+  },
   cardHeader: {
-    marginBottom: 12},
+    marginBottom: 12,
+  },
   cardContent: {
-    gap: 8},
+    gap: 8,
+  },
   categoryLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12},
+    gap: 12,
+  },
   subcategoryName: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   categoryLabel: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 2},
+    marginTop: 2,
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   label: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   value: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Medium'},
+    fontFamily: 'CormorantGaramond-Medium',
+  },
   emptyContainer: {
     padding: 40,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   emptyText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
-    textAlign: 'center'},
+    textAlign: 'center',
+  },
   extractBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4},
+    borderRadius: 4,
+  },
   extractBadgeText: {
     fontSize: 10,
     fontFamily: 'CormorantGaramond-SemiBold',
     color: '#FFF',
-    textTransform: 'uppercase'}});
+    textTransform: 'uppercase',
+  },
+});

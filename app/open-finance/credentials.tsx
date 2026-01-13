@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Linking} from 'react-native';
+  Linking,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
@@ -115,8 +116,10 @@ export default function CredentialsScreen() {
       message: 'Starting connection flow',
       data: {
         connectorId,
-        connectorName},
-      level: 'info'});
+        connectorName,
+      },
+      level: 'info',
+    });
 
     try {
       // 1. Remover formatação do CPF antes de enviar
@@ -155,8 +158,10 @@ export default function CredentialsScreen() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-KEY': connectToken},
-        body: JSON.stringify(requestBody)});
+          'X-API-KEY': connectToken,
+        },
+        body: JSON.stringify(requestBody),
+      });
 
       if (!createItemResponse.ok) {
         const errorData = await createItemResponse.json();
@@ -180,8 +185,10 @@ export default function CredentialsScreen() {
         data: {
           itemId: itemData.id,
           status: itemData.status,
-          executionStatus: itemData.executionStatus},
-        level: 'info'});
+          executionStatus: itemData.executionStatus,
+        },
+        level: 'info',
+      });
 
       // 🔍 LOG CRÍTICO: Verificar se já vem com parameter
       if (itemData.parameter) {
@@ -219,7 +226,8 @@ export default function CredentialsScreen() {
           const itemResponse = await fetch(
             `https://api.pluggy.ai/items/${itemData.id}`,
             {
-              headers: { 'X-API-KEY': connectToken }}
+              headers: { 'X-API-KEY': connectToken },
+            }
           );
 
           if (itemResponse.ok) {
@@ -286,8 +294,10 @@ export default function CredentialsScreen() {
             data: {
               itemId: itemData.id,
               parameterName: fullItem.parameter.name,
-              parameterType: fullItem.parameter.type},
-            level: 'info'});
+              parameterType: fullItem.parameter.type,
+            },
+            level: 'info',
+          });
 
           // Extrair URL do OAuth
           const authUrl =
@@ -327,8 +337,10 @@ export default function CredentialsScreen() {
               message: 'OAuth browser opened',
               data: {
                 itemId: itemData.id,
-                connectorName},
-              level: 'info'});
+                connectorName,
+              },
+              level: 'info',
+            });
 
             // ✅ NÃO SINCRONIZA AGORA! A sincronização acontece automaticamente
             // quando o usuário volta do OAuth via deep link (oauth-callback.tsx)
@@ -386,7 +398,8 @@ export default function CredentialsScreen() {
           [
             {
               text: 'OK',
-              onPress: () => router.back()},
+              onPress: () => router.back(),
+            },
           ]
         );
       } else if (syncResult.item.status === 'UPDATED') {
@@ -401,7 +414,8 @@ export default function CredentialsScreen() {
             [
               {
                 text: 'OK',
-                onPress: () => router.back()},
+                onPress: () => router.back(),
+              },
             ]
           );
         } else if (syncResult.accountsCount > 0) {
@@ -412,7 +426,8 @@ export default function CredentialsScreen() {
             [
               {
                 text: 'OK',
-                onPress: () => router.back()},
+                onPress: () => router.back(),
+              },
             ]
           );
         } else {
@@ -424,7 +439,8 @@ export default function CredentialsScreen() {
             [
               {
                 text: 'OK',
-                onPress: () => router.back()},
+                onPress: () => router.back(),
+              },
             ]
           );
         }
@@ -449,7 +465,8 @@ export default function CredentialsScreen() {
           [
             {
               text: 'OK',
-              onPress: () => router.back()},
+              onPress: () => router.back(),
+            },
           ]
         );
       }
@@ -522,7 +539,8 @@ export default function CredentialsScreen() {
                 {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
-                  color: theme.text},
+                  color: theme.text,
+                },
               ]}
               placeholder={field.placeholder || field.label}
               placeholderTextColor={theme.textSecondary}
@@ -544,7 +562,8 @@ export default function CredentialsScreen() {
                 theme.background === '#000' ? theme.card : theme.primary,
               borderWidth: 2,
               borderColor:
-                theme.background === '#000' ? theme.cardBorder : theme.primary},
+                theme.background === '#000' ? theme.cardBorder : theme.primary,
+            },
             loading && styles.connectButtonDisabled,
           ]}
           onPress={handleConnect}
@@ -557,7 +576,8 @@ export default function CredentialsScreen() {
               style={[
                 styles.connectButtonText,
                 {
-                  color: theme.background === '#000' ? theme.text : '#fff'},
+                  color: theme.background === '#000' ? theme.text : '#fff',
+                },
               ]}
             >
               Conectar
@@ -599,51 +619,65 @@ export default function CredentialsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1},
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12},
+    paddingBottom: 12,
+  },
   backButton: {
-    padding: 4},
+    padding: 4,
+  },
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   content: {
     flex: 1,
-    paddingHorizontal: 16},
+    paddingHorizontal: 16,
+  },
   description: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     marginBottom: 24,
-    textAlign: 'center'},
+    textAlign: 'center',
+  },
   fieldContainer: {
-    marginBottom: 20},
+    marginBottom: 20,
+  },
   label: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 8},
+    marginBottom: 8,
+  },
   input: {
     borderRadius: 12,
     borderWidth: 2,
     padding: 16,
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   connectButton: {
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
-    marginBottom: 16},
+    marginBottom: 16,
+  },
   connectButtonDisabled: {
-    opacity: 0.6},
+    opacity: 0.6,
+  },
   connectButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   disclaimer: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    marginBottom: 24}});
+    marginBottom: 24,
+  },
+});

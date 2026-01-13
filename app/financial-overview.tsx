@@ -4,7 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity} from 'react-native';
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,7 +24,8 @@ import { sendMessageToDeepSeek } from '@/lib/deepseek';
 import {
   calculateTotalBalance,
   getBalanceSourceLabel,
-  type BalanceSource} from '@/lib/calculateBalance';
+  type BalanceSource,
+} from '@/lib/calculateBalance';
 
 type CategoryExpense = {
   category: ExpenseCategory;
@@ -67,7 +69,8 @@ export default function FinancialOverviewScreen() {
     const generateMonths = async () => {
       try {
         const {
-          data: { user }} = await supabase.auth.getUser();
+          data: { user },
+        } = await supabase.auth.getUser();
 
         if (!user) return;
 
@@ -152,7 +155,8 @@ export default function FinancialOverviewScreen() {
         setTimeout(() => {
           monthScrollRef.current?.scrollTo({
             x: currentMonthIndex * 88,
-            animated: true});
+            animated: true,
+          });
         }, 100);
       }
     }
@@ -166,7 +170,8 @@ export default function FinancialOverviewScreen() {
   const loadWaltsSuggestion = async () => {
     try {
       const {
-        data: { user }} = await supabase.auth.getUser();
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Carregar sugestão específica do mês selecionado
@@ -205,7 +210,8 @@ export default function FinancialOverviewScreen() {
   const loadFinancialData = async () => {
     try {
       const {
-        data: { user }} = await supabase.auth.getUser();
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) return;
 
@@ -358,7 +364,8 @@ export default function FinancialOverviewScreen() {
           categoryMap.entries()
         ).map(([category, total]) => ({
           category,
-          total}));
+          total,
+        }));
 
         setCategoryExpenses(categories.sort((a, b) => b.total - a.total));
       } else {
@@ -394,7 +401,8 @@ export default function FinancialOverviewScreen() {
                 name: account.name,
                 usedCredit,
                 creditLimit: account.credit_limit,
-                availableCredit: account.available_credit_limit});
+                availableCredit: account.available_credit_limit,
+              });
             }
           }
         });
@@ -560,13 +568,15 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
             id: 'walts-suggestion',
             role: 'user',
             content: prompt,
-            timestamp: Date.now()},
+            timestamp: Date.now(),
+          },
         ],
         {
           totalIncome: monthlySalary,
           totalExpenses,
           essentialExpenses,
-          nonEssentialExpenses}
+          nonEssentialExpenses,
+        }
       );
 
       // Parse da resposta JSON
@@ -578,12 +588,14 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
 
       const suggestionData = {
         dailyBudget: suggestion.dailyBudget,
-        reasoning: suggestion.reasoning};
+        reasoning: suggestion.reasoning,
+      };
       setWaltsSuggestion(suggestionData);
 
       // Persistir no AsyncStorage (por mês)
       const {
-        data: { user }} = await supabase.auth.getUser();
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         const monthKey = `${selectedMonth.getFullYear()}_${selectedMonth.getMonth()}`;
         await AsyncStorage.setItem(
@@ -596,7 +608,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
       // Fallback para meta calculada
       setWaltsSuggestion({
         dailyBudget: dailyBudget,
-        reasoning: 'Baseado no seu saldo restante e dias até o pagamento.'});
+        reasoning: 'Baseado no seu saldo restante e dias até o pagamento.',
+      });
     } finally {
       setLoadingWaltsSuggestion(false);
     }
@@ -643,7 +656,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                   month.getFullYear() === selectedMonth.getFullYear();
                 const monthLabel = month.toLocaleDateString('pt-BR', {
                   month: 'short',
-                  year: '2-digit'});
+                  year: '2-digit',
+                });
                 const formattedLabel =
                   monthLabel.charAt(0).toUpperCase() +
                   monthLabel.slice(1).replace('.', '');
@@ -657,7 +671,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                         backgroundColor: isSelected
                           ? theme.primary
                           : theme.card,
-                        borderColor: theme.cardBorder},
+                        borderColor: theme.cardBorder,
+                      },
                     ]}
                     onPress={() => setSelectedMonth(month)}
                   >
@@ -665,7 +680,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                       style={[
                         styles.monthButtonText,
                         {
-                          color: isSelected ? theme.background : theme.text},
+                          color: isSelected ? theme.background : theme.text,
+                        },
                       ]}
                     >
                       {formattedLabel}
@@ -681,7 +697,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 styles.card,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => router.push('/orcamentos')}
@@ -700,7 +717,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 styles.card,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => router.push('/alertas-pendencias')}
@@ -719,7 +737,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 styles.card,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => toggleCategory('summary')}
@@ -732,8 +751,10 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                   style={{
                     transform: [
                       {
-                        rotate: expandedCard === 'summary' ? '180deg' : '0deg'},
-                    ]}}
+                        rotate: expandedCard === 'summary' ? '180deg' : '0deg',
+                      },
+                    ],
+                  }}
                 >
                   <ChevronDownIcon size={20} color={theme.text} />
                 </View>
@@ -799,7 +820,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                         styles.progressFill,
                         {
                           width: `${Math.min(spentPercentage, 100)}%`,
-                          backgroundColor: theme.primary},
+                          backgroundColor: theme.primary,
+                        },
                       ]}
                     />
                   </View>
@@ -821,7 +843,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 styles.card,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => toggleCategory('daily')}
@@ -834,7 +857,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                   style={{
                     transform: [
                       { rotate: expandedCard === 'daily' ? '180deg' : '0deg' },
-                    ]}}
+                    ],
+                  }}
                 >
                   <ChevronDownIcon size={20} color={theme.text} />
                 </View>
@@ -869,7 +893,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                           styles.waltsButton,
                           {
                             backgroundColor: '#f7c359',
-                            borderColor: '#f7c359'},
+                            borderColor: '#f7c359',
+                          },
                         ]}
                         onPress={getWaltsSuggestion}
                         disabled={loadingWaltsSuggestion}
@@ -911,7 +936,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                   styles.card,
                   {
                     backgroundColor: theme.card,
-                    borderColor: theme.cardBorder},
+                    borderColor: theme.cardBorder,
+                  },
                   getCardShadowStyle(theme.background === '#000'),
                 ]}
                 onPress={() => router.push('/cartoes')}
@@ -931,7 +957,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 styles.card,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() =>
@@ -939,7 +966,9 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                   pathname: '/custos-fixos',
                   params: {
                     year: selectedMonth.getFullYear().toString(),
-                    month: selectedMonth.getMonth().toString()}})
+                    month: selectedMonth.getMonth().toString(),
+                  },
+                })
               }
             >
               <View style={styles.cardHeader}>
@@ -956,7 +985,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 styles.card,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() =>
@@ -964,7 +994,9 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                   pathname: '/custos-variaveis',
                   params: {
                     year: selectedMonth.getFullYear().toString(),
-                    month: selectedMonth.getMonth().toString()}})
+                    month: selectedMonth.getMonth().toString(),
+                  },
+                })
               }
             >
               <View style={styles.cardHeader}>
@@ -981,7 +1013,8 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                 styles.card,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
                 getCardShadowStyle(theme.background === '#000'),
               ]}
               onPress={() => router.push('/graficos-tabelas')}
@@ -1002,142 +1035,178 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1},
+    flex: 1,
+  },
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    paddingHorizontal: 24},
+    paddingHorizontal: 24,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12},
+    paddingBottom: 12,
+  },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   placeholder: {
-    width: 40},
+    width: 40,
+  },
   content: {
     flex: 1,
-    padding: 24},
+    padding: 24,
+  },
   monthSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
-    paddingVertical: 8},
+    paddingVertical: 8,
+  },
   monthArrow: {
-    padding: 8},
+    padding: 8,
+  },
   monthText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    textTransform: 'capitalize'},
+    textTransform: 'capitalize',
+  },
   monthsScroll: {
-    marginBottom: 24},
+    marginBottom: 24,
+  },
   monthsScrollContent: {
     paddingHorizontal: 0,
-    gap: 8},
+    gap: 8,
+  },
   monthButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 2,
-    marginRight: 8},
+    marginRight: 8,
+  },
   monthButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   loadingContainer: {
     padding: 40,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   card: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 2},
+    borderWidth: 2,
+  },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   cardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1},
+    flex: 1,
+  },
   cardHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8},
+    gap: 8,
+  },
   bankIndicator: {
     width: 8,
     height: 40,
-    borderRadius: 4},
+    borderRadius: 4,
+  },
   cardTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   cardSubtitle: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 2},
+    marginTop: 2,
+  },
   cardValue: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   cardContent: {
-    marginTop: 16},
+    marginTop: 16,
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12},
+    marginBottom: 12,
+  },
   label: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   labelBold: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   value: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   valueBold: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   divider: {
     height: 1,
-    marginVertical: 12},
+    marginVertical: 12,
+  },
   progressBar: {
     height: 8,
     borderRadius: 4,
     marginTop: 16,
-    overflow: 'hidden'},
+    overflow: 'hidden',
+  },
   progressFill: {
     height: '100%',
-    borderRadius: 4},
+    borderRadius: 4,
+  },
   progressText: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     marginTop: 8,
-    textAlign: 'center'},
+    textAlign: 'center',
+  },
   balanceSourceText: {
     fontSize: 13,
     fontFamily: 'CormorantGaramond-Regular',
     marginTop: 4,
     marginBottom: 8,
-    textAlign: 'right'},
+    textAlign: 'right',
+  },
   dailyAmount: {
     fontSize: 36,
     fontFamily: 'CormorantGaramond-Bold',
     marginBottom: 8,
-    textAlign: 'center'},
+    textAlign: 'center',
+  },
   dailyText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    lineHeight: 22},
+    lineHeight: 22,
+  },
   waltsButton: {
     marginTop: 16,
     paddingVertical: 12,
@@ -1145,23 +1214,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 2,
     alignItems: 'center',
-    justifyContent: 'center'},
+    justifyContent: 'center',
+  },
   waltsButtonText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#000'},
+    color: '#000',
+  },
   debtBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12},
+    borderRadius: 12,
+  },
   debtBadgeText: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#dc2626'},
+    color: '#dc2626',
+  },
   debtLabel: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 4},
+    marginBottom: 4,
+  },
   debtValue: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold'}});
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+});

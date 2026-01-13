@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  RefreshControl} from 'react-native';
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
@@ -16,7 +17,8 @@ import {
   getAccountsByItem,
   syncItem,
   updateItem,
-  getApiKey} from '@/lib/pluggy';
+  getApiKey,
+} from '@/lib/pluggy';
 import { supabase } from '@/lib/supabase';
 import { CardBrandIcon } from '@/lib/cardBrand';
 
@@ -76,14 +78,16 @@ export default function AccountsScreen() {
   const handleViewTransactions = (accountId: string, accountName: string) => {
     router.push({
       pathname: '/open-finance/transactions/[accountId]',
-      params: { accountId, accountName }});
+      params: { accountId, accountName },
+    });
   };
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return 'N/A';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'BRL'}).format(value);
+      currency: 'BRL',
+    }).format(value);
   };
 
   // Função unificada de sincronização: dispara update + faz polling + busca dados
@@ -272,7 +276,8 @@ export default function AccountsScreen() {
                 color:
                   account.balance && account.balance >= 0
                     ? '#4ade80'
-                    : '#f87171'},
+                    : '#f87171',
+              },
             ]}
           >
             {formatCurrency(account.balance)}
@@ -335,7 +340,8 @@ export default function AccountsScreen() {
                     account.available_credit_limit &&
                     account.available_credit_limit > 0
                       ? '#4ade80'
-                      : '#f87171'},
+                      : '#f87171',
+                },
               ]}
             >
               {formatCurrency(account.available_credit_limit)}
@@ -379,7 +385,8 @@ export default function AccountsScreen() {
               borderWidth: 2,
               borderColor:
                 theme.background === '#000' ? theme.cardBorder : theme.primary,
-              opacity: syncing ? 0.8 : 1},
+              opacity: syncing ? 0.8 : 1,
+            },
           ]}
           onPress={handleSync}
           disabled={syncing}
@@ -392,7 +399,8 @@ export default function AccountsScreen() {
                   style={[
                     styles.syncStatusText,
                     {
-                      color: theme.background === '#000' ? theme.text : '#fff'},
+                      color: theme.background === '#000' ? theme.text : '#fff',
+                    },
                   ]}
                 >
                   {syncStatus}
@@ -404,7 +412,8 @@ export default function AccountsScreen() {
               style={[
                 styles.actionButtonText,
                 {
-                  color: theme.background === '#000' ? theme.text : '#fff'},
+                  color: theme.background === '#000' ? theme.text : '#fff',
+                },
               ]}
             >
               Sincronizar com o Banco
@@ -456,7 +465,8 @@ export default function AccountsScreen() {
                   borderColor:
                     theme.background === '#000'
                       ? theme.cardBorder
-                      : theme.primary},
+                      : theme.primary,
+                },
               ]}
               onPress={handleSync}
               disabled={syncing}
@@ -468,7 +478,8 @@ export default function AccountsScreen() {
                   style={[
                     styles.syncButtonText,
                     {
-                      color: theme.background === '#000' ? theme.text : '#fff'},
+                      color: theme.background === '#000' ? theme.text : '#fff',
+                    },
                   ]}
                 >
                   Sincronizar Agora
@@ -484,23 +495,28 @@ export default function AccountsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1},
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12},
+    paddingBottom: 12,
+  },
   backButton: {
-    padding: 4},
+    padding: 4,
+  },
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   actionsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    gap: 12},
+    gap: 12,
+  },
   actionButton: {
     flex: 1,
     paddingVertical: 12,
@@ -508,90 +524,116 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48},
+    minHeight: 48,
+  },
   actionButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   syncingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8},
+    gap: 8,
+  },
   syncStatusText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   content: {
     flex: 1,
-    paddingHorizontal: 16},
+    paddingHorizontal: 16,
+  },
   loader: {
-    marginTop: 40},
+    marginTop: 40,
+  },
   card: {
     borderRadius: 12,
     borderWidth: 2,
     padding: 16,
-    marginBottom: 12},
+    marginBottom: 12,
+  },
   cardHeader: {
-    marginBottom: 16},
+    marginBottom: 16,
+  },
   cardTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4},
+    marginBottom: 4,
+  },
   cardTitle: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-SemiBold',
-    flex: 1},
+    flex: 1,
+  },
   cardSubtitle: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 2},
+    marginBottom: 2,
+  },
   accountNumber: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end'},
+    alignItems: 'flex-end',
+  },
   balanceLabel: {
     fontSize: 12,
     fontFamily: 'CormorantGaramond-Regular',
-    marginBottom: 4},
+    marginBottom: 4,
+  },
   balanceValue: {
     fontSize: 24,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   creditRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4},
+    marginBottom: 4,
+  },
   creditLabel: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   creditValue: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   cardRight: {
-    marginLeft: 12},
+    marginLeft: 12,
+  },
   viewText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60},
+    paddingVertical: 60,
+  },
   emptyTitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 8},
+    marginBottom: 8,
+  },
   emptyDescription: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
     paddingHorizontal: 32,
-    marginBottom: 24},
+    marginBottom: 24,
+  },
   syncButton: {
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginTop: 8},
+    marginTop: 8,
+  },
   syncButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold'}});
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+});

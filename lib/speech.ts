@@ -3,6 +3,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 
 let recording: Audio.Recording | null = null;
+let meteringLevels: number[] = [];
+let meteringCallback: ((level: number) => void) | null = null;
 
 export async function requestAudioPermission(): Promise<boolean> {
   try {
@@ -14,13 +16,19 @@ export async function requestAudioPermission(): Promise<boolean> {
   }
 }
 
-export async function startRecording(): Promise<boolean> {
+export async function startRecording(
+  onMeteringUpdate?: (level: number) => void
+): Promise<boolean> {
   try {
     const hasPermission = await requestAudioPermission();
     if (!hasPermission) {
       console.log('[speech] No audio permission');
       return false;
     }
+
+    // Reset metering data
+    meteringLevels = [];
+    meteringCallback = onMeteringUpdate || null;
 
     // Configurar modo de áudio com todas as opções necessárias
     await Audio.setAudioModeAsync({
@@ -31,13 +39,34 @@ export async function startRecording(): Promise<boolean> {
       playThroughEarpieceAndroid: false,
     });
 
-    // Criar nova instância de gravação
+    // Criar nova instância de gravação com metering habilitado
     const { recording: newRecording } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
+      {
+        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        android: {
+          ...Audio.RecordingOptionsPresets.HIGH_QUALITY.android,
+          numberOfChannels: 1,
+        },
+        ios: {
+          ...Audio.RecordingOptionsPresets.HIGH_QUALITY.ios,
+          numberOfChannels: 1,
+        },
+      },
+      (status) => {
+        if (status.isRecording && status.metering !== undefined) {
+          // Normalize metering value from dB (-160 to 0) to 0-1
+          const normalizedLevel = Math.max(0, (status.metering + 60) / 60);
+          meteringLevels.push(normalizedLevel);
+          if (meteringCallback) {
+            meteringCallback(normalizedLevel);
+          }
+        }
+      },
+      100 // Update every 100ms
     );
 
     recording = newRecording;
-    console.log('[speech] Recording started');
+    console.log('[speech] Recording started with metering');
     return true;
   } catch (error) {
     console.error('[speech] Start recording error:', error);
@@ -45,7 +74,12 @@ export async function startRecording(): Promise<boolean> {
   }
 }
 
-export async function stopRecording(): Promise<string | null> {
+export type RecordingResult = {
+  uri: string;
+  waveform: number[];
+};
+
+export async function stopRecording(): Promise<RecordingResult | null> {
   try {
     if (!recording) {
       console.log('[speech] No recording to stop');
@@ -55,18 +89,46 @@ export async function stopRecording(): Promise<string | null> {
     await recording.stopAndUnloadAsync();
     const uri = recording.getURI();
     recording = null;
+    meteringCallback = null;
 
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
     });
 
-    console.log('[speech] Recording stopped:', uri);
-    return uri;
+    // Sample the waveform to ~30 bars for display
+    const waveform = sampleWaveform(meteringLevels, 30);
+
+    console.log(
+      '[speech] Recording stopped:',
+      uri,
+      'waveform bars:',
+      waveform.length
+    );
+    return uri ? { uri, waveform } : null;
   } catch (error) {
     console.error('[speech] Stop recording error:', error);
     recording = null;
+    meteringCallback = null;
     return null;
   }
+}
+
+function sampleWaveform(levels: number[], targetBars: number): number[] {
+  if (levels.length === 0) return Array(targetBars).fill(0.3);
+  if (levels.length <= targetBars) return levels;
+
+  const result: number[] = [];
+  const step = levels.length / targetBars;
+
+  for (let i = 0; i < targetBars; i++) {
+    const start = Math.floor(i * step);
+    const end = Math.floor((i + 1) * step);
+    const slice = levels.slice(start, end);
+    const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
+    result.push(avg);
+  }
+
+  return result;
 }
 
 export async function cancelRecording(): Promise<void> {

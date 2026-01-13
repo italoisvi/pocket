@@ -815,7 +815,8 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
   alimentacao_fora: {
     name: 'Alimentação (Fora)',
     type: 'nao_essencial',
-    description: 'Restaurantes, delivery, lanches, padaria para consumo imediato',
+    description:
+      'Restaurantes, delivery, lanches, padaria para consumo imediato',
     icon: 'restaurant',
     iconType: 'component',
     color: '#AA96DA',

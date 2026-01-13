@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
-  ScrollView} from 'react-native';
+  ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
@@ -19,7 +20,8 @@ import {
   restorePurchases,
   getOfferings,
   purchasePackage,
-  ENTITLEMENT_ID} from '@/lib/revenuecat';
+  ENTITLEMENT_ID,
+} from '@/lib/revenuecat';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import type { PurchasesPackage } from 'react-native-purchases';
 
@@ -72,7 +74,8 @@ export default function SubscriptionScreen() {
             price: product.priceString,
             period: '7 dias',
             highlighted: false,
-            rcPackage: pkg});
+            rcPackage: pkg,
+          });
         } else if (
           identifier.includes('yearly') ||
           identifier.includes('annual')
@@ -85,7 +88,8 @@ export default function SubscriptionScreen() {
             period: 'por ano',
             highlighted: true,
             badge: 'Mais Popular',
-            rcPackage: pkg});
+            rcPackage: pkg,
+          });
         } else if (identifier.includes('monthly')) {
           loadedPlans.push({
             id: pkg.identifier,
@@ -94,7 +98,8 @@ export default function SubscriptionScreen() {
             price: product.priceString,
             period: 'por mês',
             highlighted: false,
-            rcPackage: pkg});
+            rcPackage: pkg,
+          });
         }
       });
 
@@ -220,7 +225,8 @@ export default function SubscriptionScreen() {
                 styles.manageButton,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
               ]}
               onPress={() => router.push('/customer-center')}
             >
@@ -283,7 +289,8 @@ export default function SubscriptionScreen() {
                 styles.subscribeButton,
                 {
                   backgroundColor: theme.card,
-                  borderColor: theme.cardBorder},
+                  borderColor: theme.cardBorder,
+                },
               ]}
               onPress={handleShowPaywall}
               disabled={loadingPlans}
@@ -345,7 +352,8 @@ export default function SubscriptionScreen() {
                   styles.modalIconContainer,
                   {
                     backgroundColor: theme.card,
-                    borderColor: theme.cardBorder},
+                    borderColor: theme.cardBorder,
+                  },
                   getCardShadowStyle(theme.background === '#000'),
                 ]}
               >
@@ -372,9 +380,11 @@ export default function SubscriptionScreen() {
                       borderColor:
                         selectedPlan === plan.id
                           ? theme.primary
-                          : theme.cardBorder},
+                          : theme.cardBorder,
+                    },
                     plan.highlighted && {
-                      borderColor: theme.primary},
+                      borderColor: theme.primary,
+                    },
                     getCardShadowStyle(theme.background === '#000'),
                   ]}
                   onPress={() => setSelectedPlan(plan.id)}
@@ -423,7 +433,8 @@ export default function SubscriptionScreen() {
                           backgroundColor:
                             selectedPlan === plan.id
                               ? theme.primary
-                              : 'transparent'},
+                              : 'transparent',
+                        },
                       ]}
                     >
                       {selectedPlan === plan.id && (
@@ -524,7 +535,8 @@ export default function SubscriptionScreen() {
               style={[
                 styles.modalContinueButton,
                 {
-                  backgroundColor: theme.primary},
+                  backgroundColor: theme.primary,
+                },
               ]}
               onPress={handlePurchase}
               disabled={purchasing}
@@ -565,107 +577,134 @@ export default function SubscriptionScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1},
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12},
+    paddingBottom: 12,
+  },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   title: {
     fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   placeholder: {
-    width: 40},
+    width: 40,
+  },
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 24},
+    paddingTop: 24,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   premiumContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100},
+    paddingBottom: 100,
+  },
   premiumTitle: {
     fontSize: 32,
     fontFamily: 'CormorantGaramond-Bold',
     textAlign: 'center',
-    marginBottom: 16},
+    marginBottom: 16,
+  },
   premiumDescription: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
     marginBottom: 32,
-    paddingHorizontal: 24},
+    paddingHorizontal: 24,
+  },
   manageButton: {
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderWidth: 2},
+    borderWidth: 2,
+  },
   manageButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   nonPremiumContainer: {
-    flex: 1},
+    flex: 1,
+  },
   nonPremiumTitle: {
     fontSize: 28,
     fontFamily: 'CormorantGaramond-Bold',
     textAlign: 'center',
-    marginBottom: 12},
+    marginBottom: 12,
+  },
   nonPremiumDescription: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    marginBottom: 32},
+    marginBottom: 32,
+  },
   featuresList: {
-    marginBottom: 40},
+    marginBottom: 40,
+  },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: 16,
-    paddingHorizontal: 8},
+    paddingHorizontal: 8,
+  },
   featureBullet: {
     fontSize: 24,
     marginRight: 12,
-    marginTop: -4},
+    marginTop: -4,
+  },
   featureText: {
     fontSize: 18,
     fontFamily: 'CormorantGaramond-Regular',
-    flex: 1},
+    flex: 1,
+  },
   subscribeButton: {
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: 'center',
     marginBottom: 16,
-    borderWidth: 2},
+    borderWidth: 2,
+  },
   subscribeButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   restoreButton: {
     paddingVertical: 12,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   restoreButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   modalContainer: {
-    flex: 1},
+    flex: 1,
+  },
   modalScrollView: {
-    flex: 1},
+    flex: 1,
+  },
   modalScrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 24},
+    paddingBottom: 24,
+  },
   modalHeader: {
     alignItems: 'center',
-    marginBottom: 32},
+    marginBottom: 32,
+  },
   modalIconContainer: {
     width: 96,
     height: 96,
@@ -673,116 +712,146 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    borderWidth: 2},
+    borderWidth: 2,
+  },
   modalTitle: {
     fontSize: 28,
     fontFamily: 'CormorantGaramond-Bold',
     textAlign: 'center',
     marginBottom: 8,
-    paddingHorizontal: 16},
+    paddingHorizontal: 16,
+  },
   modalSubtitle: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    paddingHorizontal: 24},
+    paddingHorizontal: 24,
+  },
   modalPlansContainer: {
     marginBottom: 32,
-    gap: 12},
+    gap: 12,
+  },
   modalPlanCard: {
     borderRadius: 16,
     padding: 20,
     borderWidth: 2,
-    position: 'relative'},
+    position: 'relative',
+  },
   modalBadge: {
     position: 'absolute',
     top: -12,
     alignSelf: 'center',
     paddingHorizontal: 16,
     paddingVertical: 6,
-    borderRadius: 20},
+    borderRadius: 20,
+  },
   modalBadgeText: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   modalPlanHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12},
+    marginBottom: 12,
+  },
   modalPlanTitleContainer: {
-    flex: 1},
+    flex: 1,
+  },
   modalPlanTitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-Bold',
-    marginBottom: 4},
+    marginBottom: 4,
+  },
   modalPlanSubtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   modalRadioButton: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
     justifyContent: 'center',
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   modalPlanPricing: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 8},
+    gap: 8,
+  },
   modalPlanPrice: {
     fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold'},
+    fontFamily: 'CormorantGaramond-Bold',
+  },
   modalPlanPeriod: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   modalFeaturesContainer: {
-    marginBottom: 24},
+    marginBottom: 24,
+  },
   modalFeaturesTitle: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-Bold',
-    marginBottom: 16},
+    marginBottom: 16,
+  },
   modalFeatureItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 12},
+    marginBottom: 12,
+  },
   modalFeatureText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-Regular',
-    flex: 1},
+    flex: 1,
+  },
   modalDisclaimer: {
     alignItems: 'center',
-    paddingVertical: 16},
+    paddingVertical: 16,
+  },
   modalDisclaimerText: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
-    marginBottom: 12},
+    marginBottom: 12,
+  },
   modalLinks: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center'},
+    justifyContent: 'center',
+  },
   modalLinkText: {
     fontSize: 14,
     fontFamily: 'CormorantGaramond-Regular',
-    textDecorationLine: 'underline'},
+    textDecorationLine: 'underline',
+  },
   modalLinkSeparator: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular'},
+    fontFamily: 'CormorantGaramond-Regular',
+  },
   modalFooter: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 8},
+    paddingBottom: 8,
+  },
   modalContinueButton: {
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: 'center',
-    marginBottom: 12},
+    marginBottom: 12,
+  },
   modalContinueButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold'},
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
   modalCancelButton: {
     paddingVertical: 12,
-    alignItems: 'center'},
+    alignItems: 'center',
+  },
   modalCancelButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular'}});
+    fontFamily: 'CormorantGaramond-Regular',
+  },
+});

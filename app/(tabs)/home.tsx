@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 import { SettingsIcon } from '@/components/SettingsIcon';
 import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { UsuarioIcon } from '@/components/UsuarioIcon';

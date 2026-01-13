@@ -21,6 +21,7 @@ export type MessageAttachment = {
   mimeType: string;
   name?: string;
   size?: number;
+  waveform?: number[];
   ocrData?: {
     establishment_name?: string;
     amount?: number;

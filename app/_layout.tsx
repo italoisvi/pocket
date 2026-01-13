@@ -8,6 +8,7 @@ import {
   StatusBar,
   useColorScheme,
   Linking,
+  Platform,
 } from 'react-native';
 import * as Font from 'expo-font';
 import { ThemeProvider, useTheme } from '@/lib/theme';
@@ -22,6 +23,7 @@ import {
   logoutRevenueCat,
 } from '@/lib/revenuecat';
 import { BiometricLock } from '@/components/BiometricLock';
+import { registerAgentWorker } from '@/lib/agent-worker';
 
 // Initialize Sentry
 const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
@@ -305,6 +307,18 @@ function RootLayout() {
       router.replace('/(auth)/login');
     }
   }, [session, segments, loading, fontsLoaded, router]);
+
+  // Register background worker for proactive agent checks
+  useEffect(() => {
+    if (session && Platform.OS !== 'web') {
+      registerAgentWorker().then((success) => {
+        console.log(
+          '[RootLayout] Agent worker registration:',
+          success ? 'success' : 'failed'
+        );
+      });
+    }
+  }, [session]);
 
   if (loading || !fontsLoaded) {
     console.log(
