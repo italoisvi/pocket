@@ -75,7 +75,8 @@
       "Bash(deno check:*)",
       "Bash(grep:*)",
       "Bash(git checkout:*)",
-      "Bash(deno:*)"
+      "Bash(deno:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

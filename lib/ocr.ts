@@ -10,6 +10,7 @@ export type ReceiptData = {
     quantity: number;
     price: number;
   }>;
+  isCash?: boolean; // Se foi pago em dinheiro
 };
 
 export type ReceiptAmount = {

@@ -76,6 +76,7 @@ CREATE TABLE public.expenses (
   subcategory text NOT NULL DEFAULT 'Outros'::text,
   transaction_id uuid,
   source text DEFAULT 'manual'::text,
+  is_fixed_cost boolean DEFAULT false,
   CONSTRAINT expenses_pkey PRIMARY KEY (id),
   CONSTRAINT expenses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );

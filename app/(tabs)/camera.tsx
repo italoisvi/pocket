@@ -185,6 +185,8 @@ export default function CameraScreen() {
         items: editedData.items,
         category: categorization.category,
         subcategory: categorization.subcategory,
+        is_fixed_cost: categorization.is_fixed_cost,
+        is_cash: editedData.isCash || false,
       });
 
       if (error) throw error;
@@ -331,28 +333,30 @@ export default function CameraScreen() {
       }
 
       // 2. Verificar duplicatas no EXTRATO BANCÁRIO (pluggy_transactions)
+      // PULAR se for pagamento em dinheiro (nunca vai aparecer no extrato)
       // Busca apenas por VALOR similar - não compara nome pois extratos têm descrições diferentes
-      console.log(
-        '[Camera] Buscando no extrato de',
-        dateMinus5.toISOString().split('T')[0],
-        'a',
-        datePlus5.toISOString().split('T')[0]
-      );
-      const { data: similarTransactions, error: txError } = await supabase
-        .from('pluggy_transactions')
-        .select('id, description, description_raw, amount, date')
-        .eq('user_id', user.id)
-        .lt('amount', 0) // Apenas saídas (valores negativos)
-        .gte('date', dateMinus5.toISOString().split('T')[0])
-        .lte('date', datePlus5.toISOString().split('T')[0]);
+      if (!editedData.isCash) {
+        console.log(
+          '[Camera] Buscando no extrato de',
+          dateMinus5.toISOString().split('T')[0],
+          'a',
+          datePlus5.toISOString().split('T')[0]
+        );
+        const { data: similarTransactions, error: txError } = await supabase
+          .from('pluggy_transactions')
+          .select('id, description, description_raw, amount, date')
+          .eq('user_id', user.id)
+          .lt('amount', 0) // Apenas saídas (valores negativos)
+          .gte('date', dateMinus5.toISOString().split('T')[0])
+          .lte('date', datePlus5.toISOString().split('T')[0]);
 
-      console.log(
-        '[Camera] Transações encontradas:',
-        similarTransactions?.length || 0,
-        txError ? `Erro: ${txError.message}` : ''
-      );
+        console.log(
+          '[Camera] Transações encontradas:',
+          similarTransactions?.length || 0,
+          txError ? `Erro: ${txError.message}` : ''
+        );
 
-      if (similarTransactions && similarTransactions.length > 0) {
+        if (similarTransactions && similarTransactions.length > 0) {
         // Encontrar transação com valor igual ou muito próximo (tolerância de R$1)
         const extractDuplicate = similarTransactions.find((tx) => {
           const txAmount = Math.abs(tx.amount);
@@ -393,6 +397,7 @@ export default function CameraScreen() {
           );
           return;
         }
+        }
       }
 
       // Usar Walts para categorização inteligente
@@ -427,6 +432,8 @@ export default function CameraScreen() {
           items: editedData.items,
           category: categorization.category,
           subcategory: categorization.subcategory,
+          is_fixed_cost: categorization.is_fixed_cost,
+          is_cash: editedData.isCash || false,
         })
         .select();
 

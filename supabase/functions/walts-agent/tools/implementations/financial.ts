@@ -54,60 +54,7 @@ function getDateRange(period: string): { start: string; end: string } {
   }
 }
 
-function inferCategory(establishmentName: string): string {
-  const name = establishmentName.toLowerCase();
-
-  const categoryMap: Record<string, string[]> = {
-    alimentacao: [
-      'mercado',
-      'supermercado',
-      'açougue',
-      'padaria',
-      'hortifruti',
-      'feira',
-    ],
-    delivery: ['ifood', 'rappi', 'uber eats', 'zé delivery', 'aiqfome'],
-    transporte: [
-      'uber',
-      '99',
-      'cabify',
-      'posto',
-      'combustível',
-      'estacionamento',
-      'metro',
-    ],
-    saude: [
-      'farmácia',
-      'drogaria',
-      'hospital',
-      'clínica',
-      'médico',
-      'dentista',
-    ],
-    lazer: [
-      'cinema',
-      'teatro',
-      'show',
-      'bar',
-      'restaurante',
-      'netflix',
-      'spotify',
-    ],
-    vestuario: ['roupa', 'loja', 'shopping', 'renner', 'riachuelo', 'c&a'],
-    moradia: ['aluguel', 'condomínio', 'luz', 'água', 'gás', 'internet'],
-    educacao: ['escola', 'faculdade', 'curso', 'livro', 'udemy'],
-    eletronicos: ['amazon', 'mercado livre', 'magalu', 'kabum', 'apple'],
-    beleza: ['salão', 'barbearia', 'manicure', 'estética'],
-  };
-
-  for (const [category, keywords] of Object.entries(categoryMap)) {
-    if (keywords.some((keyword) => name.includes(keyword))) {
-      return category;
-    }
-  }
-
-  return 'outros';
-}
+// Category inference removed - Walts agent decides the category intelligently
 
 // ============================================================================
 // Tool Implementations
@@ -199,8 +146,10 @@ export async function createExpense(
   params: {
     establishment_name: string;
     amount: number;
+    category: string; // Required - Walts decides the category
+    is_fixed_cost: boolean; // Required - Walts decides if it's fixed or variable
+    subcategory?: string; // Optional - Walts can specify for more detail
     date?: string;
-    category?: string;
     notes?: string;
   },
   context: ToolContext
@@ -208,9 +157,9 @@ export async function createExpense(
   const { userId, supabase } = context;
 
   try {
-    const category =
-      params.category || inferCategory(params.establishment_name);
     const date = params.date || new Date().toISOString().split('T')[0];
+    // Use establishment name as subcategory if not provided
+    const subcategory = params.subcategory || params.establishment_name;
 
     const { data, error } = await supabase
       .from('expenses')
@@ -219,7 +168,9 @@ export async function createExpense(
         establishment_name: params.establishment_name,
         amount: params.amount,
         date,
-        category,
+        category: params.category,
+        subcategory,
+        is_fixed_cost: params.is_fixed_cost,
         notes: params.notes || null,
         items: [],
       })
@@ -448,6 +399,119 @@ export async function checkBudgetStatus(
       success: false,
       error: 'Erro ao verificar status dos orçamentos',
     };
+  }
+}
+
+// ============================================================================
+// Find and Recategorize Expense by Description
+// ============================================================================
+
+export async function recategorizeExpenseByName(
+  params: {
+    establishment_name: string;
+    new_category?: string;
+    is_fixed_cost?: boolean;
+    date?: string;
+    amount?: number;
+  },
+  context: ToolContext
+): Promise<ToolResult> {
+  const { userId, supabase } = context;
+
+  try {
+    // Buscar gasto pelo nome do estabelecimento
+    let query = supabase
+      .from('expenses')
+      .select('id, establishment_name, amount, date, category, is_fixed_cost')
+      .eq('user_id', userId)
+      .ilike('establishment_name', `%${params.establishment_name}%`)
+      .order('date', { ascending: false })
+      .limit(10);
+
+    if (params.date) {
+      query = query.eq('date', params.date);
+    }
+
+    const { data: expenses, error } = await query;
+
+    if (error) {
+      console.error('[financial.recategorizeExpenseByName] DB Error:', error);
+      return { success: false, error: 'Erro ao buscar gasto' };
+    }
+
+    if (!expenses || expenses.length === 0) {
+      return {
+        success: false,
+        error: `Nenhum gasto encontrado com nome "${params.establishment_name}"`,
+      };
+    }
+
+    // Se amount foi especificado, filtrar por valor similar
+    let targetExpense = expenses[0];
+    if (params.amount !== undefined && expenses.length > 1) {
+      const matchByAmount = expenses.find(
+        (e) => Math.abs(e.amount - params.amount!) < 0.01
+      );
+      if (matchByAmount) {
+        targetExpense = matchByAmount;
+      }
+    }
+
+    // Construir objeto de atualizacao
+    const updateData: Record<string, unknown> = {};
+    if (params.new_category !== undefined) {
+      updateData.category = params.new_category;
+    }
+    if (params.is_fixed_cost !== undefined) {
+      updateData.is_fixed_cost = params.is_fixed_cost;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return {
+        success: false,
+        error: 'Nenhum campo para atualizar (informe new_category ou is_fixed_cost)',
+      };
+    }
+
+    // Atualizar gasto
+    const { data, error: updateError } = await supabase
+      .from('expenses')
+      .update(updateData)
+      .eq('id', targetExpense.id)
+      .select('id, establishment_name, amount, date, category, is_fixed_cost')
+      .single();
+
+    if (updateError) {
+      console.error('[financial.recategorizeExpenseByName] Update Error:', updateError);
+      return { success: false, error: 'Erro ao atualizar gasto' };
+    }
+
+    const changes: string[] = [];
+    if (params.new_category !== undefined && params.new_category !== targetExpense.category) {
+      changes.push(`categoria: "${targetExpense.category}" -> "${data.category}"`);
+    }
+    if (params.is_fixed_cost !== undefined && params.is_fixed_cost !== targetExpense.is_fixed_cost) {
+      const oldType = targetExpense.is_fixed_cost ? 'custo fixo' : 'custo variavel';
+      const newType = data.is_fixed_cost ? 'custo fixo' : 'custo variavel';
+      changes.push(`tipo: ${oldType} -> ${newType}`);
+    }
+
+    return {
+      success: true,
+      data: {
+        expense_id: data.id,
+        establishment: data.establishment_name,
+        amount: data.amount,
+        date: data.date,
+        category: data.category,
+        is_fixed_cost: data.is_fixed_cost,
+        changes,
+        message: `Gasto "${data.establishment_name}" atualizado: ${changes.join(', ')}.`,
+      },
+    };
+  } catch (error) {
+    console.error('[financial.recategorizeExpenseByName] Error:', error);
+    return { success: false, error: 'Erro ao recategorizar gasto' };
   }
 }
 

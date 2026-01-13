@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -286,7 +287,7 @@ export default function ExpenseDetailScreen() {
                 disabled={deleting}
               >
                 {deleting ? (
-                  <LoadingKangaroo size={80} />
+                  <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={styles.deleteButtonText}>Excluir</Text>
                 )}

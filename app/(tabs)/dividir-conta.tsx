@@ -365,8 +365,20 @@ export default function DividirContaScreen() {
             <Switch
               value={includeServiceCharge}
               onValueChange={setIncludeServiceCharge}
-              trackColor={{ false: theme.border, true: theme.primary }}
-              thumbColor="#fff"
+              trackColor={{
+                false: theme.background === '#000' ? '#333' : '#e0e0e0',
+                true: '#f7c359',
+              }}
+              thumbColor={
+                includeServiceCharge
+                  ? theme.background === '#000'
+                    ? '#fff'
+                    : '#000'
+                  : theme.background === '#000'
+                    ? '#000'
+                    : '#fff'
+              }
+              ios_backgroundColor={theme.background === '#000' ? '#333' : '#e0e0e0'}
             />
           </View>
         </View>

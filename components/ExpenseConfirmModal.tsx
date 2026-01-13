@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import type { ReceiptData } from '@/lib/ocr';
 import { formatCurrency } from '@/lib/formatCurrency';
@@ -125,6 +126,37 @@ export function ExpenseConfirmModal({
                 }
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor={theme.textSecondary}
+              />
+            </View>
+
+            <View style={styles.cashField}>
+              <View style={styles.cashTextContainer}>
+                <Text style={[styles.cashLabel, { color: theme.text }]}>
+                  Paguei em dinheiro?
+                </Text>
+                <Text style={[styles.cashDescription, { color: theme.textSecondary }]}>
+                  Gastos em dinheiro não aparecem no extrato bancário
+                </Text>
+              </View>
+              <Switch
+                value={editedData.isCash || false}
+                onValueChange={(value) =>
+                  setEditedData({ ...editedData, isCash: value })
+                }
+                trackColor={{
+                  false: theme.background === '#000' ? '#333' : '#e0e0e0',
+                  true: '#f7c359',
+                }}
+                thumbColor={
+                  editedData.isCash
+                    ? theme.background === '#000'
+                      ? '#fff'
+                      : '#000'
+                    : theme.background === '#000'
+                      ? '#000'
+                      : '#fff'
+                }
+                ios_backgroundColor={theme.background === '#000' ? '#333' : '#e0e0e0'}
               />
             </View>
 
@@ -272,5 +304,25 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  cashField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingVertical: 12,
+  },
+  cashTextContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  cashLabel: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-SemiBold',
+  },
+  cashDescription: {
+    fontSize: 12,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginTop: 2,
   },
 });

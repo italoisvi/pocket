@@ -857,12 +857,14 @@ export default function GraficosTabelasScreen() {
                       >
                         <View style={styles.tableCategoryCell}>
                           <CategoryIcon categoryInfo={categoryInfo} size={20} />
-                          <View>
+                          <View style={styles.tableCategoryTextContainer}>
                             <Text
                               style={[
                                 styles.subcategoryName,
                                 { color: theme.text },
                               ]}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
                             >
                               {item.subcategory}
                             </Text>
@@ -1091,9 +1093,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  tableCategoryTextContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   subcategoryName: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
+    flexShrink: 1,
   },
   categoryLabel: {
     fontSize: 13,

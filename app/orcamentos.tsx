@@ -531,10 +531,20 @@ export default function OrcamentosScreen() {
           <Switch
             value={notificationsEnabled}
             onValueChange={setNotificationsEnabled}
-            trackColor={{ false: theme.border, true: theme.primary }}
+            trackColor={{
+              false: theme.background === '#000' ? '#333' : '#e0e0e0',
+              true: '#f7c359',
+            }}
             thumbColor={
-              notificationsEnabled ? theme.background : theme.textSecondary
+              notificationsEnabled
+                ? theme.background === '#000'
+                  ? '#fff'
+                  : '#000'
+                : theme.background === '#000'
+                  ? '#000'
+                  : '#fff'
             }
+            ios_backgroundColor={theme.background === '#000' ? '#333' : '#e0e0e0'}
           />
         </View>
       </View>

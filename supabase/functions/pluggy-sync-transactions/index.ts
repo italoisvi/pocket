@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { categorizeWithWalts } from '../_shared/categorize-with-walts.ts';
 
 const PLUGGY_CLIENT_ID = Deno.env.get('PLUGGY_CLIENT_ID');
 const PLUGGY_CLIENT_SECRET = Deno.env.get('PLUGGY_CLIENT_SECRET');
@@ -133,12 +134,27 @@ serve(async (req) => {
       );
     }
 
-    // Salvar transações
+    // Salvar transações e categorizar automaticamente
     let savedCount = 0;
     let skippedCount = 0;
+    let categorizedCount = 0;
+
+    // Verificar se usuario ja tem expenses manuais para evitar duplicidade
+    const { data: existingExpenses } = await supabase
+      .from('expenses')
+      .select('establishment_name, amount, date')
+      .eq('user_id', user.id)
+      .or('source.is.null,source.eq.manual');
+
+    // Criar mapa de expenses existentes para verificacao rapida
+    const existingExpensesMap = new Set(
+      (existingExpenses || []).map(
+        (e) => `${e.establishment_name?.toLowerCase()}-${Math.abs(e.amount)}-${e.date}`
+      )
+    );
 
     for (const transaction of transactions) {
-      // Verificar se já existe
+      // Verificar se já existe na tabela pluggy_transactions
       const { data: existing } = await supabase
         .from('pluggy_transactions')
         .select('id')
@@ -150,7 +166,12 @@ serve(async (req) => {
         continue;
       }
 
-      const { error: transactionError } = await supabase
+      // Verificar duplicidade com expenses manuais
+      const transactionKey = `${transaction.description?.toLowerCase()}-${Math.abs(transaction.amount)}-${transaction.date.split('T')[0]}`;
+      const isDuplicate = existingExpensesMap.has(transactionKey);
+
+      // Inserir transacao
+      const { data: insertedTransaction, error: transactionError } = await supabase
         .from('pluggy_transactions')
         .insert({
           pluggy_transaction_id: transaction.id,
@@ -159,26 +180,90 @@ serve(async (req) => {
           description: transaction.description,
           description_raw: transaction.descriptionRaw,
           amount: transaction.amount,
-          date: transaction.date.split('T')[0], // Apenas a data, sem hora
+          date: transaction.date.split('T')[0],
           status: transaction.status,
           type: transaction.type,
           category: transaction.category || null,
           provider_code: transaction.providerCode || null,
-          synced: false,
-        });
+          synced: isDuplicate, // Marcar como synced se for duplicata
+        })
+        .select('id')
+        .single();
 
       if (transactionError) {
         console.error(
           `[pluggy-sync-transactions] Failed to save transaction ${transaction.id}:`,
           transactionError
         );
-      } else {
-        savedCount++;
+        continue;
+      }
+
+      savedCount++;
+
+      // Se for duplicata, nao categorizar (usuario ja tem o expense manual)
+      if (isDuplicate) {
+        console.log(
+          `[pluggy-sync-transactions] Transaction "${transaction.description}" is duplicate of manual expense, skipping categorization`
+        );
+        continue;
+      }
+
+      // Categorizar automaticamente apenas debitos (gastos)
+      if (transaction.type === 'DEBIT' && insertedTransaction?.id) {
+        try {
+          // Verificar se ja existe categorizacao
+          const { data: existingCat } = await supabase
+            .from('transaction_categories')
+            .select('id')
+            .eq('transaction_id', insertedTransaction.id)
+            .eq('user_id', user.id)
+            .single();
+
+          if (!existingCat) {
+            // Categorizar com IA
+            const categorization = await categorizeWithWalts(
+              transaction.description,
+              {
+                amount: Math.abs(transaction.amount),
+                pluggyCategory: transaction.category,
+              }
+            );
+
+            // Inserir categorizacao
+            const { error: catError } = await supabase
+              .from('transaction_categories')
+              .insert({
+                user_id: user.id,
+                transaction_id: insertedTransaction.id,
+                category: categorization.category,
+                subcategory: categorization.subcategory,
+                is_fixed_cost: categorization.is_fixed_cost,
+                categorized_by: 'walts_auto',
+              });
+
+            if (catError) {
+              console.error(
+                `[pluggy-sync-transactions] Failed to categorize transaction:`,
+                catError
+              );
+            } else {
+              categorizedCount++;
+              console.log(
+                `[pluggy-sync-transactions] Categorized "${transaction.description}" as ${categorization.category} (${categorization.is_fixed_cost ? 'fixed' : 'variable'})`
+              );
+            }
+          }
+        } catch (catError) {
+          console.error(
+            `[pluggy-sync-transactions] Error categorizing transaction:`,
+            catError
+          );
+        }
       }
     }
 
     console.log(
-      `[pluggy-sync-transactions] Sync completed: ${savedCount} saved, ${skippedCount} skipped`
+      `[pluggy-sync-transactions] Sync completed: ${savedCount} saved, ${skippedCount} skipped, ${categorizedCount} categorized`
     );
 
     return new Response(
@@ -187,6 +272,7 @@ serve(async (req) => {
         total: transactions.length,
         saved: savedCount,
         skipped: skippedCount,
+        categorized: categorizedCount,
       }),
       { headers }
     );

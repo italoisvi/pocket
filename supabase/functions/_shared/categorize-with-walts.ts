@@ -37,57 +37,49 @@ export interface CategorizeOptions {
 export interface CategorizeResult {
   category: ExpenseCategory;
   subcategory: string;
+  is_fixed_cost: boolean;
   confidence: 'high' | 'medium' | 'low';
   reasoning?: string;
 }
 
 const WALTS_CATEGORIZATION_SYSTEM_PROMPT = `
-Você é Walts, assistente financeiro do app Pocket.
-Sua tarefa é categorizar gastos com MÁXIMA PRECISÃO.
+Voce e Walts, assistente financeiro do app Pocket.
+Sua tarefa e categorizar gastos com MAXIMA PRECISAO.
 
-# CATEGORIAS DISPONÍVEIS (com subcategorias):
+# CATEGORIAS DISPONIVEIS:
+- moradia: aluguel, conta de luz, agua, gas, internet, condominio
+- alimentacao_casa: supermercado, feira, acougue, padaria para compras de casa
+- alimentacao_fora: restaurante, lanchonete, delivery, ifood, bar, cafe
+- transporte: combustivel, uber, estacionamento, mecanica
+- saude: farmacia, plano de saude, consultas, exames
+- educacao: escola, faculdade, cursos, material escolar
+- lazer: cinema, streaming (netflix, spotify), viagens, academia, shows
+- vestuario: roupas, calcados, acessorios
+- beleza: salao, barbearia, cosmeticos
+- eletronicos: gadgets, games, acessorios tech
+- pets: pet shop, veterinario, racao
+- transferencias: PIX para pessoas fisicas
+- outros: quando nao se encaixar em nenhuma
 
-## ESSENCIAIS:
-- moradia: [Energia, Água, Gás, Aluguel, Condomínio, IPTU, Internet, Telefone, Seguro]
-- alimentacao: [Supermercado, Atacadão, Feira, Açougue, Padaria, Mercearia]
-- transporte: [Combustível, Transporte Público, Aplicativos, Estacionamento, Manutenção]
-- saude: [Farmácia, Plano de Saúde, Consulta, Exames, Dentista]
-- educacao: [Escola, Faculdade, Curso, Idiomas, Material Escolar, Reforço]
+# DECIDIR SE E CUSTO FIXO OU VARIAVEL (is_fixed_cost):
+VOCE DECIDE LIVREMENTE baseado na natureza do gasto:
+- is_fixed_cost = true: gastos RECORRENTES, mensais, previstos
+  Exemplos: aluguel, plano de saude, assinatura netflix, conta de luz, escola
+- is_fixed_cost = false: gastos EVENTUAIS, pontuais, nao recorrentes
+  Exemplos: compra na farmacia, almoco no restaurante, cinema, presente, compra de roupa
 
-## NÃO ESSENCIAIS:
-- lazer: [Streaming, Cinema, Shows, Viagem, Academia, Lazer]
-- vestuario: [Roupas, Calçados, Acessórios]
-- beleza: [Salão, Barbearia, Estética, Cosméticos]
-- eletronicos: [Smartphones, Computadores, Acessórios, Games, Lojas]
-- delivery: [Apps de Entrega, Restaurantes, Fast Food, Lanches, Bares, Cafeterias, Sorveteria]
+NAO HA REGRA FIXA - analise o contexto:
+- Farmacia EVENTUAL (remedio para gripe) = is_fixed_cost: false
+- Farmacia MENSAL (remedio continuo) = is_fixed_cost: true
+- Na duvida, use is_fixed_cost: false (variavel)
 
-## INVESTIMENTOS:
-- poupanca: [Poupança]
-- previdencia: [Previdência]
-- investimentos: [Ações, Fundos, Renda Fixa, Corretora]
-
-## DÍVIDAS:
-- cartao_credito: [Cartão]
-- emprestimos: [Empréstimo]
-- financiamentos: [Veículo, Imóvel, Financiamento]
-- transferencias: [PIX Pessoa Fisica, TED/DOC]
-
-## OUTROS:
-- outros: [Outros]
-
-# REGRAS DE PRIORIDADE:
-1. PIX/Transferências para pessoas físicas → transferencias
-2. Pagamentos de cartão/fatura → cartao_credito
-3. Contexto é rei: analise o nome completo, não apenas palavras isoladas
-4. Em caso de dúvida entre 2 categorias, escolha a mais específica
-5. Use o contexto de itens, valor e tipo de transação para melhorar precisão
-
-# FORMATO DE RESPOSTA (RETORNE APENAS JSON VÁLIDO):
+# FORMATO DE RESPOSTA (RETORNE APENAS JSON VALIDO):
 {
   "category": "categoria_exata",
-  "subcategory": "Subcategoria Exata",
+  "subcategory": "Nome do estabelecimento ou tipo",
+  "is_fixed_cost": true ou false,
   "confidence": "high|medium|low",
-  "reasoning": "Breve explicação de 1 linha"
+  "reasoning": "Breve explicacao de 1 linha"
 }
 
 Seja preciso e consistente. Retorne APENAS o JSON, sem texto adicional.
@@ -131,7 +123,8 @@ function buildCategorizationPrompt(
 function isValidCategory(category: string): category is ExpenseCategory {
   const validCategories: ExpenseCategory[] = [
     'moradia',
-    'alimentacao',
+    'alimentacao_casa',
+    'alimentacao_fora',
     'transporte',
     'saude',
     'educacao',
@@ -139,7 +132,7 @@ function isValidCategory(category: string): category is ExpenseCategory {
     'vestuario',
     'beleza',
     'eletronicos',
-    'delivery',
+    'pets',
     'poupanca',
     'previdencia',
     'investimentos',
@@ -213,8 +206,17 @@ export async function categorizeWithWalts(
       );
     }
 
+    // Garantir que is_fixed_cost e boolean
+    const isFixedCost = result.is_fixed_cost === true;
+
     console.log('[categorizeWithWalts] Success:', result);
-    return result;
+    return {
+      category: result.category,
+      subcategory: result.subcategory,
+      is_fixed_cost: isFixedCost,
+      confidence: result.confidence || 'medium',
+      reasoning: result.reasoning,
+    };
   } catch (error) {
     console.error('[categorizeWithWalts] Error, using fallback:', error);
 
@@ -235,6 +237,7 @@ export async function categorizeWithWalts(
       return {
         category: fallback.category as ExpenseCategory,
         subcategory: fallback.subcategory,
+        is_fixed_cost: false, // Default para variavel no fallback
         confidence: 'low',
         reasoning: 'Fallback to keyword-based categorization due to error',
       };
@@ -244,6 +247,7 @@ export async function categorizeWithWalts(
     return {
       category: 'outros',
       subcategory: 'Outros',
+      is_fixed_cost: false, // Default para variavel
       confidence: 'low',
       reasoning: 'Fallback to default category due to error',
     };

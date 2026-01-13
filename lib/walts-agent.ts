@@ -50,12 +50,32 @@ export async function sendMessageToWaltsAgent(
     }
 
     const lastMessage = messages[messages.length - 1];
-    const history = messages.slice(0, -1).map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
 
-    // Extract media URLs from attachments
+    // Construir histórico incluindo imagens das mensagens anteriores
+    const history = messages.slice(0, -1).map((m) => {
+      const historyItem: {
+        role: 'user' | 'assistant';
+        content: string;
+        imageUrls?: string[];
+      } = {
+        role: m.role,
+        content: m.content,
+      };
+
+      // Incluir imagens do histórico
+      if (m.attachments && m.attachments.length > 0) {
+        const images = m.attachments
+          .filter((a) => a.type === 'image' && a.url)
+          .map((a) => a.url!);
+        if (images.length > 0) {
+          historyItem.imageUrls = images;
+        }
+      }
+
+      return historyItem;
+    });
+
+    // Extract media URLs from current message attachments
     const imageUrls: string[] = [];
     const audioUrls: string[] = [];
     if (lastMessage.attachments) {
@@ -68,10 +88,17 @@ export async function sendMessageToWaltsAgent(
       }
     }
 
+    // Contar imagens no histórico
+    const historyImageCount = history.reduce(
+      (count, h) => count + (h.imageUrls?.length || 0),
+      0
+    );
+
     console.log('[walts-agent-client] Sending message:', {
       messageLength: lastMessage.content.length,
       historyLength: history.length,
-      imageCount: imageUrls.length,
+      historyImageCount,
+      currentImageCount: imageUrls.length,
       audioCount: audioUrls.length,
     });
 

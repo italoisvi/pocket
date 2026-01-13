@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -393,7 +394,10 @@ export default function AccountsScreen() {
         >
           {syncing ? (
             <View style={styles.syncingContainer}>
-              <LoadingKangaroo size={80} />
+              <ActivityIndicator
+                size="small"
+                color={theme.background === '#000' ? theme.text : '#fff'}
+              />
               {syncStatus ? (
                 <Text
                   style={[
@@ -434,7 +438,9 @@ export default function AccountsScreen() {
         }
       >
         {loading ? (
-          <LoadingKangaroo size={80} />
+          <View style={styles.loadingContainer}>
+            <LoadingKangaroo size={80} />
+          </View>
         ) : accounts.length > 0 ? (
           <>
             {accounts
@@ -472,7 +478,10 @@ export default function AccountsScreen() {
               disabled={syncing}
             >
               {syncing ? (
-                <LoadingKangaroo size={80} />
+                <ActivityIndicator
+                  size="small"
+                  color={theme.background === '#000' ? theme.text : '#fff'}
+                />
               ) : (
                 <Text
                   style={[
@@ -496,6 +505,12 @@ export default function AccountsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
   },
   header: {
     flexDirection: 'row',

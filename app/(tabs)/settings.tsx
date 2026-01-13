@@ -798,8 +798,20 @@ export default function SettingsScreen() {
               <Switch
                 value={notificationsEnabled}
                 onValueChange={handleNotificationToggle}
-                trackColor={{ false: theme.border, true: theme.primary }}
-                thumbColor={notificationsEnabled ? '#fff' : theme.textSecondary}
+                trackColor={{
+                  false: theme.background === '#000' ? '#333' : '#e0e0e0',
+                  true: '#f7c359',
+                }}
+                thumbColor={
+                  notificationsEnabled
+                    ? theme.background === '#000'
+                      ? '#fff'
+                      : '#000'
+                    : theme.background === '#000'
+                      ? '#000'
+                      : '#fff'
+                }
+                ios_backgroundColor={theme.background === '#000' ? '#333' : '#e0e0e0'}
               />
             </View>
           </View>
@@ -853,8 +865,20 @@ export default function SettingsScreen() {
               <Switch
                 value={biometricEnabled}
                 onValueChange={handleBiometricToggle}
-                trackColor={{ false: theme.border, true: theme.primary }}
-                thumbColor={biometricEnabled ? '#fff' : theme.textSecondary}
+                trackColor={{
+                  false: theme.background === '#000' ? '#333' : '#e0e0e0',
+                  true: '#f7c359',
+                }}
+                thumbColor={
+                  biometricEnabled
+                    ? theme.background === '#000'
+                      ? '#fff'
+                      : '#000'
+                    : theme.background === '#000'
+                      ? '#000'
+                      : '#fff'
+                }
+                ios_backgroundColor={theme.background === '#000' ? '#333' : '#e0e0e0'}
               />
             </View>
           </View>

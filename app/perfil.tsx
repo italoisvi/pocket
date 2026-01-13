@@ -113,7 +113,7 @@ export default function PerfilScreen() {
               borderColor: theme.border,
             },
           ]}
-          onPress={() => router.push('/(tabs)/settings')}
+          onPress={() => router.push('/settings')}
         >
           <SettingsIcon size={24} color={theme.text} />
         </TouchableOpacity>

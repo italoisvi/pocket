@@ -11,6 +11,7 @@ type ExpenseCardProps = {
   date: string;
   category: string;
   subcategory?: string;
+  isCash?: boolean;
   onPress: () => void;
 };
 
@@ -19,6 +20,7 @@ export function ExpenseCard({
   amount,
   category,
   subcategory,
+  isCash,
   onPress,
 }: ExpenseCardProps) {
   const { theme } = useTheme();
@@ -40,9 +42,39 @@ export function ExpenseCard({
       <View style={styles.leftSection}>
         {categoryInfo && <CategoryIcon categoryInfo={categoryInfo} size={32} />}
         <View style={styles.content}>
-          <Text style={[styles.title, { color: theme.text }]}>
-            {establishmentName}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text
+              style={[styles.title, { color: theme.text }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {establishmentName}
+            </Text>
+            {isCash && (
+              <View
+                style={[
+                  styles.cashBadge,
+                  {
+                    backgroundColor:
+                      theme.background === '#000'
+                        ? 'rgba(76, 175, 80, 0.2)'
+                        : '#4CAF50',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.cashBadgeText,
+                    {
+                      color: theme.background === '#000' ? '#4CAF50' : '#fff',
+                    },
+                  ]}
+                >
+                  Dinheiro
+                </Text>
+              </View>
+            )}
+          </View>
           {subcategory && (
             <Text style={[styles.subcategory, { color: theme.primary }]}>
               {subcategory}
@@ -86,10 +118,26 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   title: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
-    marginBottom: 4,
+    flexShrink: 1,
+  },
+  cashBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  cashBadgeText: {
+    fontSize: 10,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    textTransform: 'uppercase',
   },
   subcategory: {
     fontSize: 14,

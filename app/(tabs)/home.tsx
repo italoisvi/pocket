@@ -39,6 +39,7 @@ type Expense = {
   created_at: string;
   category: string;
   subcategory?: string;
+  is_cash?: boolean;
 };
 
 type IncomeCard = {
@@ -171,7 +172,7 @@ export default function HomeScreen() {
       // Buscar TODOS os gastos do mês (para exibição)
       const { data: allExpensesData, error: expError } = await supabase
         .from('expenses')
-        .select('amount, created_at, source')
+        .select('amount, created_at, source, is_cash')
         .eq('user_id', user.id)
         .gte('date', startDateStr)
         .lte('date', endDateStr);
@@ -205,6 +206,7 @@ export default function HomeScreen() {
 
       // Calcular gastos RECENTES MANUAIS (criados DEPOIS da última sincronização)
       // Apenas esses gastos ainda não estão refletidos no saldo do banco
+      // EXCEÇÃO: Gastos em DINHEIRO sempre são considerados (nunca aparecem no extrato)
       let recentExpenses = 0;
       if (manualExpenses.length > 0) {
         // Se tiver data de sincronização, usa ela; senão, considera gastos das últimas 24h como recentes
@@ -213,7 +215,12 @@ export default function HomeScreen() {
           : new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 horas atrás
 
         recentExpenses = manualExpenses
-          .filter((exp) => new Date(exp.created_at) > cutoffDate)
+          .filter((exp) => {
+            // Gastos em dinheiro SEMPRE são considerados (não aparecem no extrato)
+            if (exp.is_cash) return true;
+            // Outros gastos só se forem recentes (após última sincronização)
+            return new Date(exp.created_at) > cutoffDate;
+          })
           .reduce(
             (sum, exp) =>
               sum +
@@ -279,7 +286,7 @@ export default function HomeScreen() {
       const { data, error } = await supabase
         .from('expenses')
         .select(
-          'id, establishment_name, amount, date, created_at, category, subcategory'
+          'id, establishment_name, amount, date, created_at, category, subcategory, is_cash'
         )
         .order('created_at', { ascending: false });
 
@@ -522,6 +529,7 @@ export default function HomeScreen() {
                         date={expense.date}
                         category={expense.category}
                         subcategory={expense.subcategory}
+                        isCash={expense.is_cash}
                         onPress={() => handleExpensePress(expense.id)}
                       />
                     </View>

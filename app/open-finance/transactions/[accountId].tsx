@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -283,7 +284,10 @@ export default function TransactionsScreen() {
           disabled={syncing}
         >
           {syncing ? (
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator
+              size="small"
+              color={theme.background === '#000' ? theme.text : '#fff'}
+            />
           ) : (
             <AtualizarIcon
               size={20}
@@ -305,7 +309,9 @@ export default function TransactionsScreen() {
         }
       >
         {loading ? (
-          <LoadingKangaroo size={80} />
+          <View style={styles.loadingContainer}>
+            <LoadingKangaroo size={80} />
+          </View>
         ) : transactions.length > 0 ? (
           Object.keys(groupedTransactions).map((monthYear) => (
             <View key={monthYear}>
@@ -412,7 +418,10 @@ export default function TransactionsScreen() {
               disabled={syncing}
             >
               {syncing ? (
-                <LoadingKangaroo size={80} />
+                <ActivityIndicator
+                  size="small"
+                  color={theme.background === '#000' ? theme.text : '#fff'}
+                />
               ) : (
                 <Text
                   style={[
@@ -436,6 +445,12 @@ export default function TransactionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
   },
   header: {
     flexDirection: 'row',

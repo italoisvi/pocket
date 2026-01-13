@@ -82,11 +82,12 @@ export default function CustosVariaveisScreen() {
       const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1);
       const lastDayOfMonth = new Date(selectedYear, selectedMonth + 1, 0);
 
-      // Buscar expenses MANUAIS (incluindo establishment_name para transferências)
+      // Buscar expenses MANUAIS marcados como custo variavel (is_fixed_cost = false ou null)
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category, subcategory, source, establishment_name')
+        .select('amount, category, subcategory, source, establishment_name, is_fixed_cost')
         .eq('user_id', user.id)
+        .or('is_fixed_cost.eq.false,is_fixed_cost.is.null')
         .gte('date', firstDayOfMonth.toISOString().split('T')[0])
         .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
 
@@ -133,45 +134,35 @@ export default function CustosVariaveisScreen() {
         }
       }
 
-      // Agrupar por categoria + subcategoria (apenas não essenciais)
+      // Agrupar por categoria + subcategoria (custos variaveis)
       const subcategoryMap = new Map<string, SubcategoryExpense>();
 
-      // Processar expenses manuais
+      // Processar expenses manuais (ja filtrados por is_fixed_cost = false ou null)
       if (expensesData) {
-        expensesData
-          .filter((exp) => {
-            const categoryInfo = CATEGORIES[exp.category as ExpenseCategory];
-            // Custos variáveis: não essenciais + transferências (PIX para pessoas)
-            return (
-              categoryInfo &&
-              (categoryInfo.type === 'nao_essencial' ||
-                categoryInfo.type === 'transferencia')
-            );
-          })
-          .forEach((exp) => {
-            const category = (exp.category as ExpenseCategory) || 'outros';
-            const subcategory = exp.subcategory || 'Outros';
-            const establishmentName = exp.establishment_name || subcategory;
+        expensesData.forEach((exp) => {
+          const category = (exp.category as ExpenseCategory) || 'outros';
+          const subcategory = exp.subcategory || 'Outros';
+          const establishmentName = exp.establishment_name || subcategory;
 
-            // Usar establishment_name como identificador único para TODAS as categorias
-            // Isso preserva a granularidade (Carrefour, iFood, João Silva, etc.)
-            const key = `manual-${category}-${establishmentName}`;
+          // Usar establishment_name como identificador unico para TODAS as categorias
+          // Isso preserva a granularidade (Carrefour, iFood, Joao Silva, etc.)
+          const key = `manual-${category}-${establishmentName}`;
 
-            if (subcategoryMap.has(key)) {
-              const existing = subcategoryMap.get(key)!;
-              existing.total += exp.amount;
-              existing.count = (existing.count || 1) + 1;
-            } else {
-              subcategoryMap.set(key, {
-                category,
-                subcategory: establishmentName,
-                total: exp.amount,
-                source: 'manual',
-                count: 1,
-                recipientName: establishmentName,
-              });
-            }
-          });
+          if (subcategoryMap.has(key)) {
+            const existing = subcategoryMap.get(key)!;
+            existing.total += exp.amount;
+            existing.count = (existing.count || 1) + 1;
+          } else {
+            subcategoryMap.set(key, {
+              category,
+              subcategory: establishmentName,
+              total: exp.amount,
+              source: 'manual',
+              count: 1,
+              recipientName: establishmentName,
+            });
+          }
+        });
       }
 
       // Processar transacoes do extrato categorizadas
@@ -291,19 +282,15 @@ export default function CustosVariaveisScreen() {
                   <View style={styles.cardHeader}>
                     <View style={styles.categoryLeft}>
                       <CategoryIcon categoryInfo={categoryInfo} size={24} />
-                      <View>
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 6,
-                          }}
-                        >
+                      <View style={styles.categoryTextContainer}>
+                        <View style={styles.subcategoryRow}>
                           <Text
                             style={[
                               styles.subcategoryName,
                               { color: theme.text },
                             ]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
                           >
                             {item.subcategory}
                           </Text>
@@ -311,10 +298,25 @@ export default function CustosVariaveisScreen() {
                             <View
                               style={[
                                 styles.extractBadge,
-                                { backgroundColor: theme.primary },
+                                {
+                                  backgroundColor:
+                                    theme.background === '#000'
+                                      ? 'rgba(247, 195, 89, 0.2)'
+                                      : theme.primary,
+                                },
                               ]}
                             >
-                              <Text style={styles.extractBadgeText}>
+                              <Text
+                                style={[
+                                  styles.extractBadgeText,
+                                  {
+                                    color:
+                                      theme.background === '#000'
+                                        ? theme.primary
+                                        : '#FFF',
+                                  },
+                                ]}
+                              >
                                 Extrato
                               </Text>
                             </View>
@@ -448,10 +450,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
+  },
+  categoryTextContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  subcategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   subcategoryName: {
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
+    flexShrink: 1,
   },
   categoryLabel: {
     fontSize: 14,
@@ -488,7 +503,6 @@ const styles = StyleSheet.create({
   extractBadgeText: {
     fontSize: 10,
     fontFamily: 'CormorantGaramond-SemiBold',
-    color: '#FFF',
     textTransform: 'uppercase',
   },
 });

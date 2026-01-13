@@ -195,7 +195,11 @@ export type OpenAIMessage = {
 export type WaltsAgentRequest = {
   message: string;
   conversationId?: string;
-  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  history?: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    imageUrls?: string[];
+  }>;
   imageUrls?: string[];
   audioUrls?: string[];
 };

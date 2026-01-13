@@ -36,6 +36,7 @@ export interface CategorizeOptions {
 export interface CategorizeResult {
   category: ExpenseCategory;
   subcategory: string;
+  is_fixed_cost: boolean;
   confidence: 'high' | 'medium' | 'low';
   reasoning?: string;
 }
@@ -65,6 +66,7 @@ export async function categorizeWithWalts(
       return {
         category: data.category,
         subcategory: data.subcategory,
+        is_fixed_cost: data.is_fixed_cost === true,
         confidence: data.confidence || 'medium',
         reasoning: data.reasoning,
       };
@@ -74,10 +76,11 @@ export async function categorizeWithWalts(
   } catch (error) {
     console.error('[categorizeWithWalts] Fallback to outros:', error);
 
-    // Fallback: categoria outros
+    // Fallback: categoria outros, custo variavel
     return {
       category: 'outros',
       subcategory: 'Outros',
+      is_fixed_cost: false,
       confidence: 'low',
       reasoning: 'Fallback due to error',
     };

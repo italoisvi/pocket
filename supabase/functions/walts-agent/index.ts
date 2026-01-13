@@ -150,7 +150,7 @@ function buildUserMessageContent(
 
 async function reactLoop(
   userMessage: string,
-  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  history: Array<{ role: 'user' | 'assistant'; content: string; imageUrls?: string[] }>,
   systemPrompt: string,
   userId: UserId,
   sessionId: string,
@@ -161,12 +161,25 @@ async function reactLoop(
 
   const userContent = buildUserMessageContent(userMessage, imageUrls);
 
-  const messages: OpenAIMessage[] = [
-    { role: 'system', content: systemPrompt },
-    ...history.map((m) => ({
+  // Construir mensagens do histórico incluindo imagens
+  const historyMessages: OpenAIMessage[] = history.map((m) => {
+    // Se a mensagem do histórico tem imagens, construir content multimodal
+    if (m.role === 'user' && m.imageUrls && m.imageUrls.length > 0) {
+      return {
+        role: 'user' as const,
+        content: buildUserMessageContent(m.content, m.imageUrls),
+      };
+    }
+    // Caso contrário, usar content simples
+    return {
       role: m.role as 'user' | 'assistant',
       content: m.content,
-    })),
+    };
+  });
+
+  const messages: OpenAIMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...historyMessages,
     { role: 'user', content: userContent },
   ];
 
