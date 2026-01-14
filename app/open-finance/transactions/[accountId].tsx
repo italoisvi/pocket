@@ -7,23 +7,16 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { LoadingKangaroo } from '@/components/LoadingKangaroo';
-import { AtualizarIcon } from '@/components/AtualizarIcon';
 import { SetaParaBaixoIcon } from '@/components/SetaParaBaixoIcon';
 import { SetaParaCimaIcon } from '@/components/SetaParaCimaIcon';
 import { BoletoIcon } from '@/components/BoletoIcon';
-import {
-  getTransactionsByAccount,
-  syncTransactions as syncTransactionsAPI,
-  syncItem,
-} from '@/lib/pluggy';
-import { supabase } from '@/lib/supabase';
+import { getTransactionsByAccount } from '@/lib/pluggy';
 
 type PluggyTransaction = {
   id: string;
@@ -49,7 +42,6 @@ export default function TransactionsScreen() {
   const [transactions, setTransactions] = useState<PluggyTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     loadTransactions();
@@ -73,101 +65,6 @@ export default function TransactionsScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadTransactions();
-  };
-
-  const handleSync = async () => {
-    setSyncing(true);
-
-    try {
-      console.log('[Transactions] Starting sync for accountId:', accountId);
-      console.log('[Transactions] Account name:', accountName);
-
-      // Primeiro: buscar o item_id da conta e seus dados
-      const { data: accountData, error: accountError } = await supabase
-        .from('pluggy_accounts')
-        .select(
-          'id, pluggy_account_id, type, item_id, pluggy_items(pluggy_item_id, connector_name)'
-        )
-        .eq('id', accountId)
-        .single();
-
-      if (accountError || !accountData) {
-        console.error('[Transactions] Error fetching account:', accountError);
-        throw new Error('Conta não encontrada');
-      }
-
-      console.log(
-        '[Transactions] Account data:',
-        JSON.stringify(accountData, null, 2)
-      );
-
-      const pluggyItemId = (accountData.pluggy_items as any)?.pluggy_item_id;
-
-      if (!pluggyItemId) {
-        throw new Error('Item do banco não encontrado');
-      }
-
-      console.log('[Transactions] Account type:', accountData.type);
-      console.log(
-        '[Transactions] Pluggy account ID:',
-        accountData.pluggy_account_id
-      );
-      console.log('[Transactions] Syncing item:', pluggyItemId);
-
-      // Sincronizar dados do Item (buscar dados atuais da Pluggy)
-      const syncResult = await syncItem(pluggyItemId);
-
-      console.log(
-        '[Transactions] Item sync result:',
-        JSON.stringify(syncResult, null, 2)
-      );
-
-      // Sincronizar transações dos últimos 90 dias
-      const to = new Date().toISOString().split('T')[0];
-      const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split('T')[0];
-
-      console.log('[Transactions] Syncing transactions from', from, 'to', to);
-      console.log('[Transactions] Using accountId (UUID):', accountId);
-
-      const result = await syncTransactionsAPI(accountId, { from, to });
-
-      console.log(
-        '[Transactions] Transactions sync result:',
-        JSON.stringify(result, null, 2)
-      );
-
-      // Sempre recarregar após sincronizar
-      await loadTransactions();
-
-      if (result.saved > 0) {
-        Alert.alert(
-          'Sucesso!',
-          `${result.saved} nova(s) transação(ões) sincronizada(s)`
-        );
-      } else if (result.total > 0) {
-        Alert.alert(
-          'Sincronização Concluída',
-          `Foram encontradas ${result.total} transações, mas todas já estavam sincronizadas.`
-        );
-      } else {
-        Alert.alert(
-          'Sincronização Concluída',
-          'Nenhuma transação foi encontrada nos últimos 90 dias.'
-        );
-      }
-    } catch (error) {
-      console.error('Error syncing transactions:', error);
-      Alert.alert(
-        'Erro',
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível sincronizar transações'
-      );
-    } finally {
-      setSyncing(false);
-    }
   };
 
   const formatCurrency = (value: number) => {
@@ -269,32 +166,7 @@ export default function TransactionsScreen() {
         <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
           {accountName}
         </Text>
-        <TouchableOpacity
-          style={[
-            styles.syncButton,
-            {
-              backgroundColor:
-                theme.background === '#000' ? theme.card : theme.primary,
-              borderWidth: 2,
-              borderColor:
-                theme.background === '#000' ? theme.cardBorder : theme.primary,
-            },
-          ]}
-          onPress={handleSync}
-          disabled={syncing}
-        >
-          {syncing ? (
-            <ActivityIndicator
-              size="small"
-              color={theme.background === '#000' ? theme.text : '#fff'}
-            />
-          ) : (
-            <AtualizarIcon
-              size={20}
-              color={theme.background === '#000' ? theme.text : '#fff'}
-            />
-          )}
-        </TouchableOpacity>
+        <View style={{ width: 24 }} />
       </View>
 
       {/* Lista de transações */}
@@ -399,42 +271,9 @@ export default function TransactionsScreen() {
             <Text
               style={[styles.emptyDescription, { color: theme.textSecondary }]}
             >
-              Sincronize para ver as transações desta conta
+              Use o botão "Sincronizar com o Banco" na tela anterior para buscar
+              as transações
             </Text>
-            <TouchableOpacity
-              style={[
-                styles.emptyButton,
-                {
-                  backgroundColor:
-                    theme.background === '#000' ? theme.card : theme.primary,
-                  borderWidth: 2,
-                  borderColor:
-                    theme.background === '#000'
-                      ? theme.cardBorder
-                      : theme.primary,
-                },
-              ]}
-              onPress={handleSync}
-              disabled={syncing}
-            >
-              {syncing ? (
-                <ActivityIndicator
-                  size="small"
-                  color={theme.background === '#000' ? theme.text : '#fff'}
-                />
-              ) : (
-                <Text
-                  style={[
-                    styles.emptyButtonText,
-                    {
-                      color: theme.background === '#000' ? theme.text : '#fff',
-                    },
-                  ]}
-                >
-                  Sincronizar
-                </Text>
-              )}
-            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -468,17 +307,6 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-SemiBold',
     textAlign: 'center',
     marginHorizontal: 8,
-  },
-  syncButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 60,
-    alignItems: 'center',
-  },
-  syncButtonText: {
-    fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
   },
   content: {
     flex: 1,
@@ -562,15 +390,5 @@ const styles = StyleSheet.create({
     fontFamily: 'CormorantGaramond-Regular',
     textAlign: 'center',
     paddingHorizontal: 32,
-    marginBottom: 24,
-  },
-  emptyButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  emptyButtonText: {
-    fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
   },
 });

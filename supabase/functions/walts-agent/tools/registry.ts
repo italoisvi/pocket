@@ -432,7 +432,8 @@ IMPORTANTE:
             description: 'Nova categoria',
             enum: [
               'moradia',
-              'alimentacao',
+              'alimentacao_casa',
+              'alimentacao_fora',
               'transporte',
               'saude',
               'educacao',
@@ -440,9 +441,20 @@ IMPORTANTE:
               'vestuario',
               'beleza',
               'eletronicos',
-              'delivery',
+              'pets',
+              'transferencias',
               'outros',
             ],
+          },
+          subcategory: {
+            type: 'string',
+            description:
+              'Subcategoria ou nome do estabelecimento (ex: Lanche, Uber, Farmacia)',
+          },
+          is_fixed_cost: {
+            type: 'boolean',
+            description:
+              'Se e custo fixo (recorrente mensal) ou variavel (eventual)',
           },
           notes: {
             type: 'string',

@@ -32,9 +32,10 @@ export async function recategorizeTransaction(
 
   try {
     // Verificar se a transacao existe e pertence ao usuario
+    // Incluir expense_id para atualizar expense linkado
     const { data: transaction, error: fetchError } = await supabase
       .from('pluggy_transactions')
-      .select('id, description, amount')
+      .select('id, description, amount, expense_id')
       .eq('id', params.transaction_id)
       .eq('user_id', userId)
       .single();
@@ -85,6 +86,28 @@ export async function recategorizeTransaction(
 
       if (insertError) {
         return { success: false, error: 'Erro ao criar categoria' };
+      }
+    }
+
+    // IMPORTANTE: Se existe expense linkado, atualizar tambem
+    if (transaction.expense_id) {
+      const { error: expenseUpdateError } = await supabase
+        .from('expenses')
+        .update({
+          category: params.category,
+          subcategory: params.subcategory || null,
+          is_fixed_cost: params.is_fixed_cost || false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transaction.expense_id)
+        .eq('user_id', userId);
+
+      if (expenseUpdateError) {
+        console.error(
+          '[categorization.recategorizeTransaction] Error updating expense:',
+          expenseUpdateError
+        );
+        // Nao falhar completamente, pois transaction_categories foi atualizado
       }
     }
 

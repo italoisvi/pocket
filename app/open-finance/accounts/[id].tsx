@@ -19,6 +19,7 @@ import {
   syncItem,
   updateItem,
   getApiKey,
+  syncTransactions,
 } from '@/lib/pluggy';
 import { supabase } from '@/lib/supabase';
 import { CardBrandIcon } from '@/lib/cardBrand';
@@ -195,9 +196,52 @@ export default function AccountsScreen() {
       // Recarregar contas
       await loadAccounts();
 
+      // Passo 4: Sincronizar transações de todas as contas
+      setSyncStatus('Sincronizando transações...');
+      console.log(
+        '[accounts] Step 4: Syncing transactions for all accounts...'
+      );
+
+      // Buscar todas as contas deste item
+      const { data: accountsData } = await supabase
+        .from('pluggy_accounts')
+        .select('id, pluggy_account_id, name')
+        .eq('item_id', itemId);
+
+      let totalTransactionsSaved = 0;
+
+      if (accountsData && accountsData.length > 0) {
+        const to = new Date().toISOString().split('T')[0];
+        const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split('T')[0];
+
+        for (const account of accountsData) {
+          try {
+            console.log(
+              `[accounts] Syncing transactions for account: ${account.name}`
+            );
+            const txResult = await syncTransactions(account.id, { from, to });
+            totalTransactionsSaved += txResult.saved;
+            console.log(
+              `[accounts] Account ${account.name}: ${txResult.saved} new transactions`
+            );
+          } catch (txError) {
+            console.error(
+              `[accounts] Error syncing transactions for ${account.name}:`,
+              txError
+            );
+          }
+        }
+      }
+
       // Mostrar resultado
       if (result.accountsCount > 0) {
         let message = `${result.accountsCount} conta(s) sincronizada(s) com sucesso!`;
+
+        if (totalTransactionsSaved > 0) {
+          message += `\n${totalTransactionsSaved} nova(s) transação(ões) encontrada(s).`;
+        }
 
         if (result.item.executionStatus === 'PARTIAL_SUCCESS') {
           message += '\n\nAlguns dados podem estar incompletos.';

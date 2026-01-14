@@ -140,19 +140,76 @@ serve(async (req) => {
     let categorizedCount = 0;
 
     // Verificar se usuario ja tem expenses manuais para evitar duplicidade
+    // Buscar tambem category e subcategory para aprendizado por associacao
     const { data: existingExpenses } = await supabase
       .from('expenses')
-      .select('establishment_name, amount, date')
+      .select('id, establishment_name, amount, date, category, subcategory')
       .eq('user_id', user.id)
       .or('source.is.null,source.eq.manual');
 
     // Criar mapa de expenses existentes para verificacao rapida
-    const existingExpensesMap = new Set(
-      (existingExpenses || []).map(
-        (e) =>
-          `${e.establishment_name?.toLowerCase()}-${Math.abs(e.amount)}-${e.date}`
-      )
-    );
+    // Chave: valor-data (tolerancia de R$1 e 1 dia)
+    // Valor: dados completos do expense para aprendizado
+    const existingExpensesMap = new Map<
+      string,
+      {
+        establishment_name: string;
+        amount: number;
+        date: string;
+        category: string;
+        subcategory: string | null;
+      }
+    >();
+
+    (existingExpenses || []).forEach((e) => {
+      // Criar chaves com tolerancia de valor (arredondado para inteiro)
+      const roundedAmount = Math.round(Math.abs(e.amount));
+      const key = `${roundedAmount}-${e.date}`;
+      existingExpensesMap.set(key, {
+        establishment_name: e.establishment_name,
+        amount: e.amount,
+        date: e.date,
+        category: e.category,
+        subcategory: e.subcategory,
+      });
+    });
+
+    // Funcao para encontrar expense duplicado (com tolerancia)
+    const findDuplicateExpense = (
+      transactionAmount: number,
+      transactionDate: string
+    ) => {
+      const roundedAmount = Math.round(Math.abs(transactionAmount));
+      const dateStr = transactionDate.split('T')[0];
+
+      // Tentar match exato primeiro
+      const exactKey = `${roundedAmount}-${dateStr}`;
+      if (existingExpensesMap.has(exactKey)) {
+        return existingExpensesMap.get(exactKey)!;
+      }
+
+      // Tentar com tolerancia de +/- R$1
+      for (const tolerance of [-1, 1]) {
+        const toleranceKey = `${roundedAmount + tolerance}-${dateStr}`;
+        if (existingExpensesMap.has(toleranceKey)) {
+          return existingExpensesMap.get(toleranceKey)!;
+        }
+      }
+
+      // Tentar com tolerancia de +/- 1 dia
+      const date = new Date(dateStr);
+      for (const dayOffset of [-1, 1]) {
+        const newDate = new Date(date);
+        newDate.setDate(newDate.getDate() + dayOffset);
+        const newDateStr = newDate.toISOString().split('T')[0];
+        const dateToleranceKey = `${roundedAmount}-${newDateStr}`;
+        if (existingExpensesMap.has(dateToleranceKey)) {
+          return existingExpensesMap.get(dateToleranceKey)!;
+        }
+      }
+
+      return null;
+    };
 
     for (const transaction of transactions) {
       // Verificar se já existe na tabela pluggy_transactions
@@ -167,9 +224,12 @@ serve(async (req) => {
         continue;
       }
 
-      // Verificar duplicidade com expenses manuais
-      const transactionKey = `${transaction.description?.toLowerCase()}-${Math.abs(transaction.amount)}-${transaction.date.split('T')[0]}`;
-      const isDuplicate = existingExpensesMap.has(transactionKey);
+      // Verificar duplicidade com expenses manuais (por valor + data)
+      const duplicateExpense = findDuplicateExpense(
+        transaction.amount,
+        transaction.date
+      );
+      const isDuplicate = duplicateExpense !== null;
 
       // Inserir transacao
       const { data: insertedTransaction, error: transactionError } =
@@ -202,12 +262,87 @@ serve(async (req) => {
 
       savedCount++;
 
-      // Se for duplicata, nao categorizar (usuario ja tem o expense manual)
-      if (isDuplicate) {
+      // Se for duplicata, aprender associacao e nao categorizar
+      if (isDuplicate && duplicateExpense) {
         console.log(
-          `[pluggy-sync-transactions] Transaction "${transaction.description}" is duplicate of manual expense, skipping categorization`
+          `[pluggy-sync-transactions] Transaction "${transaction.description}" is duplicate of manual expense "${duplicateExpense.establishment_name}", learning association`
         );
-        continue;
+
+        // APRENDIZADO: Salvar associacao "nome Pix" -> "estabelecimento real + categoria"
+        // Apenas se os nomes forem diferentes (caso interessante)
+        const transactionName = transaction.description?.toLowerCase().trim();
+        const establishmentName = duplicateExpense.establishment_name
+          ?.toLowerCase()
+          .trim();
+
+        if (
+          transactionName &&
+          establishmentName &&
+          transactionName !== establishmentName
+        ) {
+          // Normalizar key para busca futura
+          const aliasKey = `merchant_alias_${transactionName.replace(/[^a-z0-9]/g, '_')}`;
+
+          try {
+            // Verificar se ja existe essa associacao
+            const { data: existingAlias } = await supabase
+              .from('walts_memory')
+              .select('id, value, use_count')
+              .eq('user_id', user.id)
+              .eq('memory_type', 'merchant_alias')
+              .eq('key', aliasKey)
+              .single();
+
+            if (existingAlias) {
+              // Atualizar contagem de uso (aumenta confianca)
+              const newUseCount = (existingAlias.use_count || 0) + 1;
+              const newConfidence = Math.min(0.95, 0.8 + newUseCount * 0.03);
+
+              await supabase
+                .from('walts_memory')
+                .update({
+                  use_count: newUseCount,
+                  confidence: newConfidence,
+                  updated_at: new Date().toISOString(),
+                  last_used_at: new Date().toISOString(),
+                })
+                .eq('id', existingAlias.id);
+
+              console.log(
+                `[pluggy-sync-transactions] Updated alias: "${transactionName}" -> "${establishmentName}" (confidence: ${newConfidence})`
+              );
+            } else {
+              // Criar nova associacao
+              await supabase.from('walts_memory').insert({
+                user_id: user.id,
+                memory_type: 'merchant_alias',
+                key: aliasKey,
+                value: {
+                  pix_name: transaction.description,
+                  establishment_name: duplicateExpense.establishment_name,
+                  category: duplicateExpense.category,
+                  subcategory: duplicateExpense.subcategory,
+                  last_amount: Math.abs(transaction.amount),
+                  match_count: 1,
+                },
+                confidence: 0.85,
+                source: 'duplicate_detection',
+              });
+
+              console.log(
+                `[pluggy-sync-transactions] Learned new alias: "${transactionName}" -> "${establishmentName}" (${duplicateExpense.category})`
+              );
+            }
+          } catch (aliasError) {
+            console.error(
+              `[pluggy-sync-transactions] Error saving alias:`,
+              aliasError
+            );
+            // Nao falhar por causa de erro no aprendizado
+          }
+        }
+
+        continue; // Pular categorizacao
       }
 
       // Categorizar automaticamente apenas debitos (gastos)
@@ -222,12 +357,14 @@ serve(async (req) => {
             .single();
 
           if (!existingCat) {
-            // Categorizar com IA
+            // Categorizar com IA (passando supabase e userId para consultar aliases)
             const categorization = await categorizeWithWalts(
               transaction.description,
               {
                 amount: Math.abs(transaction.amount),
                 pluggyCategory: transaction.category,
+                supabase,
+                userId: user.id,
               }
             );
 

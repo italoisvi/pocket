@@ -540,6 +540,8 @@ export async function updateExpense(
     amount?: number;
     date?: string;
     category?: string;
+    subcategory?: string;
+    is_fixed_cost?: boolean;
     notes?: string;
   },
   context: ToolContext
@@ -569,6 +571,10 @@ export async function updateExpense(
     if (params.amount !== undefined) updateData.amount = params.amount;
     if (params.date) updateData.date = params.date;
     if (params.category) updateData.category = params.category;
+    if (params.subcategory !== undefined)
+      updateData.subcategory = params.subcategory;
+    if (params.is_fixed_cost !== undefined)
+      updateData.is_fixed_cost = params.is_fixed_cost;
     if (params.notes !== undefined) updateData.notes = params.notes;
 
     if (Object.keys(updateData).length === 0) {
@@ -582,7 +588,7 @@ export async function updateExpense(
       .from('expenses')
       .update(updateData)
       .eq('id', params.expense_id)
-      .select('id, establishment_name, amount, date, category')
+      .select('id, establishment_name, amount, date, category, subcategory')
       .single();
 
     if (error) {
@@ -600,8 +606,9 @@ export async function updateExpense(
         establishment: data.establishment_name,
         amount: data.amount,
         category: data.category,
+        subcategory: data.subcategory,
         date: data.date,
-        message: `Gasto atualizado com sucesso!`,
+        message: `Gasto atualizado com sucesso! Categoria: ${data.category}${data.subcategory ? '/' + data.subcategory : ''}`,
       },
     };
   } catch (error) {

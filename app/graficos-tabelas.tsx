@@ -30,6 +30,7 @@ type SubcategoryExpense = {
   total: number;
   previousTotal?: number; // Total do periodo anterior para comparacao
   change?: number; // Variacao percentual
+  source?: 'manual' | 'extrato'; // Flag para indicar origem
 };
 
 type PeriodFilter = 'last7days' | 'last15days' | 'month';
@@ -215,7 +216,7 @@ export default function GraficosTabelasScreen() {
           break;
       }
 
-      // Buscar expenses do periodo atual
+      // Buscar expenses MANUAIS do periodo atual
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, category, subcategory')
@@ -223,7 +224,7 @@ export default function GraficosTabelasScreen() {
         .gte('date', startDate.toISOString().split('T')[0])
         .lte('date', endDate.toISOString().split('T')[0]);
 
-      // Buscar expenses do periodo anterior para comparacao
+      // Buscar expenses MANUAIS do periodo anterior para comparacao
       const { data: prevExpensesData } = await supabase
         .from('expenses')
         .select('amount, category, subcategory')
@@ -231,8 +232,66 @@ export default function GraficosTabelasScreen() {
         .gte('date', prevStartDate.toISOString().split('T')[0])
         .lte('date', prevEndDate.toISOString().split('T')[0]);
 
+      // Buscar contas do usuario para transacoes do extrato
+      const { data: accounts } = await supabase
+        .from('pluggy_accounts')
+        .select('id')
+        .eq('user_id', user.id);
+
+      let extractTransactions: any[] = [];
+      let prevExtractTransactions: any[] = [];
+
+      if (accounts && accounts.length > 0) {
+        const accountIds = accounts.map((a: any) => a.id);
+
+        // Buscar transacoes categorizadas do extrato
+        const { data: categorizedTx } = await supabase
+          .from('transaction_categories')
+          .select(
+            `
+            category,
+            subcategory,
+            pluggy_transactions!inner(
+              amount,
+              date,
+              account_id,
+              type
+            )
+          `
+          )
+          .eq('user_id', user.id);
+
+        if (categorizedTx) {
+          // Filtrar por periodo atual e contas (apenas DEBIT = saidas)
+          extractTransactions = categorizedTx.filter((tx: any) => {
+            const txDate = tx.pluggy_transactions?.date;
+            const txAccountId = tx.pluggy_transactions?.account_id;
+            const txType = tx.pluggy_transactions?.type;
+            if (!txDate || !txAccountId) return false;
+            if (!accountIds.includes(txAccountId)) return false;
+            if (txType !== 'DEBIT') return false;
+            const date = new Date(txDate);
+            return date >= startDate && date <= endDate;
+          });
+
+          // Filtrar por periodo anterior
+          prevExtractTransactions = categorizedTx.filter((tx: any) => {
+            const txDate = tx.pluggy_transactions?.date;
+            const txAccountId = tx.pluggy_transactions?.account_id;
+            const txType = tx.pluggy_transactions?.type;
+            if (!txDate || !txAccountId) return false;
+            if (!accountIds.includes(txAccountId)) return false;
+            if (txType !== 'DEBIT') return false;
+            const date = new Date(txDate);
+            return date >= prevStartDate && date <= prevEndDate;
+          });
+        }
+      }
+
       // Agrupar periodo anterior por categoria + subcategoria
       const prevSubcategoryMap = new Map<string, number>();
+
+      // Processar expenses manuais do periodo anterior
       if (prevExpensesData) {
         prevExpensesData.forEach((exp) => {
           const category = (exp.category as ExpenseCategory) || 'outros';
@@ -245,9 +304,22 @@ export default function GraficosTabelasScreen() {
         });
       }
 
+      // Processar extrato do periodo anterior
+      prevExtractTransactions.forEach((tx: any) => {
+        const category = (tx.category as ExpenseCategory) || 'outros';
+        const subcategory = tx.subcategory || 'Outros';
+        const amount = Math.abs(tx.pluggy_transactions?.amount || 0);
+        const key = `${category}-${subcategory}`;
+        prevSubcategoryMap.set(
+          key,
+          (prevSubcategoryMap.get(key) || 0) + amount
+        );
+      });
+
       // Agrupar periodo atual por categoria + subcategoria
       const subcategoryMap = new Map<string, SubcategoryExpense>();
 
+      // Processar expenses manuais do periodo atual
       if (expensesData) {
         expensesData.forEach((exp) => {
           const category = (exp.category as ExpenseCategory) || 'outros';
@@ -258,27 +330,41 @@ export default function GraficosTabelasScreen() {
             const existing = subcategoryMap.get(key)!;
             existing.total += exp.amount;
           } else {
-            const previousTotal = prevSubcategoryMap.get(key) || 0;
-            const total = exp.amount;
-            const change =
-              previousTotal > 0
-                ? ((total - previousTotal) / previousTotal) * 100
-                : total > 0
-                  ? 100
-                  : 0;
-
             subcategoryMap.set(key, {
               category,
               subcategory,
-              total,
-              previousTotal,
-              change,
+              total: exp.amount,
+              source: 'manual',
             });
           }
         });
       }
 
-      // Atualizar change para itens que ja existiam
+      // Processar transacoes do extrato do periodo atual
+      extractTransactions.forEach((tx: any) => {
+        const category = (tx.category as ExpenseCategory) || 'outros';
+        const subcategory = tx.subcategory || 'Outros';
+        const amount = Math.abs(tx.pluggy_transactions?.amount || 0);
+        const key = `${category}-${subcategory}`;
+
+        if (subcategoryMap.has(key)) {
+          const existing = subcategoryMap.get(key)!;
+          existing.total += amount;
+          // Se ja existe item manual com mesma categoria/subcategoria, marcar como misto
+          if (existing.source === 'manual') {
+            existing.source = undefined; // misto
+          }
+        } else {
+          subcategoryMap.set(key, {
+            category,
+            subcategory,
+            total: amount,
+            source: 'extrato',
+          });
+        }
+      });
+
+      // Calcular change para todos os itens
       subcategoryMap.forEach((item, key) => {
         const previousTotal = prevSubcategoryMap.get(key) || 0;
         item.previousTotal = previousTotal;

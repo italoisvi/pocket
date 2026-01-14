@@ -180,7 +180,7 @@ export default function RaioXFinanceiroScreen() {
       const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
 
-      // Buscar gastos dos ultimos 3 meses
+      // Buscar gastos MANUAIS dos ultimos 3 meses
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, category, subcategory, date, created_at')
@@ -188,7 +188,66 @@ export default function RaioXFinanceiroScreen() {
         .gte('date', twoMonthsAgo.toISOString().split('T')[0])
         .order('date', { ascending: false });
 
-      if (!expensesData) {
+      // Buscar contas do usuario para transacoes do extrato
+      const { data: userAccounts } = await supabase
+        .from('pluggy_accounts')
+        .select('id')
+        .eq('user_id', user.id);
+
+      let extractTransactions: any[] = [];
+
+      if (userAccounts && userAccounts.length > 0) {
+        const accountIds = userAccounts.map((a: any) => a.id);
+
+        // Buscar transacoes categorizadas do extrato
+        const { data: categorizedTx } = await supabase
+          .from('transaction_categories')
+          .select(
+            `
+            category,
+            subcategory,
+            pluggy_transactions!inner(
+              amount,
+              date,
+              account_id,
+              type
+            )
+          `
+          )
+          .eq('user_id', user.id);
+
+        if (categorizedTx) {
+          // Filtrar por contas do usuario e apenas DEBIT (saidas)
+          extractTransactions = categorizedTx
+            .filter((tx: any) => {
+              const txAccountId = tx.pluggy_transactions?.account_id;
+              const txType = tx.pluggy_transactions?.type;
+              const txDate = tx.pluggy_transactions?.date;
+              if (!txAccountId || !txDate) return false;
+              if (!accountIds.includes(txAccountId)) return false;
+              if (txType !== 'DEBIT') return false;
+              // Filtrar por periodo (ultimos 3 meses)
+              const date = new Date(txDate);
+              return date >= twoMonthsAgo;
+            })
+            .map((tx: any) => ({
+              amount: Math.abs(tx.pluggy_transactions?.amount || 0),
+              category: tx.category,
+              subcategory: tx.subcategory,
+              date: tx.pluggy_transactions?.date,
+              created_at: tx.pluggy_transactions?.date,
+              source: 'extrato',
+            }));
+        }
+      }
+
+      // Combinar expenses manuais com extrato
+      const allExpenses = [
+        ...(expensesData || []).map((exp) => ({ ...exp, source: 'manual' })),
+        ...extractTransactions,
+      ];
+
+      if (allExpenses.length === 0) {
         setLoading(false);
         return;
       }
@@ -233,9 +292,9 @@ export default function RaioXFinanceiroScreen() {
         return Array.from(grouped.values()).sort((a, b) => b.total - a.total);
       };
 
-      const currentData = groupByMonth(expensesData, currentMonth);
-      const previousData = groupByMonth(expensesData, previousMonth);
-      const twoMonthsData = groupByMonth(expensesData, twoMonthsAgo);
+      const currentData = groupByMonth(allExpenses, currentMonth);
+      const previousData = groupByMonth(allExpenses, previousMonth);
+      const twoMonthsData = groupByMonth(allExpenses, twoMonthsAgo);
 
       setCurrentMonthData(currentData);
       setPreviousMonthData(previousData);

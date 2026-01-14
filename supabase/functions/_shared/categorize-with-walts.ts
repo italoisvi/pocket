@@ -32,6 +32,9 @@ export interface CategorizeOptions {
   payerName?: string | null;
   amount?: number;
   items?: string[];
+  // Para consultar aliases aprendidos
+  supabase?: any;
+  userId?: string;
 }
 
 export interface CategorizeResult {
@@ -179,9 +182,55 @@ export async function categorizeWithWalts(
   try {
     console.log('[categorizeWithWalts] Starting categorization:', {
       establishmentName,
-      options,
+      options: { ...options, supabase: options?.supabase ? '[client]' : null },
     });
 
+    // PASSO 1: Consultar aliases aprendidos (se supabase e userId disponiveis)
+    if (options?.supabase && options?.userId) {
+      try {
+        const normalizedName = establishmentName?.toLowerCase().trim();
+        const aliasKey = `merchant_alias_${normalizedName.replace(/[^a-z0-9]/g, '_')}`;
+
+        const { data: alias } = await options.supabase
+          .from('walts_memory')
+          .select('value, confidence')
+          .eq('user_id', options.userId)
+          .eq('memory_type', 'merchant_alias')
+          .eq('key', aliasKey)
+          .single();
+
+        if (alias && alias.confidence >= 0.8) {
+          console.log(
+            `[categorizeWithWalts] Found learned alias with high confidence: "${normalizedName}" -> "${alias.value.establishment_name}" (${alias.confidence})`
+          );
+
+          // Atualizar last_used_at
+          await options.supabase
+            .from('walts_memory')
+            .update({ last_used_at: new Date().toISOString() })
+            .eq('user_id', options.userId)
+            .eq('memory_type', 'merchant_alias')
+            .eq('key', aliasKey);
+
+          return {
+            category: alias.value.category as ExpenseCategory,
+            subcategory:
+              alias.value.subcategory || alias.value.establishment_name,
+            is_fixed_cost: false, // Default para variavel
+            confidence: 'high',
+            reasoning: `Aprendido: "${establishmentName}" = "${alias.value.establishment_name}"`,
+          };
+        }
+      } catch (aliasError) {
+        console.log(
+          '[categorizeWithWalts] No alias found or error:',
+          aliasError
+        );
+        // Continuar com LLM se nao encontrar alias
+      }
+    }
+
+    // PASSO 2: Usar LLM para categorizar
     const prompt = buildCategorizationPrompt(establishmentName, options);
 
     const response = await getChatCompletion([
