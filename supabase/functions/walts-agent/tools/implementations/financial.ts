@@ -469,7 +469,8 @@ export async function recategorizeExpenseByName(
     if (Object.keys(updateData).length === 0) {
       return {
         success: false,
-        error: 'Nenhum campo para atualizar (informe new_category ou is_fixed_cost)',
+        error:
+          'Nenhum campo para atualizar (informe new_category ou is_fixed_cost)',
       };
     }
 
@@ -482,16 +483,29 @@ export async function recategorizeExpenseByName(
       .single();
 
     if (updateError) {
-      console.error('[financial.recategorizeExpenseByName] Update Error:', updateError);
+      console.error(
+        '[financial.recategorizeExpenseByName] Update Error:',
+        updateError
+      );
       return { success: false, error: 'Erro ao atualizar gasto' };
     }
 
     const changes: string[] = [];
-    if (params.new_category !== undefined && params.new_category !== targetExpense.category) {
-      changes.push(`categoria: "${targetExpense.category}" -> "${data.category}"`);
+    if (
+      params.new_category !== undefined &&
+      params.new_category !== targetExpense.category
+    ) {
+      changes.push(
+        `categoria: "${targetExpense.category}" -> "${data.category}"`
+      );
     }
-    if (params.is_fixed_cost !== undefined && params.is_fixed_cost !== targetExpense.is_fixed_cost) {
-      const oldType = targetExpense.is_fixed_cost ? 'custo fixo' : 'custo variavel';
+    if (
+      params.is_fixed_cost !== undefined &&
+      params.is_fixed_cost !== targetExpense.is_fixed_cost
+    ) {
+      const oldType = targetExpense.is_fixed_cost
+        ? 'custo fixo'
+        : 'custo variavel';
       const newType = data.is_fixed_cost ? 'custo fixo' : 'custo variavel';
       changes.push(`tipo: ${oldType} -> ${newType}`);
     }
@@ -695,7 +709,8 @@ export async function updateBudget(
 
     // Build update object
     const updateData: Record<string, unknown> = {};
-    if (params.amount !== undefined) updateData.amount = params.amount.toString();
+    if (params.amount !== undefined)
+      updateData.amount = params.amount.toString();
     if (params.period_type) updateData.period_type = params.period_type;
     if (params.notifications_enabled !== undefined)
       updateData.notifications_enabled = params.notifications_enabled;
@@ -780,7 +795,10 @@ export async function deleteBudget(
       };
     }
 
-    const { error } = await supabase.from('budgets').delete().eq('id', existing.id);
+    const { error } = await supabase
+      .from('budgets')
+      .delete()
+      .eq('id', existing.id);
 
     if (error) {
       console.error('[financial.deleteBudget] DB Error:', error);

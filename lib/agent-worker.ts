@@ -178,8 +178,15 @@ async function sendNotification(
 }
 
 export async function registerAgentWorker(): Promise<boolean> {
-  if (!nativeModulesAvailable || !TaskManager || !BackgroundFetch || !Notifications) {
-    console.log('[agent-worker] Native modules not available, skipping registration');
+  if (
+    !nativeModulesAvailable ||
+    !TaskManager ||
+    !BackgroundFetch ||
+    !Notifications
+  ) {
+    console.log(
+      '[agent-worker] Native modules not available, skipping registration'
+    );
     return false;
   }
 

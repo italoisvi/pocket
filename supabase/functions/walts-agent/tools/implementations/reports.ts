@@ -68,11 +68,15 @@ export async function generateMonthlyReport(
     // Calcular metricas
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const balance = totalIncome - totalExpenses;
-    const savingsRate = totalIncome > 0 ? Math.round((balance / totalIncome) * 100) : 0;
+    const savingsRate =
+      totalIncome > 0 ? Math.round((balance / totalIncome) * 100) : 0;
     const dailyAverage = totalExpenses / daysInMonth;
 
     // Agrupar por categoria
-    const byCategory: Record<string, { total: number; count: number; items: typeof expenses }> = {};
+    const byCategory: Record<
+      string,
+      { total: number; count: number; items: typeof expenses }
+    > = {};
     for (const expense of expenses) {
       const cat = expense.category || 'outros';
       if (!byCategory[cat]) {
@@ -88,7 +92,10 @@ export async function generateMonthlyReport(
         category,
         total: Math.round(data.total * 100) / 100,
         count: data.count,
-        percent: totalExpenses > 0 ? Math.round((data.total / totalExpenses) * 100) : 0,
+        percent:
+          totalExpenses > 0
+            ? Math.round((data.total / totalExpenses) * 100)
+            : 0,
         average: Math.round((data.total / data.count) * 100) / 100,
         ...(format === 'detailed' && {
           transactions: data.items.map((e) => ({
@@ -113,7 +120,12 @@ export async function generateMonthlyReport(
         spent: Math.round(spent * 100) / 100,
         remaining: Math.round(remaining * 100) / 100,
         percentUsed,
-        status: percentUsed >= 100 ? 'ESTOURADO' : percentUsed >= 80 ? 'ALERTA' : 'OK',
+        status:
+          percentUsed >= 100
+            ? 'ESTOURADO'
+            : percentUsed >= 80
+              ? 'ALERTA'
+              : 'OK',
       };
     });
 
@@ -132,14 +144,22 @@ export async function generateMonthlyReport(
     const insights: string[] = [];
 
     if (savingsRate >= 20) {
-      insights.push(`Excelente! Voce economizou ${savingsRate}% da renda neste mes.`);
+      insights.push(
+        `Excelente! Voce economizou ${savingsRate}% da renda neste mes.`
+      );
     } else if (savingsRate >= 0) {
-      insights.push(`Taxa de economia de ${savingsRate}% - tente aumentar para pelo menos 20%.`);
+      insights.push(
+        `Taxa de economia de ${savingsRate}% - tente aumentar para pelo menos 20%.`
+      );
     } else {
-      insights.push(`Atencao: gastos excederam a renda em ${Math.abs(savingsRate)}%.`);
+      insights.push(
+        `Atencao: gastos excederam a renda em ${Math.abs(savingsRate)}%.`
+      );
     }
 
-    const exceededBudgets = budgetStatus.filter((b) => b.status === 'ESTOURADO');
+    const exceededBudgets = budgetStatus.filter(
+      (b) => b.status === 'ESTOURADO'
+    );
     if (exceededBudgets.length > 0) {
       insights.push(
         `${exceededBudgets.length} orcamento(s) estourado(s): ${exceededBudgets.map((b) => b.category).join(', ')}.`
@@ -153,8 +173,18 @@ export async function generateMonthlyReport(
     }
 
     const monthNames = [
-      'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+      'Janeiro',
+      'Fevereiro',
+      'Marco',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro',
     ];
 
     return {
@@ -214,7 +244,9 @@ export async function exportData(
         const [start, end] = params.period.split(':');
         const [startYear, startMonth] = start.split('-').map(Number);
         const [endYear, endMonth] = end.split('-').map(Number);
-        startDate = new Date(startYear, startMonth - 1, 1).toISOString().split('T')[0];
+        startDate = new Date(startYear, startMonth - 1, 1)
+          .toISOString()
+          .split('T')[0];
         endDate = new Date(endYear, endMonth, 0).toISOString().split('T')[0];
       } else {
         // Single month: YYYY-MM
@@ -230,7 +262,9 @@ export async function exportData(
     if (params.type === 'expenses' || params.type === 'all') {
       let expensesQuery = supabase
         .from('expenses')
-        .select('id, establishment_name, amount, date, category, subcategory, notes, source')
+        .select(
+          'id, establishment_name, amount, date, category, subcategory, notes, source'
+        )
         .eq('user_id', userId)
         .order('date', { ascending: false });
 
@@ -323,7 +357,8 @@ export async function exportData(
           summary: {
             expenses: (exportResult.expenses as Array<unknown>)?.length || 0,
             budgets: (exportResult.budgets as Array<unknown>)?.length || 0,
-            transactions: (exportResult.transactions as Array<unknown>)?.length || 0,
+            transactions:
+              (exportResult.transactions as Array<unknown>)?.length || 0,
           },
           message:
             'Dados exportados em formato CSV. Copie o conteudo abaixo ou solicite que eu envie por email.',
@@ -342,7 +377,8 @@ export async function exportData(
         summary: {
           expenses: (exportResult.expenses as Array<unknown>)?.length || 0,
           budgets: (exportResult.budgets as Array<unknown>)?.length || 0,
-          transactions: (exportResult.transactions as Array<unknown>)?.length || 0,
+          transactions:
+            (exportResult.transactions as Array<unknown>)?.length || 0,
         },
       },
     };

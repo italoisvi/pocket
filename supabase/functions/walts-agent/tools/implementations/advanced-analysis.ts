@@ -103,9 +103,10 @@ export async function generateRaioX(
         category,
         total: Math.round(data.total * 100) / 100,
         count: data.count,
-        percent: totalExpenses > 0
-          ? Math.round((data.total / totalExpenses) * 100)
-          : 0,
+        percent:
+          totalExpenses > 0
+            ? Math.round((data.total / totalExpenses) * 100)
+            : 0,
       }))
       .sort((a, b) => b.total - a.total);
 
@@ -122,7 +123,9 @@ export async function generateRaioX(
 
     // Status dos orcamentos
     const budgetStatus = budgets.map((b) => {
-      const categoryExpenses = expenses.filter((e) => e.category === b.category_id);
+      const categoryExpenses = expenses.filter(
+        (e) => e.category === b.category_id
+      );
       const spent = categoryExpenses.reduce((sum, e) => sum + e.amount, 0);
       const limit = parseFloat(b.amount);
       return {
@@ -138,7 +141,11 @@ export async function generateRaioX(
     let prediction = null;
     if (params.include_predictions && period === 'current_month') {
       const dayOfMonth = now.getDate();
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysInMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0
+      ).getDate();
       const dailyAverage = totalExpenses / dayOfMonth;
       const projectedTotal = dailyAverage * daysInMonth;
 
@@ -146,18 +153,22 @@ export async function generateRaioX(
         dailyAverage: Math.round(dailyAverage * 100) / 100,
         projectedMonthTotal: Math.round(projectedTotal * 100) / 100,
         willExceedIncome: projectedTotal > totalIncome,
-        projectedSavings: Math.round((totalIncome - projectedTotal) * 100) / 100,
+        projectedSavings:
+          Math.round((totalIncome - projectedTotal) * 100) / 100,
       };
     }
 
     // Gerar insights
     const insights: string[] = [];
-    const savingsRate = totalIncome > 0
-      ? Math.round(((totalIncome - totalExpenses) / totalIncome) * 100)
-      : 0;
+    const savingsRate =
+      totalIncome > 0
+        ? Math.round(((totalIncome - totalExpenses) / totalIncome) * 100)
+        : 0;
 
     if (savingsRate < 0) {
-      insights.push(`Atencao: gastos excedem a renda em ${Math.abs(savingsRate)}%.`);
+      insights.push(
+        `Atencao: gastos excedem a renda em ${Math.abs(savingsRate)}%.`
+      );
     } else if (savingsRate < 10) {
       insights.push(`Taxa de economia baixa: apenas ${savingsRate}% da renda.`);
     } else if (savingsRate >= 20) {
@@ -271,7 +282,8 @@ export async function comparePeriods(
     const total1 = expenses1.reduce((sum, e) => sum + e.amount, 0);
     const total2 = expenses2.reduce((sum, e) => sum + e.amount, 0);
     const difference = total2 - total1;
-    const percentChange = total1 > 0 ? Math.round((difference / total1) * 100) : 0;
+    const percentChange =
+      total1 > 0 ? Math.round((difference / total1) * 100) : 0;
 
     // Agrupar por categoria para comparacao detalhada
     const byCategory1: Record<string, number> = {};
@@ -293,18 +305,21 @@ export async function comparePeriods(
       ...Object.keys(byCategory2),
     ]);
 
-    const categoryComparison = Array.from(allCategories).map((category) => {
-      const val1 = byCategory1[category] || 0;
-      const val2 = byCategory2[category] || 0;
-      const diff = val2 - val1;
-      return {
-        category,
-        period1Amount: Math.round(val1 * 100) / 100,
-        period2Amount: Math.round(val2 * 100) / 100,
-        difference: Math.round(diff * 100) / 100,
-        percentChange: val1 > 0 ? Math.round((diff / val1) * 100) : (val2 > 0 ? 100 : 0),
-      };
-    }).sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+    const categoryComparison = Array.from(allCategories)
+      .map((category) => {
+        const val1 = byCategory1[category] || 0;
+        const val2 = byCategory2[category] || 0;
+        const diff = val2 - val1;
+        return {
+          category,
+          period1Amount: Math.round(val1 * 100) / 100,
+          period2Amount: Math.round(val2 * 100) / 100,
+          difference: Math.round(diff * 100) / 100,
+          percentChange:
+            val1 > 0 ? Math.round((diff / val1) * 100) : val2 > 0 ? 100 : 0,
+        };
+      })
+      .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
 
     // Gerar insights
     const insights: string[] = [];
@@ -352,7 +367,12 @@ export async function comparePeriods(
         comparison: {
           difference: Math.round(difference * 100) / 100,
           percentChange,
-          direction: difference > 0 ? 'increase' : difference < 0 ? 'decrease' : 'stable',
+          direction:
+            difference > 0
+              ? 'increase'
+              : difference < 0
+                ? 'decrease'
+                : 'stable',
         },
         categoryComparison,
         insights,
@@ -377,7 +397,11 @@ export async function forecastMonthEnd(
   try {
     const now = new Date();
     const dayOfMonth = now.getDate();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysInMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0
+    ).getDate();
     const daysRemaining = daysInMonth - dayOfMonth;
 
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -427,16 +451,18 @@ export async function forecastMonthEnd(
       byCategory[cat] = (byCategory[cat] || 0) + e.amount;
     }
 
-    const categoryProjections = Object.entries(byCategory).map(([category, spent]) => {
-      const catDailyAvg = spent / dayOfMonth;
-      const catProjected = catDailyAvg * daysInMonth;
-      return {
-        category,
-        spentSoFar: Math.round(spent * 100) / 100,
-        projectedTotal: Math.round(catProjected * 100) / 100,
-        dailyAverage: Math.round(catDailyAvg * 100) / 100,
-      };
-    }).sort((a, b) => b.projectedTotal - a.projectedTotal);
+    const categoryProjections = Object.entries(byCategory)
+      .map(([category, spent]) => {
+        const catDailyAvg = spent / dayOfMonth;
+        const catProjected = catDailyAvg * daysInMonth;
+        return {
+          category,
+          spentSoFar: Math.round(spent * 100) / 100,
+          projectedTotal: Math.round(catProjected * 100) / 100,
+          dailyAverage: Math.round(catDailyAvg * 100) / 100,
+        };
+      })
+      .sort((a, b) => b.projectedTotal - a.projectedTotal);
 
     // Gerar insights e alertas
     const insights: string[] = [];
@@ -452,13 +478,10 @@ export async function forecastMonthEnd(
       );
     }
 
-    const savingsRate = totalIncome > 0
-      ? Math.round((projectedBalance / totalIncome) * 100)
-      : 0;
+    const savingsRate =
+      totalIncome > 0 ? Math.round((projectedBalance / totalIncome) * 100) : 0;
 
-    insights.push(
-      `Media diaria de gastos: R$ ${dailyAverage.toFixed(2)}.`
-    );
+    insights.push(`Media diaria de gastos: R$ ${dailyAverage.toFixed(2)}.`);
     insights.push(
       `Projecao de gastos ate fim do mes: R$ ${projectedTotal.toFixed(2)}.`
     );
@@ -470,9 +493,8 @@ export async function forecastMonthEnd(
     }
 
     // Sugestao de meta diaria
-    const idealDailyBudget = daysRemaining > 0
-      ? currentBalance / daysRemaining
-      : 0;
+    const idealDailyBudget =
+      daysRemaining > 0 ? currentBalance / daysRemaining : 0;
 
     return {
       success: true,
@@ -524,7 +546,8 @@ export async function detectAnomalies(
   const sensitivity = params.sensitivity || 'medium';
 
   // Multiplicador para desvio padrao baseado na sensibilidade
-  const thresholdMultiplier = sensitivity === 'low' ? 3 : sensitivity === 'high' ? 1.5 : 2;
+  const thresholdMultiplier =
+    sensitivity === 'low' ? 3 : sensitivity === 'high' ? 1.5 : 2;
 
   try {
     // Buscar gastos dos ultimos 6 meses
@@ -548,7 +571,8 @@ export async function detectAnomalies(
         success: true,
         data: {
           anomalies: [],
-          message: 'Dados insuficientes para detectar anomalias. Continue registrando gastos.',
+          message:
+            'Dados insuficientes para detectar anomalias. Continue registrando gastos.',
         },
       };
     }
@@ -572,7 +596,8 @@ export async function detectAnomalies(
       const amounts = categoryStats[cat].amounts;
       const mean = amounts.reduce((a, b) => a + b, 0) / amounts.length;
       const variance =
-        amounts.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / amounts.length;
+        amounts.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
+        amounts.length;
       categoryStats[cat].mean = mean;
       categoryStats[cat].stdDev = Math.sqrt(variance);
     }
@@ -596,7 +621,10 @@ export async function detectAnomalies(
       if (stats.amounts.length < 3) continue; // Precisa de dados suficientes
 
       const upperThreshold = stats.mean + thresholdMultiplier * stats.stdDev;
-      const lowerThreshold = Math.max(0, stats.mean - thresholdMultiplier * stats.stdDev);
+      const lowerThreshold = Math.max(
+        0,
+        stats.mean - thresholdMultiplier * stats.stdDev
+      );
 
       if (expense.amount > upperThreshold) {
         anomalies.push({
@@ -609,7 +637,9 @@ export async function detectAnomalies(
             min: Math.round(lowerThreshold * 100) / 100,
             max: Math.round(upperThreshold * 100) / 100,
           },
-          deviationPercent: Math.round(((expense.amount - stats.mean) / stats.mean) * 100),
+          deviationPercent: Math.round(
+            ((expense.amount - stats.mean) / stats.mean) * 100
+          ),
           type: 'unusually_high',
         });
       } else if (expense.amount < lowerThreshold && stats.mean > 50) {
@@ -623,19 +653,25 @@ export async function detectAnomalies(
             min: Math.round(lowerThreshold * 100) / 100,
             max: Math.round(upperThreshold * 100) / 100,
           },
-          deviationPercent: Math.round(((stats.mean - expense.amount) / stats.mean) * 100),
+          deviationPercent: Math.round(
+            ((stats.mean - expense.amount) / stats.mean) * 100
+          ),
           type: 'unusually_low',
         });
       }
     }
 
     // Ordenar por desvio e pegar os mais significativos
-    anomalies.sort((a, b) => Math.abs(b.deviationPercent) - Math.abs(a.deviationPercent));
+    anomalies.sort(
+      (a, b) => Math.abs(b.deviationPercent) - Math.abs(a.deviationPercent)
+    );
     const topAnomalies = anomalies.slice(0, 10);
 
     // Gerar insights
     const insights: string[] = [];
-    const highAnomalies = topAnomalies.filter((a) => a.type === 'unusually_high');
+    const highAnomalies = topAnomalies.filter(
+      (a) => a.type === 'unusually_high'
+    );
 
     if (highAnomalies.length > 0) {
       insights.push(
@@ -660,7 +696,8 @@ export async function detectAnomalies(
             category,
             averageAmount: Math.round(stats.mean * 100) / 100,
             typicalRange: {
-              min: Math.round(Math.max(0, stats.mean - stats.stdDev) * 100) / 100,
+              min:
+                Math.round(Math.max(0, stats.mean - stats.stdDev) * 100) / 100,
               max: Math.round((stats.mean + stats.stdDev) * 100) / 100,
             },
           })),

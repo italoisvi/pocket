@@ -57,7 +57,8 @@ export async function getFinancialPatterns(
         success: true,
         data: {
           patterns: [],
-          message: 'Nenhum padrao financeiro detectado ainda. Continue usando o app para que eu possa aprender seus habitos.',
+          message:
+            'Nenhum padrao financeiro detectado ainda. Continue usando o app para que eu possa aprender seus habitos.',
         },
       };
     }

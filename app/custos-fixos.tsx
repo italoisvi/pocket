@@ -84,7 +84,9 @@ export default function CustosFixosScreen() {
       // Buscar expenses MANUAIS marcados como custo fixo
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category, subcategory, source, establishment_name, is_fixed_cost')
+        .select(
+          'amount, category, subcategory, source, establishment_name, is_fixed_cost'
+        )
         .eq('user_id', user.id)
         .eq('is_fixed_cost', true)
         .gte('date', firstDayOfMonth.toISOString().split('T')[0])

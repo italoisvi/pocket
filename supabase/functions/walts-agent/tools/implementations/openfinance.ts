@@ -49,7 +49,8 @@ export async function getBankAccounts(
     const formattedAccounts = (accounts || []).map((acc) => ({
       id: acc.id,
       bank:
-        items.find((i) => i.id === acc.item_id)?.connector_name || 'Desconhecido',
+        items.find((i) => i.id === acc.item_id)?.connector_name ||
+        'Desconhecido',
       type: acc.type === 'BANK' ? 'Conta Corrente' : 'Cartao de Credito',
       name: acc.name,
       balance: acc.balance,
@@ -103,9 +104,12 @@ export async function syncBankAccounts(
 
   try {
     // Chamar edge function de sync
-    const { data, error } = await supabase.functions.invoke('pluggy-sync-item', {
-      body: { account_id: params.account_id },
-    });
+    const { data, error } = await supabase.functions.invoke(
+      'pluggy-sync-item',
+      {
+        body: { account_id: params.account_id },
+      }
+    );
 
     if (error) {
       return {
@@ -200,7 +204,9 @@ export async function getBankTransactions(
     // Buscar transacoes
     let query = supabase
       .from('pluggy_transactions')
-      .select('id, account_id, description, amount, date, status, type, category, synced, expense_id')
+      .select(
+        'id, account_id, description, amount, date, status, type, category, synced, expense_id'
+      )
       .eq('user_id', userId)
       .order('date', { ascending: false })
       .limit(limit);
@@ -228,7 +234,10 @@ export async function getBankTransactions(
 
     if (error) {
       console.error('[openfinance.getBankTransactions] Query error:', error);
-      return { success: false, error: `Erro ao buscar transacoes: ${error.message}` };
+      return {
+        success: false,
+        error: `Erro ao buscar transacoes: ${error.message}`,
+      };
     }
 
     if (!transactions || transactions.length === 0) {
@@ -352,9 +361,11 @@ export async function checkBankSyncStatus(
       status: statusMap[item.status] || item.status,
       lastSync: item.last_updated_at,
       error: item.error_message,
-      needsAttention: ['LOGIN_ERROR', 'OUTDATED', 'WAITING_USER_INPUT'].includes(
-        item.status
-      ),
+      needsAttention: [
+        'LOGIN_ERROR',
+        'OUTDATED',
+        'WAITING_USER_INPUT',
+      ].includes(item.status),
     }));
 
     return {

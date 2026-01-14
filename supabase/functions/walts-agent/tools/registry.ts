@@ -793,7 +793,8 @@ RETORNA:
         properties: {
           include_estimated: {
             type: 'boolean',
-            description: 'Incluir custos estimados baseados em padroes (padrao false)',
+            description:
+              'Incluir custos estimados baseados em padroes (padrao false)',
           },
         },
         required: [],
@@ -820,7 +821,8 @@ RETORNA:
         properties: {
           min_occurrences: {
             type: 'number',
-            description: 'Minimo de ocorrencias para considerar recorrente (padrao 2)',
+            description:
+              'Minimo de ocorrencias para considerar recorrente (padrao 2)',
           },
           min_months: {
             type: 'number',
@@ -1043,7 +1045,17 @@ USE ESTA FERRAMENTA QUANDO:
           source: {
             type: 'string',
             description: 'Tipo de fonte de renda',
-            enum: ['CLT', 'PJ', 'Autonomo', 'Freelancer', 'Empresario', 'Aposentado', 'Pensionista', 'Investimentos', 'Outros'],
+            enum: [
+              'CLT',
+              'PJ',
+              'Autonomo',
+              'Freelancer',
+              'Empresario',
+              'Aposentado',
+              'Pensionista',
+              'Investimentos',
+              'Outros',
+            ],
           },
           linked_account_id: {
             type: 'string',
@@ -1082,7 +1094,17 @@ USE ESTA FERRAMENTA QUANDO:
           source: {
             type: 'string',
             description: 'Nova fonte',
-            enum: ['CLT', 'PJ', 'Autonomo', 'Freelancer', 'Empresario', 'Aposentado', 'Pensionista', 'Investimentos', 'Outros'],
+            enum: [
+              'CLT',
+              'PJ',
+              'Autonomo',
+              'Freelancer',
+              'Empresario',
+              'Aposentado',
+              'Pensionista',
+              'Investimentos',
+              'Outros',
+            ],
           },
         },
         required: ['income_card_id'],
@@ -1144,7 +1166,8 @@ USE ESTA FERRAMENTA QUANDO:
           },
           category: {
             type: 'string',
-            description: 'Categoria da meta (ex: "viagem", "veiculo", "emergencia")',
+            description:
+              'Categoria da meta (ex: "viagem", "veiculo", "emergencia")',
           },
           initial_amount: {
             type: 'number',
@@ -1239,8 +1262,17 @@ USE ESTA FERRAMENTA QUANDO:
             type: 'string',
             description: 'Nova categoria',
             enum: [
-              'moradia', 'alimentacao', 'transporte', 'saude', 'educacao',
-              'lazer', 'vestuario', 'beleza', 'eletronicos', 'delivery', 'outros',
+              'moradia',
+              'alimentacao',
+              'transporte',
+              'saude',
+              'educacao',
+              'lazer',
+              'vestuario',
+              'beleza',
+              'eletronicos',
+              'delivery',
+              'outros',
             ],
           },
           subcategory: {
@@ -1279,7 +1311,8 @@ USE ESTA FERRAMENTA QUANDO:
           },
           monthly_amount: {
             type: 'number',
-            description: 'Valor mensal estimado (usa valor da transacao se omitido)',
+            description:
+              'Valor mensal estimado (usa valor da transacao se omitido)',
           },
         },
         required: ['transaction_id'],
@@ -1332,8 +1365,17 @@ USE ESTA FERRAMENTA QUANDO:
             type: 'string',
             description: 'Categoria a monitorar',
             enum: [
-              'moradia', 'alimentacao', 'transporte', 'saude', 'educacao',
-              'lazer', 'vestuario', 'beleza', 'eletronicos', 'delivery', 'outros',
+              'moradia',
+              'alimentacao',
+              'transporte',
+              'saude',
+              'educacao',
+              'lazer',
+              'vestuario',
+              'beleza',
+              'eletronicos',
+              'delivery',
+              'outros',
             ],
           },
           threshold: {

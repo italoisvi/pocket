@@ -134,7 +134,12 @@ export function ExpenseConfirmModal({
                 <Text style={[styles.cashLabel, { color: theme.text }]}>
                   Paguei em dinheiro?
                 </Text>
-                <Text style={[styles.cashDescription, { color: theme.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.cashDescription,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   Gastos em dinheiro não aparecem no extrato bancário
                 </Text>
               </View>
@@ -156,7 +161,9 @@ export function ExpenseConfirmModal({
                       ? '#000'
                       : '#fff'
                 }
-                ios_backgroundColor={theme.background === '#000' ? '#333' : '#e0e0e0'}
+                ios_backgroundColor={
+                  theme.background === '#000' ? '#333' : '#e0e0e0'
+                }
               />
             </View>
 

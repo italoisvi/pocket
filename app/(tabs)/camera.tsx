@@ -357,46 +357,46 @@ export default function CameraScreen() {
         );
 
         if (similarTransactions && similarTransactions.length > 0) {
-        // Encontrar transação com valor igual ou muito próximo (tolerância de R$1)
-        const extractDuplicate = similarTransactions.find((tx) => {
-          const txAmount = Math.abs(tx.amount);
-          const diff = Math.abs(txAmount - editedData.amount);
-          console.log(
-            '[Camera] Comparando:',
-            txAmount,
-            'vs',
-            editedData.amount,
-            'diff:',
-            diff
-          );
-          return diff < 1; // Tolerância de R$1
-        });
+          // Encontrar transação com valor igual ou muito próximo (tolerância de R$1)
+          const extractDuplicate = similarTransactions.find((tx) => {
+            const txAmount = Math.abs(tx.amount);
+            const diff = Math.abs(txAmount - editedData.amount);
+            console.log(
+              '[Camera] Comparando:',
+              txAmount,
+              'vs',
+              editedData.amount,
+              'diff:',
+              diff
+            );
+            return diff < 1; // Tolerância de R$1
+          });
 
-        if (extractDuplicate) {
-          console.log(
-            '[Camera] Possível duplicata no extrato:',
-            extractDuplicate
-          );
-          setSaving(false);
-          Alert.alert(
-            'Possível duplicata no extrato',
-            `Encontramos uma transação com valor similar no seu extrato bancário:\n\n${extractDuplicate.description || extractDuplicate.description_raw}\nR$ ${Math.abs(extractDuplicate.amount).toFixed(2)}\nData: ${extractDuplicate.date}\n\nSe este gasto já está no extrato, registrá-lo novamente vai debitar o valor duas vezes. Deseja continuar?`,
-            [
-              { text: 'Cancelar', style: 'cancel' },
-              {
-                text: 'Registrar mesmo assim',
-                style: 'destructive',
-                onPress: () =>
-                  saveExpenseWithoutDuplicateCheck(
-                    editedData,
-                    publicUrl,
-                    user.id
-                  ),
-              },
-            ]
-          );
-          return;
-        }
+          if (extractDuplicate) {
+            console.log(
+              '[Camera] Possível duplicata no extrato:',
+              extractDuplicate
+            );
+            setSaving(false);
+            Alert.alert(
+              'Possível duplicata no extrato',
+              `Encontramos uma transação com valor similar no seu extrato bancário:\n\n${extractDuplicate.description || extractDuplicate.description_raw}\nR$ ${Math.abs(extractDuplicate.amount).toFixed(2)}\nData: ${extractDuplicate.date}\n\nSe este gasto já está no extrato, registrá-lo novamente vai debitar o valor duas vezes. Deseja continuar?`,
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Registrar mesmo assim',
+                  style: 'destructive',
+                  onPress: () =>
+                    saveExpenseWithoutDuplicateCheck(
+                      editedData,
+                      publicUrl,
+                      user.id
+                    ),
+                },
+              ]
+            );
+            return;
+          }
         }
       }
 

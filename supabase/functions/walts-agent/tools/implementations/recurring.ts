@@ -30,7 +30,8 @@ export async function listFixedCosts(
     // Buscar transacoes marcadas como custo fixo
     const { data: fixedCosts, error } = await supabase
       .from('transaction_categories')
-      .select(`
+      .select(
+        `
         id,
         category,
         subcategory,
@@ -40,7 +41,8 @@ export async function listFixedCosts(
           amount,
           date
         )
-      `)
+      `
+      )
       .eq('user_id', userId)
       .eq('is_fixed_cost', true);
 
@@ -78,8 +80,14 @@ export async function listFixedCosts(
       : [];
 
     const allCosts = [...confirmedFixedCosts, ...estimatedFixedCosts];
-    const totalConfirmed = confirmedFixedCosts.reduce((sum, c) => sum + c.amount, 0);
-    const totalEstimated = estimatedFixedCosts.reduce((sum, c) => sum + c.amount, 0);
+    const totalConfirmed = confirmedFixedCosts.reduce(
+      (sum, c) => sum + c.amount,
+      0
+    );
+    const totalEstimated = estimatedFixedCosts.reduce(
+      (sum, c) => sum + c.amount,
+      0
+    );
 
     return {
       success: true,
@@ -184,9 +192,8 @@ export async function detectRecurringExpenses(
       if (occurrences < minOccurrences) continue;
 
       // Calcular meses unicos
-      const uniqueMonths = new Set(
-        data.dates.map((d) => d.substring(0, 7))
-      ).size;
+      const uniqueMonths = new Set(data.dates.map((d) => d.substring(0, 7)))
+        .size;
 
       if (uniqueMonths < minMonths) continue;
 
@@ -194,21 +201,24 @@ export async function detectRecurringExpenses(
       const avgAmount =
         data.amounts.reduce((a, b) => a + b, 0) / data.amounts.length;
       const variance =
-        data.amounts.reduce((sum, val) => sum + Math.pow(val - avgAmount, 2), 0) /
-        data.amounts.length;
+        data.amounts.reduce(
+          (sum, val) => sum + Math.pow(val - avgAmount, 2),
+          0
+        ) / data.amounts.length;
       const stdDev = Math.sqrt(variance);
       const coefficientOfVariation = stdDev / avgAmount;
 
       // Alta confianca se valores sao consistentes
       const valueConsistency = 1 - Math.min(coefficientOfVariation, 1);
       const frequencyScore = Math.min(uniqueMonths / 6, 1);
-      const confidence = (valueConsistency * 0.6 + frequencyScore * 0.4);
+      const confidence = valueConsistency * 0.6 + frequencyScore * 0.4;
 
       // Detectar se parece assinatura (valores muito proximos)
       const isSubscription = coefficientOfVariation < 0.1;
 
       recurring.push({
-        establishment: establishment.charAt(0).toUpperCase() + establishment.slice(1),
+        establishment:
+          establishment.charAt(0).toUpperCase() + establishment.slice(1),
         avgAmount: Math.round(avgAmount * 100) / 100,
         occurrences,
         monthsPresent: uniqueMonths,
@@ -231,8 +241,14 @@ export async function detectRecurringExpenses(
         subscriptions,
         otherRecurring,
         total: recurring.length,
-        totalSubscriptionsAmount: subscriptions.reduce((sum, s) => sum + s.avgAmount, 0),
-        totalRecurringAmount: recurring.reduce((sum, r) => sum + r.avgAmount, 0),
+        totalSubscriptionsAmount: subscriptions.reduce(
+          (sum, s) => sum + s.avgAmount,
+          0
+        ),
+        totalRecurringAmount: recurring.reduce(
+          (sum, r) => sum + r.avgAmount,
+          0
+        ),
         message:
           recurring.length === 0
             ? 'Nenhum gasto recorrente detectado com os criterios especificados.'
@@ -263,12 +279,14 @@ export async function calculateFixedCostsTotal(
     // Buscar custos fixos confirmados
     const { data: fixedCosts } = await supabase
       .from('transaction_categories')
-      .select(`
+      .select(
+        `
         category,
         pluggy_transactions (
           amount
         )
-      `)
+      `
+      )
       .eq('user_id', userId)
       .eq('is_fixed_cost', true);
 
@@ -287,7 +305,8 @@ export async function calculateFixedCostsTotal(
     for (const fc of fixedCosts || []) {
       const amount = Math.abs(fc.pluggy_transactions?.amount || 0);
       const category = fc.category || 'outros';
-      confirmedByCategory[category] = (confirmedByCategory[category] || 0) + amount;
+      confirmedByCategory[category] =
+        (confirmedByCategory[category] || 0) + amount;
       totalConfirmed += amount;
     }
 
@@ -295,9 +314,11 @@ export async function calculateFixedCostsTotal(
     let totalEstimated = 0;
 
     for (const p of patterns || []) {
-      const amount = (p.pattern_value as { avg_amount?: number })?.avg_amount || 0;
+      const amount =
+        (p.pattern_value as { avg_amount?: number })?.avg_amount || 0;
       const category = p.category || 'outros';
-      estimatedByCategory[category] = (estimatedByCategory[category] || 0) + amount;
+      estimatedByCategory[category] =
+        (estimatedByCategory[category] || 0) + amount;
       totalEstimated += amount;
     }
 
@@ -311,7 +332,9 @@ export async function calculateFixedCostsTotal(
       category,
       confirmed: confirmedByCategory[category] || 0,
       estimated: estimatedByCategory[category] || 0,
-      total: (confirmedByCategory[category] || 0) + (estimatedByCategory[category] || 0),
+      total:
+        (confirmedByCategory[category] || 0) +
+        (estimatedByCategory[category] || 0),
     }));
 
     byCategory.sort((a, b) => b.total - a.total);

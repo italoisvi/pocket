@@ -150,7 +150,11 @@ function buildUserMessageContent(
 
 async function reactLoop(
   userMessage: string,
-  history: Array<{ role: 'user' | 'assistant'; content: string; imageUrls?: string[] }>,
+  history: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    imageUrls?: string[];
+  }>,
   systemPrompt: string,
   userId: UserId,
   sessionId: string,

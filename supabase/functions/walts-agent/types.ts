@@ -55,6 +55,9 @@ export type ExpenseRow = {
   date: string;
   category: string | null;
   subcategory: string | null;
+  source?: string | null;
+  created_at?: string;
+  is_cash?: boolean;
 };
 
 export type BudgetRow = {
@@ -84,6 +87,24 @@ export type LearnedInsight = {
 };
 
 // ============================================================================
+// Bank Account Types (from pluggy_accounts)
+// ============================================================================
+
+export type BankAccountRow = {
+  id: string;
+  balance: number | null;
+  last_sync_at: string | null;
+  item_id: string;
+};
+
+export type PluggyItemRow = {
+  id: string;
+  last_updated_at: string | null;
+};
+
+export type BalanceSource = 'manual' | 'bank' | 'none';
+
+// ============================================================================
 // User Context (preloaded data)
 // ============================================================================
 
@@ -104,20 +125,32 @@ export type RecentExpense = {
   category: string | null;
 };
 
+export type BankAccountInfo = {
+  id: string;
+  balance: number | null;
+  isSalaryAccount: boolean;
+};
+
 export type UserContext = {
   user: {
     name: string | null;
     totalIncome: number;
     nextPaymentDay: number | null;
     incomeCards: IncomeCard[];
+    salaryAccountId: string | null;
   };
   financial: {
-    totalExpensesThisMonth: number;
-    balance: number;
+    remainingBalance: number;
+    totalBankBalance: number | null;
+    totalManualExpenses: number;
+    recentManualExpenses: number;
     percentSpent: number;
     dailyBudget: number;
     daysUntilNextPayment: number;
+    balanceSource: BalanceSource;
+    lastSyncAt: string | null;
   };
+  bankAccounts: BankAccountInfo[];
   budgets: BudgetWithUsage[];
   recentExpenses: RecentExpense[];
   memories: WaltsMemoryRow[];

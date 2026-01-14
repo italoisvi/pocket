@@ -10,6 +10,10 @@ import type {
   BudgetWithUsage,
   RecentExpense,
   LearnedInsight,
+  BankAccountRow,
+  PluggyItemRow,
+  BalanceSource,
+  BankAccountInfo,
 } from './types.ts';
 
 // ============================================================================
@@ -144,10 +148,12 @@ export async function preloadUserContext(
     recentExpensesResult,
     memoriesResult,
     insightsResult,
+    bankAccountsResult,
+    pluggyItemsResult,
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('name, income_cards')
+      .select('name, income_cards, salary_bank_account_id')
       .eq('id', userId)
       .single(),
 
@@ -155,7 +161,9 @@ export async function preloadUserContext(
 
     supabase
       .from('expenses')
-      .select('id, establishment_name, amount, date, category, subcategory')
+      .select(
+        'id, establishment_name, amount, date, category, subcategory, source, created_at, is_cash'
+      )
       .eq('user_id', userId)
       .gte('date', monthStart)
       .lte('date', monthEnd),
@@ -183,6 +191,16 @@ export async function preloadUserContext(
       .gte('confidence', 0.6)
       .order('confidence', { ascending: false })
       .limit(5),
+
+    supabase
+      .from('pluggy_accounts')
+      .select('id, balance, last_sync_at, item_id')
+      .eq('user_id', userId),
+
+    supabase
+      .from('pluggy_items')
+      .select('id, last_updated_at')
+      .eq('user_id', userId),
   ]);
 
   const incomeCards = parseIncomeCards(profileResult.data?.income_cards);
@@ -195,26 +213,114 @@ export async function preloadUserContext(
     value: typeof row.value === 'object' ? row.value : { raw: row.value },
     confidence: row.confidence || 0.6,
   })) as LearnedInsight[];
+  const bankAccounts: BankAccountRow[] = bankAccountsResult.data || [];
+  const pluggyItems: PluggyItemRow[] = pluggyItemsResult.data || [];
+
+  // ============================================================================
+  // Cálculo Inteligente de Saldo (igual ao frontend)
+  // ============================================================================
 
   const totalIncome = calculateTotalIncome(incomeCards);
-  const totalExpensesThisMonth = monthExpenses.reduce(
+  const salaryAccountId = profileResult.data?.salary_bank_account_id || null;
+
+  // Determinar data da última sincronização
+  let lastSyncAt: Date | null = null;
+  const salaryAccount = bankAccounts.find((acc) => acc.id === salaryAccountId);
+  if (salaryAccount?.last_sync_at) {
+    lastSyncAt = new Date(salaryAccount.last_sync_at);
+  } else {
+    // Usar a sincronização mais recente entre todos os items
+    const syncDates = pluggyItems
+      .map((item) => item.last_updated_at)
+      .filter(Boolean)
+      .map((date) => new Date(date as string));
+    if (syncDates.length > 0) {
+      lastSyncAt = new Date(Math.max(...syncDates.map((d) => d.getTime())));
+    }
+  }
+
+  // Filtrar apenas gastos MANUAIS (source = 'manual' ou null)
+  // Gastos importados (source = 'import') já estão no extrato do banco
+  const manualExpenses = monthExpenses.filter(
+    (exp) => !exp.source || exp.source === 'manual'
+  );
+
+  const totalManualExpenses = manualExpenses.reduce(
     (sum, e) => sum + e.amount,
     0
   );
-  const balance = totalIncome - totalExpensesThisMonth;
-  const percentSpent =
-    totalIncome > 0
-      ? Math.round((totalExpensesThisMonth / totalIncome) * 1000) / 10
-      : 0;
 
+  // Identificar gastos RECENTES (ainda não sincronizados)
+  // Critério: criados DEPOIS da última sincronização OU marcados como dinheiro (is_cash)
+  let recentManualExpenses = 0;
+  if (manualExpenses.length > 0) {
+    const cutoffDate = lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000); // 24h atrás se não tem sync
+
+    recentManualExpenses = manualExpenses
+      .filter((exp) => {
+        // Gastos em dinheiro SEMPRE são considerados (nunca aparecem no extrato)
+        if (exp.is_cash) return true;
+        // Outros gastos só se forem recentes
+        return exp.created_at ? new Date(exp.created_at) > cutoffDate : true;
+      })
+      .reduce((sum, e) => sum + e.amount, 0);
+  }
+
+  // CALCULAR SALDO FINAL (igual ao frontend)
+  let remainingBalance: number;
+  let balanceSource: BalanceSource;
+  let totalBankBalance: number | null = null;
+
+  // Verificar se há contas vinculadas
+  const linkedCards = incomeCards.filter((card) => card.linkedAccountId);
+  const hasLinkedAccounts = linkedCards.length > 0;
+
+  if (!hasLinkedAccounts) {
+    // SEM conta vinculada: usar cálculo manual (salário - gastos)
+    remainingBalance = Math.max(0, totalIncome - totalManualExpenses);
+    balanceSource = 'manual';
+  } else {
+    // COM conta vinculada: SALDO DO BANCO É A FONTE DA VERDADE
+    totalBankBalance = 0;
+
+    // Somar saldos de todas as contas vinculadas
+    for (const card of linkedCards) {
+      const account = bankAccounts.find(
+        (acc) => acc.id === card.linkedAccountId
+      );
+      if (account?.balance !== null && account?.balance !== undefined) {
+        totalBankBalance += account.balance;
+      }
+    }
+
+    // Descontar apenas gastos RECENTES (que ainda não sincronizaram)
+    // Gastos antigos já estão refletidos no saldo do banco
+    remainingBalance = Math.max(0, totalBankBalance - recentManualExpenses);
+    balanceSource = 'bank';
+  }
+
+  // Calcular orçamento diário
   const { nextPaymentDay, daysUntil } =
     calculateDaysUntilNextPayment(incomeCards);
   const dailyBudget =
-    daysUntil > 0 ? Math.round((balance / daysUntil) * 100) / 100 : 0;
+    daysUntil > 0 ? Math.round((remainingBalance / daysUntil) * 100) / 100 : 0;
+
+  // Percentual gasto (sobre a renda)
+  const percentSpent =
+    totalIncome > 0
+      ? Math.round((totalManualExpenses / totalIncome) * 1000) / 10
+      : 0;
 
   const budgetsWithUsage = budgets.map((b) =>
     calculateBudgetUsage(b, monthExpenses)
   );
+
+  // Montar informações das contas bancárias
+  const bankAccountsInfo: BankAccountInfo[] = bankAccounts.map((acc) => ({
+    id: acc.id,
+    balance: acc.balance,
+    isSalaryAccount: acc.id === salaryAccountId,
+  }));
 
   return {
     user: {
@@ -222,14 +328,20 @@ export async function preloadUserContext(
       totalIncome,
       nextPaymentDay,
       incomeCards,
+      salaryAccountId,
     },
     financial: {
-      totalExpensesThisMonth,
-      balance,
+      remainingBalance,
+      totalBankBalance,
+      totalManualExpenses,
+      recentManualExpenses,
       percentSpent,
       dailyBudget,
       daysUntilNextPayment: daysUntil,
+      balanceSource,
+      lastSyncAt: lastSyncAt?.toISOString() || null,
     },
+    bankAccounts: bankAccountsInfo,
     budgets: budgetsWithUsage,
     recentExpenses: recentExpenses.map(mapExpenseToRecent),
     memories,
@@ -242,18 +354,39 @@ export async function preloadUserContext(
 // ============================================================================
 
 export function generateSystemPrompt(context: UserContext): string {
-  const { user, financial, budgets, recentExpenses, memories, insights } =
-    context;
+  const {
+    user,
+    financial,
+    budgets,
+    recentExpenses,
+    memories,
+    insights,
+    bankAccounts,
+  } = context;
 
   const incomeCardsText =
     user.incomeCards.length > 0
       ? user.incomeCards
-          .map(
-            (c) =>
-              `  - ${c.source}: R$ ${c.amount.toLocaleString('pt-BR')} (dia ${c.day})`
-          )
+          .map((c) => {
+            const linkedText = c.linkedAccountId ? ' (vinculada ao banco)' : '';
+            return `  - ${c.source}: R$ ${c.amount.toLocaleString('pt-BR')} (dia ${c.day})${linkedText}`;
+          })
           .join('\n')
       : '  Nenhuma fonte de renda cadastrada';
+
+  // Informações da conta de salário
+  const salaryAccountInfo = bankAccounts.find((acc) => acc.isSalaryAccount);
+  const salaryAccountText = salaryAccountInfo
+    ? `Conta de Salário Vinculada: saldo R$ ${salaryAccountInfo.balance?.toLocaleString('pt-BR') ?? 'N/A'}`
+    : 'Nenhuma conta bancária vinculada como fonte de renda';
+
+  // Fonte do saldo
+  const balanceSourceText =
+    financial.balanceSource === 'bank'
+      ? 'Saldo baseado no extrato bancário (fonte da verdade)'
+      : financial.balanceSource === 'manual'
+        ? 'Saldo calculado manualmente (sem conta vinculada)'
+        : 'Sem dados de renda';
 
   const budgetsText =
     budgets.length > 0
@@ -304,11 +437,15 @@ CONTEXTO DO USUÁRIO:
 FONTES DE RENDA:
 ${incomeCardsText}
 
+${salaryAccountText}
+
 SITUAÇÃO FINANCEIRA (mês atual):
-- Total gasto: R$ ${financial.totalExpensesThisMonth.toLocaleString('pt-BR')}
-- Saldo restante: R$ ${financial.balance.toLocaleString('pt-BR')}
+- Saldo disponível: R$ ${financial.remainingBalance.toLocaleString('pt-BR')}
+  ${balanceSourceText}${financial.totalBankBalance !== null ? `\n  (Saldo total nas contas: R$ ${financial.totalBankBalance.toLocaleString('pt-BR')})` : ''}
+- Total de gastos manuais: R$ ${financial.totalManualExpenses.toLocaleString('pt-BR')}
+- Gastos aguardando sincronização: R$ ${financial.recentManualExpenses.toLocaleString('pt-BR')}
 - % da renda gasta: ${financial.percentSpent}%
-- Meta diária: R$ ${financial.dailyBudget.toLocaleString('pt-BR')} (${financial.daysUntilNextPayment} dias até próximo salário)
+- Meta diária: R$ ${financial.dailyBudget.toLocaleString('pt-BR')} (${financial.daysUntilNextPayment} dias até próximo salário)${financial.lastSyncAt ? `\n- Última sincronização bancária: ${new Date(financial.lastSyncAt).toLocaleString('pt-BR')}` : ''}
 
 ORÇAMENTOS:
 ${budgetsText}
@@ -318,15 +455,25 @@ ${expensesText}
 ${memoriesText ? `\nPREFERÊNCIAS DO USUÁRIO:\n${memoriesText}` : ''}
 ${insightsText ? `\nINSIGHTS APRENDIDOS (use para personalizar respostas):\n${insightsText}` : ''}
 
-REGRAS:
-1. Se a informação está no contexto acima, USE-A diretamente
-2. Use ferramentas APENAS quando precisar de dados que não estão no contexto
-3. Após executar UMA ferramenta, RESPONDA ao usuário (não chame mais ferramentas)
-4. Para ações (criar/editar/deletar), execute e confirme
-5. Seja direto, conciso, educado e prestativo
-6. NUNCA use emojis em suas respostas - este é um app financeiro profissional
-7. Responda SEMPRE em português do Brasil
-8. Use os insights aprendidos para personalizar suas respostas (ex: categorização preferida)
+REGRAS IMPORTANTES:
+1. SALDO: Use SEMPRE o valor "Saldo disponível" acima quando perguntarem sobre saldo
+2. O saldo do BANCO é a FONTE DA VERDADE quando há conta vinculada
+3. Gastos manuais são temporários até a próxima sincronização bancária
+4. Apenas gastos RECENTES (após última sincronização) debitam do saldo
+5. Se a informação está no contexto acima, USE-A diretamente
+6. Use ferramentas APENAS quando precisar de dados que não estão no contexto
+7. Após executar UMA ferramenta, RESPONDA ao usuário
+8. Seja direto, conciso e natural como um assistente pessoal
+9. NUNCA use emojis
+10. Responda SEMPRE em português do Brasil
+
+ESTILO DE RESPOSTA:
+- NÃO termine com frases genéricas como:
+  "Posso ajudar em algo mais?"
+  "Se precisar de mais alguma coisa, estou aqui"
+  "Quer que eu faça mais alguma coisa?"
+- Termine de forma natural, focada no conteúdo
+- Só ofereça próxima ação se for óbvia e útil
 
 CATEGORIZAÇÃO DE GASTOS:
 Ao criar um gasto, voce DECIDE LIVREMENTE:

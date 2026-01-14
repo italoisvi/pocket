@@ -316,7 +316,9 @@ export default function CreateBudgetScreen() {
                     ? '#000'
                     : '#fff'
               }
-              ios_backgroundColor={theme.background === '#000' ? '#333' : '#e0e0e0'}
+              ios_backgroundColor={
+                theme.background === '#000' ? '#333' : '#e0e0e0'
+              }
             />
           </View>
         </View>

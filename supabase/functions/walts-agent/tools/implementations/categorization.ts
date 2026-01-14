@@ -112,7 +112,10 @@ export async function recategorizeTransaction(
               is_fixed_cost: params.is_fixed_cost,
             },
             occurrences: existingPattern.occurrences + 1,
-            confidence: Math.min(0.95, 0.7 + existingPattern.occurrences * 0.05),
+            confidence: Math.min(
+              0.95,
+              0.7 + existingPattern.occurrences * 0.05
+            ),
             last_updated_at: new Date().toISOString(),
           })
           .eq('id', existingPattern.id);
@@ -304,7 +307,9 @@ export async function getUncategorized(
       .eq('user_id', userId)
       .in('transaction_id', transactionIds);
 
-    const categorizedIds = new Set((categories || []).map((c) => c.transaction_id));
+    const categorizedIds = new Set(
+      (categories || []).map((c) => c.transaction_id)
+    );
 
     // Filtrar transacoes sem categoria ou com categoria generica
     const uncategorized = transactions
@@ -359,6 +364,9 @@ export async function getUncategorized(
     };
   } catch (error) {
     console.error('[categorization.getUncategorized] Error:', error);
-    return { success: false, error: 'Erro ao buscar transacoes nao categorizadas' };
+    return {
+      success: false,
+      error: 'Erro ao buscar transacoes nao categorizadas',
+    };
   }
 }

@@ -197,7 +197,10 @@ export async function trackGoalProgress(
         goal.targetAmount > 0
           ? Math.round((goal.currentAmount / goal.targetAmount) * 100)
           : 0;
-      const expectedPercent = Math.min(100, Math.round((daysElapsed / totalDays) * 100));
+      const expectedPercent = Math.min(
+        100,
+        Math.round((daysElapsed / totalDays) * 100)
+      );
 
       const amountRemaining = goal.targetAmount - goal.currentAmount;
       const monthsRemaining = Math.max(1, Math.ceil(daysRemaining / 30));
@@ -221,7 +224,12 @@ export async function trackGoalProgress(
           monthsRemaining,
           monthlyRequired: Math.round(monthlyRequired * 100) / 100,
         },
-        status: percentComplete >= 100 ? 'completed' : isOnTrack ? 'on_track' : 'behind',
+        status:
+          percentComplete >= 100
+            ? 'completed'
+            : isOnTrack
+              ? 'on_track'
+              : 'behind',
       };
     });
 
@@ -368,7 +376,13 @@ export async function suggestSavingsPlan(
     const additionalNeeded = Math.max(0, monthlyRequired - currentSavings);
 
     // Categorias que podem ser cortadas
-    const discretionaryCategories = ['lazer', 'delivery', 'vestuario', 'beleza', 'eletronicos'];
+    const discretionaryCategories = [
+      'lazer',
+      'delivery',
+      'vestuario',
+      'beleza',
+      'eletronicos',
+    ];
     const cuttableExpenses = categoryAverages.filter((c) =>
       discretionaryCategories.includes(c.category)
     );
@@ -388,14 +402,16 @@ export async function suggestSavingsPlan(
     for (const expense of cuttableExpenses) {
       if (accumulatedSavings >= additionalNeeded) break;
 
-      const suggestedCut = Math.round(expense.monthlyAverage * cutPercent * 100) / 100;
+      const suggestedCut =
+        Math.round(expense.monthlyAverage * cutPercent * 100) / 100;
       accumulatedSavings += suggestedCut;
 
       suggestions.push({
         category: expense.category,
         currentAmount: expense.monthlyAverage,
         suggestedCut,
-        newAmount: Math.round((expense.monthlyAverage - suggestedCut) * 100) / 100,
+        newAmount:
+          Math.round((expense.monthlyAverage - suggestedCut) * 100) / 100,
         percentCut: Math.round(cutPercent * 100),
       });
     }
@@ -421,7 +437,8 @@ export async function suggestSavingsPlan(
           type: params.aggressive ? 'agressivo' : 'conservador',
           suggestions,
           totalPotentialSavings: Math.round(accumulatedSavings * 100) / 100,
-          newMonthlySavings: Math.round((currentSavings + accumulatedSavings) * 100) / 100,
+          newMonthlySavings:
+            Math.round((currentSavings + accumulatedSavings) * 100) / 100,
           canAchieveGoal: canAchieve,
         },
         insights: [

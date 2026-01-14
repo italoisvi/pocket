@@ -62,9 +62,7 @@ export async function listConversations(
       title: c.title,
       createdAt: new Date(c.created_at).toLocaleDateString('pt-BR'),
       updatedAt: new Date(c.updated_at).toLocaleDateString('pt-BR'),
-      daysAgo: Math.floor(
-        (Date.now() - c.updated_at) / (1000 * 60 * 60 * 24)
-      ),
+      daysAgo: Math.floor((Date.now() - c.updated_at) / (1000 * 60 * 60 * 24)),
     }));
 
     return {
@@ -120,10 +118,13 @@ export async function getConversation(
     if (params.include_messages) {
       const messages = conversation.messages || [];
       result.messageCount = messages.length;
-      result.messages = messages.slice(-10).map((m: { role: string; content: string }) => ({
-        role: m.role,
-        content: m.content.substring(0, 200) + (m.content.length > 200 ? '...' : ''),
-      }));
+      result.messages = messages
+        .slice(-10)
+        .map((m: { role: string; content: string }) => ({
+          role: m.role,
+          content:
+            m.content.substring(0, 200) + (m.content.length > 200 ? '...' : ''),
+        }));
     }
 
     return {

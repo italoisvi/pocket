@@ -196,7 +196,9 @@ export async function checkPendingAlerts(
       const overAmount = Math.max(0, currentAmount - alert.threshold);
       const percentOver =
         alert.threshold > 0
-          ? Math.round(((currentAmount - alert.threshold) / alert.threshold) * 100)
+          ? Math.round(
+              ((currentAmount - alert.threshold) / alert.threshold) * 100
+            )
           : 0;
 
       if (isTriggered) {

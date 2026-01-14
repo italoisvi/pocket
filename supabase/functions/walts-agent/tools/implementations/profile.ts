@@ -245,7 +245,8 @@ export async function updateIncomeCard(
     }
 
     const updates: string[] = [];
-    if (params.amount !== undefined) updates.push(`valor: R$ ${params.amount.toFixed(2)}`);
+    if (params.amount !== undefined)
+      updates.push(`valor: R$ ${params.amount.toFixed(2)}`);
     if (params.day !== undefined) updates.push(`dia: ${params.day}`);
     if (params.source !== undefined) updates.push(`fonte: ${params.source}`);
 
@@ -325,7 +326,9 @@ export async function removeIncomeCard(
     // Parse salary para exibicao
     let amount = 0;
     if (cardToRemove.salary) {
-      const cleanSalary = cardToRemove.salary.replace(/\./g, '').replace(',', '.');
+      const cleanSalary = cardToRemove.salary
+        .replace(/\./g, '')
+        .replace(',', '.');
       amount = parseFloat(cleanSalary) || 0;
     }
 

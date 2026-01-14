@@ -165,10 +165,7 @@ const ALERTS_TOOLS = new Set([
   'configure_debt_notifications',
 ]);
 
-const REPORTS_TOOLS = new Set([
-  'generate_monthly_report',
-  'export_data',
-]);
+const REPORTS_TOOLS = new Set(['generate_monthly_report', 'export_data']);
 
 const SUGGESTIONS_TOOLS = new Set([
   'suggest_budget_adjustments',
@@ -394,10 +391,7 @@ async function executeFinancialTool(
       );
 
     case 'delete_expense':
-      return await deleteExpense(
-        params as { expense_id: string },
-        context
-      );
+      return await deleteExpense(params as { expense_id: string }, context);
 
     case 'update_budget':
       return await updateBudget(
@@ -461,10 +455,7 @@ async function executeOpenFinanceTool(
       return await getBankAccounts(params, context);
 
     case 'sync_bank_accounts':
-      return await syncBankAccounts(
-        params as { account_id?: string },
-        context
-      );
+      return await syncBankAccounts(params as { account_id?: string }, context);
 
     case 'get_bank_transactions':
       return await getBankTransactions(

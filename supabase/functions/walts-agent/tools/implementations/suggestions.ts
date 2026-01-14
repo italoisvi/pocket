@@ -45,7 +45,8 @@ export async function suggestBudgetAdjustments(
         success: true,
         data: {
           suggestions: [],
-          message: 'Dados insuficientes para sugerir ajustes. Continue registrando gastos.',
+          message:
+            'Dados insuficientes para sugerir ajustes. Continue registrando gastos.',
         },
       };
     }
@@ -66,11 +67,15 @@ export async function suggestBudgetAdjustments(
     }
 
     // Calcular media e tendencia
-    const categoryStats: Record<string, { avg: number; trend: string; variance: number }> = {};
+    const categoryStats: Record<
+      string,
+      { avg: number; trend: string; variance: number }
+    > = {};
 
     for (const [category, _] of Object.entries(byCategory)) {
       const monthlyTotals = Object.values(byMonth).map((m) => m[category] || 0);
-      const avg = monthlyTotals.reduce((a, b) => a + b, 0) / monthlyTotals.length;
+      const avg =
+        monthlyTotals.reduce((a, b) => a + b, 0) / monthlyTotals.length;
 
       // Calcular tendencia (comparar media recente com media antiga)
       const recentMonths = monthlyTotals.slice(-2);
@@ -85,7 +90,8 @@ export async function suggestBudgetAdjustments(
           : avg;
 
       let trend: string;
-      const changePercent = olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
+      const changePercent =
+        olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
 
       if (changePercent > 15) trend = 'subindo';
       else if (changePercent < -15) trend = 'caindo';
@@ -111,11 +117,14 @@ export async function suggestBudgetAdjustments(
 
     for (const [category, stats] of Object.entries(categoryStats)) {
       const existingBudget = budgets.find((b) => b.category_id === category);
-      const currentLimit = existingBudget ? parseFloat(existingBudget.amount) : null;
+      const currentLimit = existingBudget
+        ? parseFloat(existingBudget.amount)
+        : null;
 
       // Calcular orcamento sugerido (media + margem de seguranca)
       const safetyMargin = Math.sqrt(stats.variance) * 0.5; // Meio desvio padrao
-      const suggestedBudget = Math.round((stats.avg + safetyMargin) * 100) / 100;
+      const suggestedBudget =
+        Math.round((stats.avg + safetyMargin) * 100) / 100;
 
       if (!existingBudget) {
         // Sugerir criar orcamento para categorias relevantes
@@ -160,7 +169,10 @@ export async function suggestBudgetAdjustments(
     // Ordenar por potencial de economia
     suggestions.sort((a, b) => b.savings - a.savings);
 
-    const totalPotentialSavings = suggestions.reduce((sum, s) => sum + s.savings, 0);
+    const totalPotentialSavings = suggestions.reduce(
+      (sum, s) => sum + s.savings,
+      0
+    );
 
     return {
       success: true,
@@ -173,7 +185,8 @@ export async function suggestBudgetAdjustments(
         })),
         summary: {
           totalSuggestions: suggestions.length,
-          potentialMonthlySavings: Math.round(totalPotentialSavings * 100) / 100,
+          potentialMonthlySavings:
+            Math.round(totalPotentialSavings * 100) / 100,
           categoriesAnalyzed: Object.keys(categoryStats).length,
         },
         message:
@@ -232,10 +245,12 @@ export async function suggestCategoriesToCut(
     }
 
     // Converter para media mensal
-    const monthlyAverages = Object.entries(byCategory).map(([category, total]) => ({
-      category,
-      monthlyAverage: total / 3,
-    }));
+    const monthlyAverages = Object.entries(byCategory).map(
+      ([category, total]) => ({
+        category,
+        monthlyAverage: total / 3,
+      })
+    );
 
     // Categorias discricionarias (mais faceis de cortar)
     const discretionaryCategories = [
@@ -335,7 +350,8 @@ export async function suggestCategoriesToCut(
           category: cat.category,
           currentMonthly: Math.round(cat.monthlyAverage * 100) / 100,
           suggestedCut: Math.round(suggestedCut * 100) / 100,
-          newMonthly: Math.round((cat.monthlyAverage - suggestedCut) * 100) / 100,
+          newMonthly:
+            Math.round((cat.monthlyAverage - suggestedCut) * 100) / 100,
           percentCut: Math.round((suggestedCut / cat.monthlyAverage) * 100),
           difficulty: 'dificil',
           tip: tips[cat.category] || 'Otimize sem comprometer qualidade.',
@@ -351,7 +367,9 @@ export async function suggestCategoriesToCut(
         targetSavings: params.target_savings,
         achievableSavings: Math.round(accumulatedSavings * 100) / 100,
         canAchieveTarget: canAchieve,
-        gap: canAchieve ? 0 : Math.round((targetSavings - accumulatedSavings) * 100) / 100,
+        gap: canAchieve
+          ? 0
+          : Math.round((targetSavings - accumulatedSavings) * 100) / 100,
         suggestions,
         message: canAchieve
           ? `Seguindo estas sugestoes, voce pode economizar R$ ${accumulatedSavings.toFixed(2)}/mes.`
@@ -443,8 +461,18 @@ export async function getCashflowPrediction(
     let cumulativeBalance = 0;
 
     const monthNames = [
-      'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+      'Janeiro',
+      'Fevereiro',
+      'Marco',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro',
     ];
 
     for (let i = 1; i <= monthsAhead; i++) {
@@ -471,7 +499,8 @@ export async function getCashflowPrediction(
     // Gerar insights
     const insights: string[] = [];
     const avgProjectedSavings =
-      predictions.reduce((sum, p) => sum + p.projectedBalance, 0) / predictions.length;
+      predictions.reduce((sum, p) => sum + p.projectedBalance, 0) /
+      predictions.length;
 
     if (avgProjectedSavings > 0) {
       insights.push(
@@ -506,9 +535,10 @@ export async function getCashflowPrediction(
         summary: {
           monthsAhead,
           totalProjectedIncome: monthlyIncome * monthsAhead,
-          totalProjectedExpenses: Math.round(
-            predictions.reduce((sum, p) => sum + p.projectedExpenses, 0) * 100
-          ) / 100,
+          totalProjectedExpenses:
+            Math.round(
+              predictions.reduce((sum, p) => sum + p.projectedExpenses, 0) * 100
+            ) / 100,
           finalCumulativeBalance: cumulativeBalance,
           avgMonthlySavings: Math.round(avgProjectedSavings * 100) / 100,
         },
@@ -517,6 +547,9 @@ export async function getCashflowPrediction(
     };
   } catch (error) {
     console.error('[suggestions.getCashflowPrediction] Error:', error);
-    return { success: false, error: 'Erro ao gerar previsao de fluxo de caixa' };
+    return {
+      success: false,
+      error: 'Erro ao gerar previsao de fluxo de caixa',
+    };
   }
 }

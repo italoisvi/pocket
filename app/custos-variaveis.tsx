@@ -85,7 +85,9 @@ export default function CustosVariaveisScreen() {
       // Buscar expenses MANUAIS marcados como custo variavel (is_fixed_cost = false ou null)
       const { data: expensesData } = await supabase
         .from('expenses')
-        .select('amount, category, subcategory, source, establishment_name, is_fixed_cost')
+        .select(
+          'amount, category, subcategory, source, establishment_name, is_fixed_cost'
+        )
         .eq('user_id', user.id)
         .or('is_fixed_cost.eq.false,is_fixed_cost.is.null')
         .gte('date', firstDayOfMonth.toISOString().split('T')[0])

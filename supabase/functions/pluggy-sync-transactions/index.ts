@@ -149,7 +149,8 @@ serve(async (req) => {
     // Criar mapa de expenses existentes para verificacao rapida
     const existingExpensesMap = new Set(
       (existingExpenses || []).map(
-        (e) => `${e.establishment_name?.toLowerCase()}-${Math.abs(e.amount)}-${e.date}`
+        (e) =>
+          `${e.establishment_name?.toLowerCase()}-${Math.abs(e.amount)}-${e.date}`
       )
     );
 
@@ -171,24 +172,25 @@ serve(async (req) => {
       const isDuplicate = existingExpensesMap.has(transactionKey);
 
       // Inserir transacao
-      const { data: insertedTransaction, error: transactionError } = await supabase
-        .from('pluggy_transactions')
-        .insert({
-          pluggy_transaction_id: transaction.id,
-          user_id: user.id,
-          account_id: accountData.id,
-          description: transaction.description,
-          description_raw: transaction.descriptionRaw,
-          amount: transaction.amount,
-          date: transaction.date.split('T')[0],
-          status: transaction.status,
-          type: transaction.type,
-          category: transaction.category || null,
-          provider_code: transaction.providerCode || null,
-          synced: isDuplicate, // Marcar como synced se for duplicata
-        })
-        .select('id')
-        .single();
+      const { data: insertedTransaction, error: transactionError } =
+        await supabase
+          .from('pluggy_transactions')
+          .insert({
+            pluggy_transaction_id: transaction.id,
+            user_id: user.id,
+            account_id: accountData.id,
+            description: transaction.description,
+            description_raw: transaction.descriptionRaw,
+            amount: transaction.amount,
+            date: transaction.date.split('T')[0],
+            status: transaction.status,
+            type: transaction.type,
+            category: transaction.category || null,
+            provider_code: transaction.providerCode || null,
+            synced: isDuplicate, // Marcar como synced se for duplicata
+          })
+          .select('id')
+          .single();
 
       if (transactionError) {
         console.error(
