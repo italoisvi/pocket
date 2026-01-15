@@ -21,6 +21,7 @@ import {
 import {
   getFinancialPatterns,
   getPastAnalyses,
+  getChartsData,
 } from './implementations/analysis.ts';
 import {
   listConversations,
@@ -118,7 +119,11 @@ const OPENFINANCE_TOOLS = new Set([
   'check_bank_sync_status',
 ]);
 
-const ANALYSIS_TOOLS = new Set(['get_financial_patterns', 'get_past_analyses']);
+const ANALYSIS_TOOLS = new Set([
+  'get_financial_patterns',
+  'get_past_analyses',
+  'get_charts_data',
+]);
 
 const CONVERSATION_TOOLS = new Set([
   'list_conversations',
@@ -499,6 +504,12 @@ async function executeAnalysisTool(
     case 'get_past_analyses':
       return await getPastAnalyses(
         params as { analysis_type?: string; limit?: number },
+        context
+      );
+
+    case 'get_charts_data':
+      return await getChartsData(
+        params as { period?: string; month?: string },
         context
       );
 

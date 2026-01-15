@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { Langfuse } from 'https://esm.sh/langfuse@3';
 import { preloadUserContext, generateSystemPrompt } from './context.ts';
 import { TOOL_DEFINITIONS } from './tools/registry.ts';
 import { executeTool } from './tools/executor.ts';
@@ -11,17 +12,31 @@ import type {
   OpenAIMessage,
   OpenAIMessageContent,
   ToolCall,
+  ToolCallLog,
+  WaltsEvalResponse,
 } from './types.ts';
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+const LANGFUSE_SECRET_KEY = Deno.env.get('LANGFUSE_SECRET_KEY');
+const LANGFUSE_PUBLIC_KEY = Deno.env.get('LANGFUSE_PUBLIC_KEY');
+const LANGFUSE_HOST = Deno.env.get('LANGFUSE_HOST') || 'https://cloud.langfuse.com';
+
+// Initialize Langfuse (optional - only if keys are configured)
+const langfuse = LANGFUSE_SECRET_KEY && LANGFUSE_PUBLIC_KEY
+  ? new Langfuse({
+      secretKey: LANGFUSE_SECRET_KEY,
+      publicKey: LANGFUSE_PUBLIC_KEY,
+      baseUrl: LANGFUSE_HOST,
+    })
+  : null;
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
+    'authorization, x-client-info, apikey, content-type, x-eval-mode, x-eval-max-iterations',
 };
 
 const MAX_ITERATIONS = 3;
@@ -32,8 +47,9 @@ const MAX_ITERATIONS = 3;
 
 async function callOpenAI(
   messages: OpenAIMessage[],
-  includeTools: boolean = true
-): Promise<{ content: string | null; tool_calls?: ToolCall[] }> {
+  includeTools: boolean = true,
+  traceSpan?: any
+): Promise<{ content: string | null; tool_calls?: ToolCall[]; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
   const body: Record<string, unknown> = {
     model: 'gpt-4o',
     messages,
@@ -45,6 +61,8 @@ async function callOpenAI(
     body.tools = TOOL_DEFINITIONS;
     body.tool_choice = 'auto';
   }
+
+  const startTime = Date.now();
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -58,15 +76,49 @@ async function callOpenAI(
   if (!response.ok) {
     const errorText = await response.text();
     console.error('[walts-agent] OpenAI API error:', errorText);
+
+    // Log error to Langfuse if available
+    if (traceSpan) {
+      traceSpan.event({
+        name: 'openai_error',
+        level: 'ERROR',
+        metadata: { status: response.status, error: errorText },
+      });
+    }
+
     throw new Error('Erro ao comunicar com o assistente');
   }
 
   const data = await response.json();
   const choice = data.choices[0].message;
+  const latencyMs = Date.now() - startTime;
+
+  // Log generation to Langfuse if available
+  if (traceSpan) {
+    const generation = traceSpan.generation({
+      name: 'openai-gpt4o',
+      model: 'gpt-4o',
+      modelParameters: { temperature: 0.7, max_tokens: 1500 },
+      input: messages,
+      metadata: {
+        includeTools,
+        toolCallsCount: choice.tool_calls?.length || 0,
+      },
+    });
+    generation.end({
+      output: choice,
+      usage: {
+        promptTokens: data.usage?.prompt_tokens,
+        completionTokens: data.usage?.completion_tokens,
+        totalTokens: data.usage?.total_tokens,
+      },
+    });
+  }
 
   return {
     content: choice.content,
     tool_calls: choice.tool_calls,
+    usage: data.usage,
   };
 }
 
@@ -159,9 +211,14 @@ async function reactLoop(
   userId: UserId,
   sessionId: string,
   supabase: ReturnType<typeof createClient>,
-  imageUrls?: string[]
-): Promise<{ response: string; thoughts: AgentThought[] }> {
+  imageUrls?: string[],
+  maxIterationsOverride?: number,
+  trace?: any
+): Promise<{ response: string; thoughts: AgentThought[]; iterations: number; traceId?: string }> {
   const thoughts: AgentThought[] = [];
+  const maxIter = maxIterationsOverride ?? MAX_ITERATIONS;
+  let iterationsUsed = 0;
+  let totalTokens = 0;
 
   const userContent = buildUserMessageContent(userMessage, imageUrls);
 
@@ -187,22 +244,39 @@ async function reactLoop(
     { role: 'user', content: userContent },
   ];
 
-  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-    console.log(
-      `[walts-agent] ReAct iteration ${iteration + 1}/${MAX_ITERATIONS}`
-    );
+  for (let iteration = 0; iteration < maxIter; iteration++) {
+    iterationsUsed = iteration + 1;
+    console.log(`[walts-agent] ReAct iteration ${iteration + 1}/${maxIter}`);
+
+    // Create span for this iteration (Langfuse)
+    const iterationSpan = trace?.span({
+      name: `iteration-${iteration + 1}`,
+      metadata: { iteration: iteration + 1, maxIterations: maxIter },
+    });
 
     // Call OpenAI
-    const response = await callOpenAI(messages, iteration < MAX_ITERATIONS - 1);
+    const response = await callOpenAI(
+      messages,
+      iteration < maxIter - 1,
+      iterationSpan
+    );
+
+    // Track token usage
+    if (response.usage) {
+      totalTokens += response.usage.total_tokens;
+    }
 
     // If no tool calls, return the response
     if (!response.tool_calls || response.tool_calls.length === 0) {
       console.log('[walts-agent] No tool calls, returning final response');
+      iterationSpan?.end();
       return {
         response:
           response.content ||
           'Desculpe, não consegui processar sua solicitação.',
         thoughts,
+        iterations: iterationsUsed,
+        traceId: trace?.id,
       };
     }
 
@@ -231,11 +305,31 @@ async function reactLoop(
 
       console.log(`[walts-agent] Executing tool: ${toolName}`);
 
+      // Create span for tool execution (Langfuse)
+      const toolSpan = iterationSpan?.span({
+        name: `tool:${toolName}`,
+        input: params,
+      });
+
       const result = await executeTool(toolName as any, params, {
         userId,
         sessionId,
         supabase,
       });
+
+      // End tool span with result
+      if (toolSpan) {
+        toolSpan.update({
+          metadata: {
+            success: result.success,
+            executionTimeMs: result.executionTimeMs,
+          },
+          level: result.success ? 'DEFAULT' : 'WARNING',
+        });
+        toolSpan.end({
+          output: result.success ? result.data : { error: result.error },
+        });
+      }
 
       thoughts.push({
         tool: toolName,
@@ -258,8 +352,11 @@ async function reactLoop(
       });
     }
 
+    // End iteration span
+    iterationSpan?.end();
+
     // After executing tools, add instruction to respond
-    if (iteration === MAX_ITERATIONS - 2) {
+    if (iteration === maxIter - 2) {
       messages.push({
         role: 'system',
         content:
@@ -271,13 +368,17 @@ async function reactLoop(
   // Max iterations reached - force a response
   console.log('[walts-agent] Max iterations reached, forcing final response');
 
-  const finalResponse = await callOpenAI(messages, false);
+  const finalSpan = trace?.span({ name: 'final-response' });
+  const finalResponse = await callOpenAI(messages, false, finalSpan);
+  finalSpan?.end();
 
   return {
     response:
       finalResponse.content ||
       'Desculpe, precisei de muitas etapas para processar sua solicitação. Por favor, tente reformular sua pergunta.',
     thoughts,
+    iterations: iterationsUsed,
+    traceId: trace?.id,
   };
 }
 
@@ -385,22 +486,64 @@ serve(async (req) => {
     // Step 2: Generate dynamic system prompt
     const systemPrompt = generateSystemPrompt(userContext);
 
+    // Check for eval mode
+    const isEvalMode = req.headers.get('x-eval-mode') === 'true';
+    const evalMaxIterations = req.headers.get('x-eval-max-iterations');
+    const maxIterOverride = evalMaxIterations
+      ? parseInt(evalMaxIterations, 10)
+      : undefined;
+
+    // Create Langfuse trace (if configured)
+    const trace = langfuse?.trace({
+      name: 'walts-agent',
+      userId: userId,
+      sessionId: sessionId,
+      metadata: {
+        isEvalMode,
+        hasImages: imageUrls && imageUrls.length > 0,
+        hasAudio: audioUrls && audioUrls.length > 0,
+        historyLength: history.length,
+      },
+      input: { message: finalMessage, imageCount: imageUrls?.length || 0 },
+    });
+
     // Step 3: Run ReAct loop
     console.log('[walts-agent] Starting ReAct loop...', {
       hasImages: imageUrls && imageUrls.length > 0,
       imageCount: imageUrls?.length || 0,
       hasAudio: audioUrls && audioUrls.length > 0,
       audioCount: audioUrls?.length || 0,
+      isEvalMode,
+      traceId: trace?.id,
     });
-    const { response, thoughts } = await reactLoop(
+
+    const startTime = Date.now();
+    const { response, thoughts, iterations, traceId } = await reactLoop(
       finalMessage,
       history,
       systemPrompt,
       userId,
       sessionId,
       supabase,
-      imageUrls
+      imageUrls,
+      maxIterOverride,
+      trace
     );
+    const totalDuration = Date.now() - startTime;
+
+    // Finalize Langfuse trace
+    if (trace) {
+      trace.update({
+        output: { response, toolsUsed: thoughts.map((t) => t.tool) },
+        metadata: {
+          iterations,
+          totalDurationMs: totalDuration,
+          toolCallsCount: thoughts.length,
+        },
+      });
+      // Flush to ensure data is sent before response
+      await langfuse?.shutdownAsync();
+    }
 
     console.log('[walts-agent] Response generated:', {
       toolsUsed: thoughts.map((t) => t.tool),
@@ -408,9 +551,36 @@ serve(async (req) => {
         (sum, t) => sum + t.executionTimeMs,
         0
       ),
+      iterations,
     });
 
-    // Return response
+    // Build tool calls log for eval mode
+    const toolCallsLog: ToolCallLog[] = thoughts.map((t) => ({
+      name: t.tool,
+      args: t.input,
+      ok: t.output.success,
+      duration_ms: t.executionTimeMs,
+    }));
+
+    // Return response (with eval data if in eval mode)
+    if (isEvalMode) {
+      const evalResult: WaltsEvalResponse = {
+        response,
+        conversationId: sessionId,
+        thoughts: thoughts.length > 0 ? thoughts : undefined,
+        toolsUsed:
+          thoughts.length > 0 ? thoughts.map((t) => t.tool) : undefined,
+        eval: {
+          tool_calls: toolCallsLog,
+          iterations,
+          total_duration_ms: totalDuration,
+        },
+      };
+      return new Response(JSON.stringify(evalResult), {
+        headers: CORS_HEADERS,
+      });
+    }
+
     const result: WaltsAgentResponse = {
       response,
       conversationId: sessionId,

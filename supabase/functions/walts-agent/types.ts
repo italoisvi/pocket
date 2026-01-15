@@ -249,3 +249,83 @@ export type WaltsAgentResponse = {
 // ============================================================================
 
 export type { SupabaseClient };
+
+// ============================================================================
+// Eval Types
+// ============================================================================
+
+export type ToolExpectation = {
+  name: string;
+  min: number;
+  max: number;
+};
+
+export type DbAssertion = {
+  type: 'table_row_exists' | 'row_count_delta' | 'field_equals';
+  table: string;
+  where?: Record<string, unknown>;
+  field?: string;
+  value?: unknown;
+  delta?: number;
+};
+
+export type EvalCase = {
+  id: string;
+  name: string;
+  domain: string;
+  description: string | null;
+  is_enabled: boolean;
+  setup: Record<string, unknown>;
+  history_seed: Array<{ role: 'user' | 'assistant'; content: string }>;
+  user_message: string;
+  expected_tools: ToolExpectation[];
+  forbidden_tools: ToolExpectation[];
+  expected_db_assertions: DbAssertion[];
+  expected_response_contains: string[];
+  forbidden_response_contains: string[];
+  max_tool_calls: number;
+  max_iterations: number;
+};
+
+export type AssertionResult = {
+  type:
+    | 'tool_expected'
+    | 'tool_forbidden'
+    | 'tool_count'
+    | 'db_assertion'
+    | 'response_contains'
+    | 'response_forbidden';
+  pass: boolean;
+  detail: string;
+};
+
+export type ToolCallLog = {
+  name: string;
+  args: unknown;
+  ok: boolean;
+  duration_ms: number;
+};
+
+export type EvalRunResult = {
+  case_id: string;
+  pass: boolean;
+  score: number;
+  tool_calls: ToolCallLog[];
+  agent_output: string;
+  assertions: AssertionResult[];
+  error?: string;
+  started_at: string;
+  finished_at: string;
+};
+
+export type WaltsEvalRequest = WaltsAgentRequest & {
+  eval_case_id?: string;
+};
+
+export type WaltsEvalResponse = WaltsAgentResponse & {
+  eval?: {
+    tool_calls: ToolCallLog[];
+    iterations: number;
+    total_duration_ms: number;
+  };
+};

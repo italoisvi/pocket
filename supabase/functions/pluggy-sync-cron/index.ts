@@ -148,7 +148,10 @@ serve(async (req) => {
       }
     }
 
-    // Atualizar saldo da conta
+    // Atualizar saldo da conta e last_sync_at
+    let balanceUpdated = false;
+    let newBalance = null;
+
     const balanceResponse = await fetch(
       `https://api.pluggy.ai/accounts/${accountId}`,
       {
@@ -158,15 +161,30 @@ serve(async (req) => {
 
     if (balanceResponse.ok) {
       const accountInfo = await balanceResponse.json();
+      newBalance = accountInfo.balance;
+      balanceUpdated = true;
+
       await supabase
         .from('pluggy_accounts')
         .update({
-          balance: accountInfo.balance,
+          balance: newBalance,
           last_sync_at: new Date().toISOString(),
         })
         .eq('id', accountData.id);
 
-      console.log(`[pluggy-sync-cron] Updated balance: ${accountInfo.balance}`);
+      console.log(`[pluggy-sync-cron] Updated balance: ${newBalance}`);
+    } else {
+      // Mesmo se balance falhar, atualizar last_sync_at para evitar loop
+      await supabase
+        .from('pluggy_accounts')
+        .update({
+          last_sync_at: new Date().toISOString(),
+        })
+        .eq('id', accountData.id);
+
+      console.log(
+        `[pluggy-sync-cron] Balance fetch failed, but updated last_sync_at`
+      );
     }
 
     console.log(
@@ -179,6 +197,8 @@ serve(async (req) => {
         total: transactions.length,
         saved: savedCount,
         skipped: skippedCount,
+        balanceUpdated,
+        newBalance,
       }),
       { headers }
     );

@@ -46,19 +46,25 @@ Retorna: total de receitas, gastos, saldo, orçamentos com uso, últimos 20 gast
     type: 'function' as const,
     function: {
       name: 'create_expense',
-      description: `Cria um novo registro de gasto/despesa para o usuário.
+      description: `Cria um NOVO registro de gasto manual para o usuario.
 
 USE ESTA FERRAMENTA QUANDO:
-- Usuário pedir para registrar um gasto (ex: "gastei 50 no mercado")
-- Usuário mencionar uma compra que quer salvar
-- Usuário enviar um cupom fiscal para registrar
+- Usuario pedir para REGISTRAR um gasto NOVO (ex: "gastei 50 no mercado")
+- Usuario mencionar uma compra que quer ADICIONAR ao sistema
+- Usuario enviar cupom fiscal para REGISTRAR
 
-IMPORTANTE:
-- Sempre confirme os dados com o usuário após criar
-- Se categoria não for especificada, use a mais apropriada baseado no estabelecimento
-- Data padrão é HOJE se não especificada
+IMPORTANTE - NAO CONFUNDA COM CATEGORIZAR:
+- Esta ferramenta CRIA um gasto NOVO que NAO existia
+- DEBITA do saldo do usuario
+- Aparece na HOME como nova despesa
+- Se o usuario quer CATEGORIZAR uma transacao do extrato bancario, use recategorize_transaction
 
-Retorna: ID do gasto criado, valor, categoria atribuída.`,
+NAO USE ESTA FERRAMENTA QUANDO:
+- Usuario quiser categorizar transacao do extrato bancario
+- Usuario disser "categorizar essa saida do banco"
+- A transacao ja existe no sistema (veio do Open Finance)
+
+Retorna: ID do gasto criado, valor, categoria atribuida.`,
       parameters: {
         type: 'object',
         properties: {
@@ -667,6 +673,47 @@ RETORNA:
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_charts_data',
+      description: `Busca dados que aparecem na tela de Graficos & Tabelas do app.
+
+USE ESTA FERRAMENTA QUANDO:
+- Usuario perguntar sobre graficos ou distribuicao de gastos
+- Usuario perguntar "como estao meus gastos por categoria?"
+- Usuario quiser ver resumo visual ou por categoria
+- Usuario perguntar "o que tem na pagina de graficos?"
+- Usuario perguntar sobre percentual gasto por categoria
+
+IMPORTANTE:
+- Esta ferramenta combina gastos MANUAIS + transacoes CATEGORIZADAS do extrato
+- Retorna exatamente os mesmos dados da tela Graficos & Tabelas
+- Inclui comparacao com periodo anterior
+
+RETORNA:
+- Gastos agrupados por categoria
+- Totais por categoria
+- Percentuais de cada categoria
+- Comparacao com periodo anterior`,
+      parameters: {
+        type: 'object',
+        properties: {
+          period: {
+            type: 'string',
+            description: 'Periodo a analisar',
+            enum: ['last7days', 'last15days', 'month'],
+          },
+          month: {
+            type: 'string',
+            description:
+              'Mes especifico no formato YYYY-MM (quando period=month)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
   // ============================================================================
   // CONVERSATION MANAGEMENT TOOLS
   // ============================================================================
@@ -1257,12 +1304,25 @@ USE ESTA FERRAMENTA QUANDO:
     type: 'function' as const,
     function: {
       name: 'recategorize_transaction',
-      description: `Recategoriza uma transacao do Open Finance.
+      description: `Categoriza ou recategoriza uma transacao do EXTRATO BANCARIO (Open Finance).
 
 USE ESTA FERRAMENTA QUANDO:
-- Usuario disser "esse gasto e de outra categoria"
-- Usuario corrigir categoria de uma transacao
-- Usuario quiser marcar como custo fixo`,
+- Usuario quiser CATEGORIZAR transacao do extrato bancario
+- Usuario disser "categorizar essa saida/entrada do banco"
+- Usuario quiser que transacao apareca em Custos Fixos ou Variaveis
+- Usuario corrigir categoria de transacao do Open Finance
+- Usuario disser "esse gasto e de outra categoria" (para transacao do extrato)
+- Usuario quiser organizar extrato por categorias
+
+IMPORTANTE - DIFERENCA DE create_expense:
+- Esta ferramenta NAO cria gasto novo
+- NAO debita do saldo (transacao ja existe no extrato)
+- APENAS define categoria para organizacao
+- Faz aparecer em CUSTOS FIXOS ou CUSTOS VARIAVEIS no app
+
+NAO USE ESTA FERRAMENTA PARA:
+- Adicionar gasto manual novo (use create_expense)
+- Registrar compra que nao esta no extrato`,
       parameters: {
         type: 'object',
         properties: {

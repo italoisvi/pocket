@@ -88,6 +88,34 @@ export function ChatInput({
 }: ChatInputProps) {
   const { theme } = useTheme();
   const [inputText, setInputText] = useState('');
+  const prevTextRef = useRef('');
+
+  const handleTextChange = (newText: string) => {
+    const prevText = prevTextRef.current;
+
+    // Detecta se foi adição de um único caractere no final
+    if (
+      newText.length === prevText.length + 1 &&
+      newText.startsWith(prevText)
+    ) {
+      const addedChar = newText[newText.length - 1];
+      const isLetter = /[a-záàâãéèêíïóôõöúçñ]/i.test(addedChar);
+
+      if (isLetter) {
+        const textBeforeNewChar = prevText;
+        const shouldCapitalize =
+          textBeforeNewChar.length === 0 || /[.!?]\s*$/.test(textBeforeNewChar);
+
+        if (shouldCapitalize) {
+          newText = textBeforeNewChar + addedChar.toUpperCase();
+        }
+      }
+    }
+
+    prevTextRef.current = newText;
+    setInputText(newText);
+  };
+
   const [pendingAttachments, setPendingAttachments] = useState<
     ChatAttachment[]
   >([]);
@@ -320,6 +348,7 @@ export function ChatInput({
 
       onSendMessage(inputText.trim(), uploadedAttachments);
       setInputText('');
+      prevTextRef.current = '';
       setPendingAttachments([]);
     } catch (error) {
       console.error('[ChatInput] Send error:', error);
@@ -450,7 +479,7 @@ export function ChatInput({
               },
             ]}
             value={inputText}
-            onChangeText={setInputText}
+            onChangeText={handleTextChange}
             placeholder="Digite sua mensagem..."
             placeholderTextColor={theme.textSecondary}
             multiline
