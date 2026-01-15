@@ -12,8 +12,6 @@ import type {
   OpenAIMessage,
   OpenAIMessageContent,
   ToolCall,
-  ToolCallLog,
-  WaltsEvalResponse,
 } from './types.ts';
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
@@ -36,7 +34,7 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-eval-mode, x-eval-max-iterations',
+    'authorization, x-client-info, apikey, content-type',
 };
 
 const MAX_ITERATIONS = 3;
@@ -394,8 +392,8 @@ serve(async (req) => {
   try {
     console.log('[walts-agent] Request received');
 
-    // Authenticate
     const authHeader = req.headers.get('Authorization');
+
     if (!authHeader) {
       console.error('[walts-agent] Missing authorization header');
       return new Response(
@@ -407,6 +405,7 @@ serve(async (req) => {
       );
     }
 
+    // Authenticate via JWT
     const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -423,6 +422,7 @@ serve(async (req) => {
         headers: CORS_HEADERS,
       });
     }
+    const userId = user.id;
 
     // Parse request
     const {
@@ -467,14 +467,14 @@ serve(async (req) => {
       });
     }
 
-    const userId = user.id as UserId;
+    const typedUserId = userId as UserId;
     const sessionId = conversationId || crypto.randomUUID();
 
-    console.log('[walts-agent] Processing message for user:', userId);
+    console.log('[walts-agent] Processing message for user:', typedUserId);
 
     // Step 1: Preload user context
     console.log('[walts-agent] Preloading user context...');
-    const userContext = await preloadUserContext(supabase, userId);
+    const userContext = await preloadUserContext(supabase, typedUserId);
 
     console.log('[walts-agent] Context loaded:', {
       hasName: !!userContext.user.name,
@@ -486,20 +486,12 @@ serve(async (req) => {
     // Step 2: Generate dynamic system prompt
     const systemPrompt = generateSystemPrompt(userContext);
 
-    // Check for eval mode
-    const isEvalMode = req.headers.get('x-eval-mode') === 'true';
-    const evalMaxIterations = req.headers.get('x-eval-max-iterations');
-    const maxIterOverride = evalMaxIterations
-      ? parseInt(evalMaxIterations, 10)
-      : undefined;
-
     // Create Langfuse trace (if configured)
     const trace = langfuse?.trace({
       name: 'walts-agent',
-      userId: userId,
+      userId: typedUserId,
       sessionId: sessionId,
       metadata: {
-        isEvalMode,
         hasImages: imageUrls && imageUrls.length > 0,
         hasAudio: audioUrls && audioUrls.length > 0,
         historyLength: history.length,
@@ -513,7 +505,6 @@ serve(async (req) => {
       imageCount: imageUrls?.length || 0,
       hasAudio: audioUrls && audioUrls.length > 0,
       audioCount: audioUrls?.length || 0,
-      isEvalMode,
       traceId: trace?.id,
     });
 
@@ -522,11 +513,11 @@ serve(async (req) => {
       finalMessage,
       history,
       systemPrompt,
-      userId,
+      typedUserId,
       sessionId,
       supabase,
       imageUrls,
-      maxIterOverride,
+      undefined,
       trace
     );
     const totalDuration = Date.now() - startTime;
@@ -553,33 +544,6 @@ serve(async (req) => {
       ),
       iterations,
     });
-
-    // Build tool calls log for eval mode
-    const toolCallsLog: ToolCallLog[] = thoughts.map((t) => ({
-      name: t.tool,
-      args: t.input,
-      ok: t.output.success,
-      duration_ms: t.executionTimeMs,
-    }));
-
-    // Return response (with eval data if in eval mode)
-    if (isEvalMode) {
-      const evalResult: WaltsEvalResponse = {
-        response,
-        conversationId: sessionId,
-        thoughts: thoughts.length > 0 ? thoughts : undefined,
-        toolsUsed:
-          thoughts.length > 0 ? thoughts.map((t) => t.tool) : undefined,
-        eval: {
-          tool_calls: toolCallsLog,
-          iterations,
-          total_duration_ms: totalDuration,
-        },
-      };
-      return new Response(JSON.stringify(evalResult), {
-        headers: CORS_HEADERS,
-      });
-    }
 
     const result: WaltsAgentResponse = {
       response,

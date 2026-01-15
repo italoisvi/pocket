@@ -9,6 +9,7 @@ import {
   Image,
   Keyboard,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -296,7 +297,9 @@ export default function EditarPerfilScreen() {
               disabled={saving}
             >
               {saving ? (
-                <LoadingKangaroo size={80} />
+                <ActivityIndicator
+                  color={theme.background === '#000' ? theme.text : '#FFF'}
+                />
               ) : (
                 <Text
                   style={[

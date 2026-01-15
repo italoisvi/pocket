@@ -264,7 +264,7 @@ export default function CustosVariaveisScreen() {
             </View>
 
             {categoryExpenses.map((item) => {
-              const categoryInfo = CATEGORIES[item.category];
+              const categoryInfo = CATEGORIES[item.category] || CATEGORIES.outros;
               const percentage =
                 totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
               const isExtract = item.source === 'extrato';

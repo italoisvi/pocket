@@ -300,7 +300,13 @@ export async function exportData(
       exportResult.transactions = transactions || [];
     }
 
-    // Gerar output no formato solicitado
+    // Preparar conteúdo do arquivo
+    let fileContent: string;
+    let fileName: string;
+    let contentType: string;
+    const timestamp = new Date().toISOString().split('T')[0];
+    const periodSuffix = params.period ? `_${params.period.replace(':', '-')}` : '';
+
     if (format === 'csv') {
       const csvParts: string[] = [];
 
@@ -349,37 +355,78 @@ export async function exportData(
         }
       }
 
+      fileContent = csvParts.join('\n');
+      fileName = `pocket_export${periodSuffix}_${timestamp}.csv`;
+      contentType = 'text/csv';
+    } else {
+      // JSON format
+      const jsonData = {
+        exportedAt: new Date().toISOString(),
+        period: params.period || 'all_time',
+        ...exportResult,
+      };
+      fileContent = JSON.stringify(jsonData, null, 2);
+      fileName = `pocket_export${periodSuffix}_${timestamp}.json`;
+      contentType = 'application/json';
+    }
+
+    // Upload para Supabase Storage
+    const filePath = `${userId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('exports')
+      .upload(filePath, fileContent, {
+        contentType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('[reports.exportData] Upload error:', uploadError);
+      // Fallback: retornar dados diretamente se upload falhar
       return {
         success: true,
         data: {
-          format: 'csv',
-          content: csvParts.join('\n'),
+          format,
+          content: fileContent,
           summary: {
             expenses: (exportResult.expenses as Array<unknown>)?.length || 0,
             budgets: (exportResult.budgets as Array<unknown>)?.length || 0,
             transactions:
               (exportResult.transactions as Array<unknown>)?.length || 0,
           },
-          message:
-            'Dados exportados em formato CSV. Copie o conteudo abaixo ou solicite que eu envie por email.',
+          message: 'Dados exportados. O upload falhou, mas aqui estão os dados diretamente.',
         },
       };
     }
 
-    // JSON format
+    // Gerar URL assinada (válida por 1 hora)
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from('exports')
+      .createSignedUrl(filePath, 3600); // 1 hora
+
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      console.error('[reports.exportData] Signed URL error:', signedUrlError);
+      return {
+        success: false,
+        error: 'Erro ao gerar link de download',
+      };
+    }
+
+    const summary = {
+      expenses: (exportResult.expenses as Array<unknown>)?.length || 0,
+      budgets: (exportResult.budgets as Array<unknown>)?.length || 0,
+      transactions: (exportResult.transactions as Array<unknown>)?.length || 0,
+    };
+
     return {
       success: true,
       data: {
-        format: 'json',
-        exportedAt: new Date().toISOString(),
-        period: params.period || 'all_time',
-        ...exportResult,
-        summary: {
-          expenses: (exportResult.expenses as Array<unknown>)?.length || 0,
-          budgets: (exportResult.budgets as Array<unknown>)?.length || 0,
-          transactions:
-            (exportResult.transactions as Array<unknown>)?.length || 0,
-        },
+        format,
+        downloadUrl: signedUrlData.signedUrl,
+        fileName,
+        expiresIn: '1 hora',
+        summary,
+        message: `Arquivo ${fileName} pronto para download. O link expira em 1 hora.`,
       },
     };
   } catch (error) {

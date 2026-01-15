@@ -8,8 +8,10 @@ import {
   Alert,
   RefreshControl,
   Image,
+  Modal,
 } from 'react-native';
 import { SvgXml } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/lib/theme';
@@ -26,6 +28,9 @@ import { MFAModal } from '@/components/MFAModal';
 import { OAuthModal } from '@/components/OAuthModal';
 import { PaywallModal } from '@/components/PaywallModal';
 import { usePremium } from '@/lib/usePremium';
+import { supabase } from '@/lib/supabase';
+
+const LEARNING_PERIOD_DAYS = 30;
 
 type PluggyItem = {
   id: string;
@@ -188,9 +193,50 @@ export default function OpenFinanceScreen() {
   const [oauthUrl, setOauthUrl] = useState<string>('');
   const [oauthConnectorName, setOauthConnectorName] = useState<string>('');
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showLearningModal, setShowLearningModal] = useState(false);
+  const [daysRemaining, setDaysRemaining] = useState<number>(0);
 
   const handlePaywallSuccess = async () => {
     await refreshPremium();
+  };
+
+  // Verifica se o usuário está no período de aprendizado (30 dias)
+  const checkLearningPeriod = async (): Promise<{
+    isInLearningPeriod: boolean;
+    daysLeft: number;
+  }> => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return { isInLearningPeriod: false, daysLeft: 0 };
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('created_at')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile?.created_at) {
+        return { isInLearningPeriod: false, daysLeft: 0 };
+      }
+
+      const createdAt = new Date(profile.created_at);
+      const now = new Date();
+      const diffTime = now.getTime() - createdAt.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays < LEARNING_PERIOD_DAYS) {
+        const daysLeft = LEARNING_PERIOD_DAYS - diffDays;
+        return { isInLearningPeriod: true, daysLeft };
+      }
+
+      return { isInLearningPeriod: false, daysLeft: 0 };
+    } catch (error) {
+      console.error('[open-finance] Error checking learning period:', error);
+      return { isInLearningPeriod: false, daysLeft: 0 };
+    }
   };
 
   const loadConnectedBanks = async () => {
@@ -263,11 +309,21 @@ export default function OpenFinanceScreen() {
     loadConnectedBanks();
   };
 
-  const handleConnectBank = () => {
+  const handleConnectBank = async () => {
     if (!isPremium) {
       setShowPaywall(true);
       return;
     }
+
+    // Verificar período de aprendizado para usuários novos
+    const { isInLearningPeriod, daysLeft } = await checkLearningPeriod();
+
+    if (isInLearningPeriod) {
+      setDaysRemaining(daysLeft);
+      setShowLearningModal(true);
+      return;
+    }
+
     router.push('/open-finance/connect');
   };
 
@@ -661,6 +717,110 @@ export default function OpenFinanceScreen() {
         title="Open Finance Premium"
         subtitle="Conecte seus bancos e sincronize transações automaticamente"
       />
+
+      {/* Learning Period Modal */}
+      {showLearningModal && (
+        <BlurView intensity={10} style={styles.blurOverlay} />
+      )}
+      <Modal
+        visible={showLearningModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLearningModal(false)}
+      >
+        <View style={styles.learningModalOverlay}>
+          <TouchableOpacity
+            style={styles.learningModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowLearningModal(false)}
+          />
+          <View
+            style={[
+              styles.learningModalContent,
+              { backgroundColor: theme.surface },
+            ]}
+          >
+            <View style={styles.learningModalHeader}>
+              <Text style={[styles.learningModalTitle, { color: theme.text }]}>
+                Período de Aprendizado
+              </Text>
+            </View>
+
+            <Text
+              style={[
+                styles.learningModalDescription,
+                { color: theme.textSecondary },
+              ]}
+            >
+              Antes de conectar seu banco, o Walts precisa conhecer melhor seus
+              hábitos financeiros.
+            </Text>
+
+            <Text
+              style={[
+                styles.learningModalDescription,
+                { color: theme.textSecondary },
+              ]}
+            >
+              Durante os próximos dias, registre seus gastos manualmente (por
+              foto, upload ou chat) para que a IA aprenda seu perfil.
+            </Text>
+
+            <View
+              style={[
+                styles.learningModalCounterCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.learningModalCounterLabel,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Você poderá conectar seu banco em
+              </Text>
+              <Text
+                style={[
+                  styles.learningModalCounterValue,
+                  { color: theme.primary },
+                ]}
+              >
+                {daysRemaining} {daysRemaining === 1 ? 'dia' : 'dias'}
+              </Text>
+            </View>
+
+            <Text
+              style={[
+                styles.learningModalFooter,
+                { color: theme.textSecondary },
+              ]}
+            >
+              Isso garante uma experiência mais precisa e personalizada!
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.learningModalButton,
+                { backgroundColor: theme.primary },
+              ]}
+              onPress={() => setShowLearningModal(false)}
+            >
+              <Text
+                style={[
+                  styles.learningModalButtonText,
+                  { color: theme.background },
+                ]}
+              >
+                Entendi
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -805,5 +965,80 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'CormorantGaramond-SemiBold',
     color: '#fff',
+  },
+  // Learning Period Modal Styles
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+  },
+  learningModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'transparent',
+  },
+  learningModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  learningModalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
+  },
+  learningModalHeader: {
+    marginBottom: 16,
+  },
+  learningModalTitle: {
+    fontSize: 22,
+    fontFamily: 'CormorantGaramond-SemiBold',
+    textAlign: 'center',
+  },
+  learningModalDescription: {
+    fontSize: 16,
+    fontFamily: 'CormorantGaramond-Regular',
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  learningModalCounterCard: {
+    borderRadius: 12,
+    borderWidth: 2,
+    padding: 20,
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  learningModalCounterLabel: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    marginBottom: 8,
+  },
+  learningModalCounterValue: {
+    fontSize: 32,
+    fontFamily: 'CormorantGaramond-Bold',
+  },
+  learningModalFooter: {
+    fontSize: 14,
+    fontFamily: 'CormorantGaramond-Regular',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 20,
+  },
+  learningModalButton: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  learningModalButtonText: {
+    fontSize: 18,
+    fontFamily: 'CormorantGaramond-SemiBold',
   },
 });

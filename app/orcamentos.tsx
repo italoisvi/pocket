@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -263,7 +264,7 @@ export default function OrcamentosScreen() {
     }));
 
   const renderBudgetCard = (budget: Budget) => {
-    const categoryInfo = CATEGORIES[budget.category_id];
+    const categoryInfo = CATEGORIES[budget.category_id] || CATEGORIES.outros;
     const percentage = (budget.spent / budget.amount) * 100;
     const isOverBudget = percentage > 100;
     const isExpanded = expandedBudgetId === budget.id;
@@ -623,7 +624,7 @@ export default function OrcamentosScreen() {
             disabled={saving}
           >
             {saving ? (
-              <LoadingKangaroo size={80} />
+              <ActivityIndicator color={theme.background} />
             ) : (
               <Text
                 style={[styles.createButtonText, { color: theme.background }]}

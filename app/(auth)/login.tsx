@@ -14,6 +14,8 @@ import { router } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loginRevenueCat, checkPremiumEntitlement } from '@/lib/revenuecat';
 import Svg, { Path } from 'react-native-svg';
 
 export default function LoginScreen() {
@@ -33,13 +35,30 @@ export default function LoginScreen() {
       email,
       password,
     });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       Alert.alert('Erro ao fazer login', error.message);
-    } else {
-      router.replace('/(tabs)/home');
+      return;
     }
+
+    // Verificar premium imediatamente após login
+    if (data?.user?.id) {
+      try {
+        await loginRevenueCat(data.user.id);
+        const hasPremium = await checkPremiumEntitlement();
+        await AsyncStorage.setItem(
+          '@pocket_is_premium',
+          JSON.stringify(hasPremium)
+        );
+        console.log('[Login] Premium status saved:', hasPremium);
+      } catch (err) {
+        console.error('[Login] Error checking premium:', err);
+      }
+    }
+
+    setLoading(false);
+    router.replace('/(tabs)/home');
   };
 
   const handleAppleSignIn = async () => {
@@ -60,9 +79,25 @@ export default function LoginScreen() {
 
         if (error) {
           Alert.alert('Erro ao fazer login com Apple', error.message);
-        } else {
-          router.replace('/(tabs)/home');
+          return;
         }
+
+        // Verificar premium imediatamente após login
+        if (data?.user?.id) {
+          try {
+            await loginRevenueCat(data.user.id);
+            const hasPremium = await checkPremiumEntitlement();
+            await AsyncStorage.setItem(
+              '@pocket_is_premium',
+              JSON.stringify(hasPremium)
+            );
+            console.log('[Login] Premium status saved:', hasPremium);
+          } catch (err) {
+            console.error('[Login] Error checking premium:', err);
+          }
+        }
+
+        router.replace('/(tabs)/home');
       }
     } catch (e: any) {
       if (e.code === 'ERR_CANCELED') {

@@ -26,6 +26,8 @@ import {
   getBalanceSourceLabel,
   type BalanceSource,
 } from '@/lib/calculateBalance';
+import { usePremium } from '@/lib/usePremium';
+import { PaywallModal } from '@/components/PaywallModal';
 
 type CategoryExpense = {
   category: ExpenseCategory;
@@ -42,6 +44,8 @@ type CreditCardAccount = {
 
 export default function FinancialOverviewScreen() {
   const { theme } = useTheme();
+  const { isPremium, loading: premiumLoading, refresh: refreshPremium } = usePremium();
+  const [showPaywall, setShowPaywall] = useState(false);
   const [monthlySalary, setMonthlySalary] = useState<number>(0);
   const [salaryPaymentDay, setSalaryPaymentDay] = useState<number>(1);
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
@@ -63,6 +67,13 @@ export default function FinancialOverviewScreen() {
   const monthScrollRef = useRef<ScrollView>(null);
   const [balanceSource, setBalanceSource] = useState<BalanceSource>('manual');
   const [calculatedBalance, setCalculatedBalance] = useState<number>(0);
+
+  // Verificar premium e mostrar paywall se necessário
+  useEffect(() => {
+    if (!premiumLoading && !isPremium) {
+      setShowPaywall(true);
+    }
+  }, [premiumLoading, isPremium]);
 
   useEffect(() => {
     // Gerar meses disponíveis baseado na data de criação do usuário
@@ -1029,6 +1040,21 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
           </>
         )}
       </ScrollView>
+
+      {/* Paywall Modal para usuários não premium */}
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => {
+          setShowPaywall(false);
+          router.back();
+        }}
+        onSuccess={async () => {
+          await refreshPremium();
+          setShowPaywall(false);
+        }}
+        title="Análise Financeira Premium"
+        subtitle="Desbloqueie análises detalhadas e insights sobre suas finanças"
+      />
     </View>
   );
 }

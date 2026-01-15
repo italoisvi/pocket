@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -369,7 +370,7 @@ export default function OnboardingPaywallScreen() {
           disabled={purchasing}
         >
           {purchasing ? (
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator color={theme.background} />
           ) : (
             <Text
               style={[styles.continueButtonText, { color: theme.background }]}

@@ -9,6 +9,7 @@ import {
   Alert,
   Keyboard,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -248,7 +249,9 @@ export default function EditExpenseScreen() {
             disabled={saving}
           >
             {saving ? (
-              <LoadingKangaroo size={80} />
+              <ActivityIndicator
+                color={theme.background === '#000' ? theme.text : '#FFF'}
+              />
             ) : (
               <Text
                 style={[

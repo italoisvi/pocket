@@ -24,13 +24,11 @@ import { useTheme } from '@/lib/theme';
 
 const screenWidth = Dimensions.get('window').width;
 
-type SubcategoryExpense = {
+type CategoryExpenseData = {
   category: ExpenseCategory;
-  subcategory: string;
   total: number;
   previousTotal?: number; // Total do periodo anterior para comparacao
   change?: number; // Variacao percentual
-  source?: 'manual' | 'extrato'; // Flag para indicar origem
 };
 
 type PeriodFilter = 'last7days' | 'last15days' | 'month';
@@ -39,7 +37,7 @@ type ChartType = 'pie' | 'bar';
 export default function GraficosTabelasScreen() {
   const { theme } = useTheme();
   const [categoryExpenses, setCategoryExpenses] = useState<
-    SubcategoryExpense[]
+    CategoryExpenseData[]
   >([]);
   const [loading, setLoading] = useState(true);
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
@@ -288,18 +286,16 @@ export default function GraficosTabelasScreen() {
         }
       }
 
-      // Agrupar periodo anterior por categoria + subcategoria
-      const prevSubcategoryMap = new Map<string, number>();
+      // Agrupar periodo anterior por CATEGORIA (consolidado)
+      const prevCategoryMap = new Map<ExpenseCategory, number>();
 
       // Processar expenses manuais do periodo anterior
       if (prevExpensesData) {
         prevExpensesData.forEach((exp) => {
           const category = (exp.category as ExpenseCategory) || 'outros';
-          const subcategory = exp.subcategory || 'Outros';
-          const key = `${category}-${subcategory}`;
-          prevSubcategoryMap.set(
-            key,
-            (prevSubcategoryMap.get(key) || 0) + exp.amount
+          prevCategoryMap.set(
+            category,
+            (prevCategoryMap.get(category) || 0) + exp.amount
           );
         });
       }
@@ -307,87 +303,62 @@ export default function GraficosTabelasScreen() {
       // Processar extrato do periodo anterior
       prevExtractTransactions.forEach((tx: any) => {
         const category = (tx.category as ExpenseCategory) || 'outros';
-        const subcategory = tx.subcategory || 'Outros';
         const amount = Math.abs(tx.pluggy_transactions?.amount || 0);
-        const key = `${category}-${subcategory}`;
-        prevSubcategoryMap.set(
-          key,
-          (prevSubcategoryMap.get(key) || 0) + amount
+        prevCategoryMap.set(
+          category,
+          (prevCategoryMap.get(category) || 0) + amount
         );
       });
 
-      // Agrupar periodo atual por categoria + subcategoria
-      const subcategoryMap = new Map<string, SubcategoryExpense>();
+      // Agrupar periodo atual por CATEGORIA (consolidado)
+      const categoryMap = new Map<ExpenseCategory, number>();
 
       // Processar expenses manuais do periodo atual
       if (expensesData) {
         expensesData.forEach((exp) => {
           const category = (exp.category as ExpenseCategory) || 'outros';
-          const subcategory = exp.subcategory || 'Outros';
-          const key = `${category}-${subcategory}`;
-
-          if (subcategoryMap.has(key)) {
-            const existing = subcategoryMap.get(key)!;
-            existing.total += exp.amount;
-          } else {
-            subcategoryMap.set(key, {
-              category,
-              subcategory,
-              total: exp.amount,
-              source: 'manual',
-            });
-          }
+          categoryMap.set(
+            category,
+            (categoryMap.get(category) || 0) + exp.amount
+          );
         });
       }
 
       // Processar transacoes do extrato do periodo atual
       extractTransactions.forEach((tx: any) => {
         const category = (tx.category as ExpenseCategory) || 'outros';
-        const subcategory = tx.subcategory || 'Outros';
         const amount = Math.abs(tx.pluggy_transactions?.amount || 0);
-        const key = `${category}-${subcategory}`;
-
-        if (subcategoryMap.has(key)) {
-          const existing = subcategoryMap.get(key)!;
-          existing.total += amount;
-          // Se ja existe item manual com mesma categoria/subcategoria, marcar como misto
-          if (existing.source === 'manual') {
-            existing.source = undefined; // misto
-          }
-        } else {
-          subcategoryMap.set(key, {
-            category,
-            subcategory,
-            total: amount,
-            source: 'extrato',
-          });
-        }
-      });
-
-      // Calcular change para todos os itens
-      subcategoryMap.forEach((item, key) => {
-        const previousTotal = prevSubcategoryMap.get(key) || 0;
-        item.previousTotal = previousTotal;
-        item.change =
-          previousTotal > 0
-            ? ((item.total - previousTotal) / previousTotal) * 100
-            : item.total > 0
-              ? 100
-              : 0;
+        categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
       });
 
       // Calcular total combinado
-      const total = Array.from(subcategoryMap.values()).reduce(
-        (sum, item) => sum + item.total,
+      const total = Array.from(categoryMap.values()).reduce(
+        (sum, amount) => sum + amount,
         0
       );
       setTotalExpenses(total);
 
-      const subcategories: SubcategoryExpense[] = Array.from(
-        subcategoryMap.values()
-      );
+      // Criar array de categorias com change
+      const categories: CategoryExpenseData[] = Array.from(
+        categoryMap.entries()
+      ).map(([category, currentTotal]) => {
+        const previousTotal = prevCategoryMap.get(category) || 0;
+        const change =
+          previousTotal > 0
+            ? ((currentTotal - previousTotal) / previousTotal) * 100
+            : currentTotal > 0
+              ? 100
+              : 0;
 
-      setCategoryExpenses(subcategories.sort((a, b) => b.total - a.total));
+        return {
+          category,
+          total: currentTotal,
+          previousTotal,
+          change,
+        };
+      });
+
+      setCategoryExpenses(categories.sort((a, b) => b.total - a.total));
     } catch (error) {
       console.error('Erro ao carregar gastos:', error);
     } finally {
@@ -404,7 +375,7 @@ export default function GraficosTabelasScreen() {
     };
 
     return {
-      name: item.subcategory,
+      name: categoryInfo.name,
       population: item.total,
       color: categoryInfo.color,
       legendFontColor: '#666',
@@ -776,9 +747,9 @@ export default function GraficosTabelasScreen() {
                                 fill={theme.text}
                                 textAnchor="middle"
                               >
-                                {item.subcategory.length > 10
-                                  ? item.subcategory.substring(0, 10) + '...'
-                                  : item.subcategory}
+                                {categoryInfo.name.length > 10
+                                  ? categoryInfo.name.substring(0, 10) + '...'
+                                  : categoryInfo.name}
                               </SvgText>
                             </React.Fragment>
                           );
@@ -826,7 +797,7 @@ export default function GraficosTabelasScreen() {
 
                             return (
                               <View
-                                key={`${item.category}-${item.subcategory}`}
+                                key={item.category}
                                 style={styles.legendItem}
                               >
                                 <View
@@ -846,7 +817,7 @@ export default function GraficosTabelasScreen() {
                                       { color: theme.text },
                                     ]}
                                   >
-                                    {item.subcategory}
+                                    {categoryInfo.name}
                                   </Text>
                                   <Text
                                     style={[
@@ -854,7 +825,6 @@ export default function GraficosTabelasScreen() {
                                       { color: theme.textSecondary },
                                     ]}
                                   >
-                                    {categoryInfo.name} -{' '}
                                     {percentage.toFixed(1)}%
                                   </Text>
                                 </View>
@@ -935,7 +905,7 @@ export default function GraficosTabelasScreen() {
 
                     return (
                       <View
-                        key={`${item.category}-${item.subcategory}`}
+                        key={item.category}
                         style={[
                           styles.tableRow,
                           { borderBottomColor: theme.border },
@@ -943,26 +913,13 @@ export default function GraficosTabelasScreen() {
                       >
                         <View style={styles.tableCategoryCell}>
                           <CategoryIcon categoryInfo={categoryInfo} size={20} />
-                          <View style={styles.tableCategoryTextContainer}>
-                            <Text
-                              style={[
-                                styles.subcategoryName,
-                                { color: theme.text },
-                              ]}
-                              numberOfLines={1}
-                              ellipsizeMode="tail"
-                            >
-                              {item.subcategory}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.categoryLabel,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {categoryInfo.name}
-                            </Text>
-                          </View>
+                          <Text
+                            style={[styles.categoryName, { color: theme.text }]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {categoryInfo.name}
+                          </Text>
                         </View>
                         <View style={styles.tableValueCell}>
                           <Text
@@ -1179,19 +1136,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  tableCategoryTextContainer: {
+  categoryName: {
     flex: 1,
-    backgroundColor: 'transparent',
-  },
-  subcategoryName: {
     fontSize: 16,
     fontFamily: 'CormorantGaramond-SemiBold',
-    flexShrink: 1,
-  },
-  categoryLabel: {
-    fontSize: 13,
-    fontFamily: 'CormorantGaramond-Regular',
-    marginTop: 2,
   },
   tableCell: {
     fontSize: 18,

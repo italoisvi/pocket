@@ -7,6 +7,7 @@ import {
   Alert,
   Modal,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -296,7 +297,7 @@ export default function SubscriptionScreen() {
               disabled={loadingPlans}
             >
               {loadingPlans ? (
-                <LoadingKangaroo size={80} />
+                <ActivityIndicator color={theme.text} />
               ) : (
                 <Text
                   style={[styles.subscribeButtonText, { color: theme.text }]}
@@ -312,7 +313,7 @@ export default function SubscriptionScreen() {
               disabled={restoring}
             >
               {restoring ? (
-                <LoadingKangaroo size={80} />
+                <ActivityIndicator color={theme.textSecondary} />
               ) : (
                 <Text
                   style={[
@@ -542,7 +543,7 @@ export default function SubscriptionScreen() {
               disabled={purchasing}
             >
               {purchasing ? (
-                <LoadingKangaroo size={80} />
+                <ActivityIndicator color={theme.background} />
               ) : (
                 <Text
                   style={[

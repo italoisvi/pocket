@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -395,7 +396,7 @@ export default function EditBudgetScreen() {
           disabled={saving}
         >
           {saving ? (
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator color={theme.background} />
           ) : (
             <Text
               style={[styles.updateButtonText, { color: theme.background }]}

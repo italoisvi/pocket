@@ -426,7 +426,10 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={styles.salaryTouchable}
             onPress={() => {
-              if (isPremium) {
+              // Se ainda está verificando premium, vai direto (será verificado na tela)
+              // Se já verificou e é premium, vai direto
+              // Se já verificou e não é premium, mostra paywall
+              if (premiumLoading || isPremium) {
                 router.push('/financial-overview');
               } else {
                 setShowPaywall(true);
