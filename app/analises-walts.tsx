@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -1238,7 +1239,7 @@ Use formatação markdown para organizar a resposta.`;
                 disabled={loadingAnalysis}
               >
                 {loadingAnalysis ? (
-                  <LoadingKangaroo size={80} />
+                  <ActivityIndicator size="small" color={theme.background} />
                 ) : (
                   <Text
                     style={[

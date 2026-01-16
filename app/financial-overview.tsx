@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -911,7 +912,7 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
                         disabled={loadingWaltsSuggestion}
                       >
                         {loadingWaltsSuggestion ? (
-                          <LoadingKangaroo size={80} />
+                          <ActivityIndicator size="small" color="#000" />
                         ) : (
                           <Text style={styles.waltsButtonText}>
                             O Walts sugere...
