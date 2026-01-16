@@ -3,7 +3,7 @@
  * Versão para Deno Edge Functions
  */
 
-const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
 export type ExpenseCategory =
   | 'moradia'
@@ -51,8 +51,8 @@ Sua tarefa e categorizar gastos com MAXIMA PRECISAO.
 
 # CATEGORIAS DISPONIVEIS:
 - moradia: aluguel, conta de luz, agua, gas, internet, condominio
-- alimentacao_casa: supermercado, feira, acougue, padaria para compras de casa
-- alimentacao_fora: restaurante, lanchonete, delivery, ifood, bar, cafe
+- alimentacao_casa: supermercado, feira, acougue, mercearia (compras para preparar em casa)
+- alimentacao_fora: restaurante, lanchonete, delivery, ifood, rappi, bar, cafe, cafeteria, padaria, delicatessen, confeitaria, pizzaria, hamburgueria, fast food, acai, sorveteria (consumo imediato ou pronto)
 - transporte: combustivel, uber, estacionamento, mecanica
 - saude: farmacia, plano de saude, consultas, exames
 - educacao: escola, faculdade, cursos, material escolar
@@ -63,6 +63,8 @@ Sua tarefa e categorizar gastos com MAXIMA PRECISAO.
 - pets: pet shop, veterinario, racao
 - transferencias: PIX para pessoas fisicas
 - outros: quando nao se encaixar em nenhuma
+
+IMPORTANTE: Padaria, delicatessen, cafeteria, confeitaria sao SEMPRE alimentacao_fora (consumo imediato).
 
 # DECIDIR SE E CUSTO FIXO OU VARIAVEL (is_fixed_cost):
 VOCE DECIDE LIVREMENTE baseado na natureza do gasto:
@@ -152,14 +154,14 @@ function isValidCategory(category: string): category is ExpenseCategory {
 async function getChatCompletion(
   messages: Array<{ role: string; content: string }>
 ): Promise<string> {
-  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'gpt-4o',
       messages,
       temperature: 0.3,
       max_tokens: 300,
@@ -168,7 +170,7 @@ async function getChatCompletion(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`DeepSeek API error: ${errorText}`);
+    throw new Error(`OpenAI API error: ${errorText}`);
   }
 
   const data = await response.json();

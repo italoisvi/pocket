@@ -151,6 +151,7 @@ export async function createExpense(
     subcategory?: string; // Optional - Walts can specify for more detail
     date?: string;
     notes?: string;
+    image_url?: string; // Optional - URL of receipt image from chat
   },
   context: ToolContext
 ): Promise<ToolResult> {
@@ -173,8 +174,9 @@ export async function createExpense(
         is_fixed_cost: params.is_fixed_cost,
         notes: params.notes || null,
         items: [],
+        image_url: params.image_url || null, // Save receipt image URL
       })
-      .select('id, amount, category')
+      .select('id, amount, category, image_url')
       .single();
 
     if (error) {
@@ -185,6 +187,7 @@ export async function createExpense(
       };
     }
 
+    const hasImage = !!data.image_url;
     return {
       success: true,
       data: {
@@ -193,7 +196,8 @@ export async function createExpense(
         amount: data.amount,
         category: data.category,
         date,
-        message: `Gasto de R$ ${params.amount.toFixed(2)} em ${params.establishment_name} registrado com sucesso!`,
+        image_saved: hasImage,
+        message: `Gasto de R$ ${params.amount.toFixed(2)} em ${params.establishment_name} registrado com sucesso!${hasImage ? ' Comprovante salvo.' : ''}`,
       },
     };
   } catch (error) {

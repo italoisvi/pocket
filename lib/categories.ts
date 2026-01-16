@@ -889,6 +889,7 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
         name: 'Padaria/Café',
         keywords: [
           'padaria',
+          'delicatessen',
           'cafe',
           'café',
           'cafeteria',
@@ -1200,14 +1201,16 @@ export function categorizeExpense(
     };
   }
 
-  // Ordem de prioridade: Dívidas > Essenciais > Investimentos > Não Essenciais > Outros
+  // Ordem de prioridade: Dívidas > Alimentação Fora > Essenciais > Investimentos > Não Essenciais > Outros
   // IMPORTANTE: alimentacao_fora deve vir ANTES de alimentacao_casa para priorizar
-  // detecção de delivery/restaurante antes de supermercado
+  // detecção de delivery/restaurante/padaria antes de supermercado/mercado
   const priorityOrder: ExpenseCategory[] = [
     // Dívidas primeiro (mais específico)
     'cartao_credito',
     'emprestimos',
     'financiamentos',
+    // Alimentação fora ANTES de alimentação casa (prioriza delivery/restaurante/padaria)
+    'alimentacao_fora',
     // Essenciais
     'moradia',
     'alimentacao_casa',
@@ -1218,8 +1221,7 @@ export function categorizeExpense(
     'poupanca',
     'previdencia',
     'investimentos',
-    // Não Essenciais - alimentacao_fora primeiro para priorizar delivery/restaurante
-    'alimentacao_fora',
+    // Não Essenciais
     'lazer',
     'vestuario',
     'beleza',

@@ -513,14 +513,34 @@ ESTILO DE RESPOSTA:
 
 CATEGORIZAÇÃO DE GASTOS:
 Ao criar um gasto, voce DECIDE LIVREMENTE:
-1. A CATEGORIA (moradia, saude, lazer, etc.)
+1. A CATEGORIA
 2. Se e CUSTO FIXO ou VARIAVEL (campo is_fixed_cost)
 
-CRITERIOS PARA DECIDIR:
+CATEGORIAS DISPONIVEIS:
+- moradia: aluguel, conta de luz, agua, gas, internet, condominio
+- alimentacao_casa: supermercado, feira, acougue, mercearia (compras para preparar em casa)
+- alimentacao_fora: restaurante, lanchonete, delivery, ifood, rappi, bar, cafe, cafeteria, PADARIA, delicatessen, confeitaria, pizzaria, hamburgueria, fast food, ACAI, sorveteria (consumo imediato ou pronto)
+- transporte: combustivel, uber, estacionamento, mecanica
+- saude: farmacia, plano de saude, consultas, exames
+- educacao: escola, faculdade, cursos, material escolar
+- lazer: cinema, streaming (netflix, spotify), viagens, academia, shows
+- vestuario: roupas, calcados, acessorios
+- beleza: salao, barbearia, cosmeticos
+- eletronicos: gadgets, games, acessorios tech
+- pets: pet shop, veterinario, racao
+- transferencias: PIX para pessoas fisicas
+- outros: quando nao se encaixar em nenhuma
+
+IMPORTANTE ALIMENTACAO:
+- ACAI, sorvete, lanche, cafe, padaria, delicatessen = alimentacao_fora (SEMPRE)
+- Supermercado, feira, mercearia = alimentacao_casa
+- NUNCA use "alimentacao" (nao existe) - use alimentacao_casa OU alimentacao_fora
+
+CRITERIOS PARA CUSTO FIXO/VARIAVEL:
 - Custo FIXO (is_fixed_cost=true): gastos recorrentes, previstos, mensais
   Exemplos: aluguel, plano de saude, assinatura netflix, conta de luz
 - Custo VARIAVEL (is_fixed_cost=false): gastos eventuais, pontuais, nao recorrentes
-  Exemplos: compra na farmacia, almoco no restaurante, cinema, presente
+  Exemplos: compra na farmacia, almoco no restaurante, cinema, presente, acai, lanche
 
 NAO HA REGRA FIXA - voce analisa o contexto:
 - Farmacia pode ser VARIAVEL (compra eventual de remedio)
@@ -531,5 +551,11 @@ IMAGENS:
 - Você consegue ver e analisar imagens enviadas pelo usuário na conversa ATUAL e em mensagens ANTERIORES
 - Se o usuário enviar uma foto de comprovante, nota fiscal, boleto, conta ou documento financeiro, analise e extraia as informações
 - Use os dados extraídos da imagem para registrar gastos ou responder perguntas
-- IMPORTANTE: Quando o usuário referenciar "a imagem que mandei", você TEM acesso às imagens anteriores da conversa`;
+- IMPORTANTE: Quando o usuário referenciar "a imagem que mandei", você TEM acesso às imagens anteriores da conversa
+
+SALVAR COMPROVANTE COM GASTO:
+- Quando o usuário enviar uma imagem e pedir para registrar o gasto, você DEVE passar a URL da imagem no parâmetro image_url do create_expense
+- A URL da imagem aparece no formato [IMAGEM_1_URL: https://...] na mensagem do usuário
+- SEMPRE use essa URL no parâmetro image_url ao chamar create_expense para que o comprovante fique salvo junto com a despesa
+- Exemplo: se a mensagem contém [IMAGEM_1_URL: https://storage.example.com/image.jpg], use image_url: "https://storage.example.com/image.jpg"`;
 }

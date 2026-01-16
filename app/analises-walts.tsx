@@ -36,7 +36,6 @@ const screenWidth = Dimensions.get('window').width;
 
 type CategoryExpense = {
   category: ExpenseCategory;
-  subcategory: string;
   total: number;
   count: number;
 };
@@ -49,7 +48,6 @@ type MonthData = {
 };
 
 type LeakItem = {
-  subcategory: string;
   category: ExpenseCategory;
   total: number;
   count: number;
@@ -57,7 +55,6 @@ type LeakItem = {
 };
 
 type IncreaseItem = {
-  subcategory: string;
   category: ExpenseCategory;
   currentTotal: number;
   previousTotal: number;
@@ -257,7 +254,7 @@ export default function RaioXFinanceiroScreen() {
       const previousMonthExpenses: CategoryExpense[] = [];
       const monthlyTotals: MonthData[] = [];
 
-      // Agrupar por mes e categoria
+      // Agrupar por mes e categoria (consolidado por categoria, não subcategoria)
       const groupByMonth = (expenses: any[], monthStart: Date) => {
         const monthEnd = new Date(
           monthStart.getFullYear(),
@@ -269,20 +266,17 @@ export default function RaioXFinanceiroScreen() {
           return expDate >= monthStart && expDate <= monthEnd;
         });
 
-        const grouped = new Map<string, CategoryExpense>();
+        const grouped = new Map<ExpenseCategory, CategoryExpense>();
         filtered.forEach((exp) => {
           const category = (exp.category as ExpenseCategory) || 'outros';
-          const subcategory = exp.subcategory || 'Outros';
-          const key = `${category}-${subcategory}`;
 
-          if (grouped.has(key)) {
-            const existing = grouped.get(key)!;
+          if (grouped.has(category)) {
+            const existing = grouped.get(category)!;
             existing.total += exp.amount;
             existing.count += 1;
           } else {
-            grouped.set(key, {
+            grouped.set(category, {
               category,
-              subcategory,
               total: exp.amount,
               count: 1,
             });
@@ -362,13 +356,11 @@ export default function RaioXFinanceiroScreen() {
         .slice(0, 5);
       setLeaks(leakItems);
 
-      // Calcular aumentos (comparacao com mes anterior)
+      // Calcular aumentos (comparacao com mes anterior - por categoria)
       const increaseItems: IncreaseItem[] = [];
       currentData.forEach((current) => {
         const previous = previousData.find(
-          (p) =>
-            p.category === current.category &&
-            p.subcategory === current.subcategory
+          (p) => p.category === current.category
         );
         const previousTotal = previous?.total || 0;
 
@@ -378,7 +370,6 @@ export default function RaioXFinanceiroScreen() {
 
           if (percentIncrease >= 20 && increase >= 50) {
             increaseItems.push({
-              subcategory: current.subcategory,
               category: current.category,
               currentTotal: current.total,
               previousTotal,
@@ -389,7 +380,6 @@ export default function RaioXFinanceiroScreen() {
         } else if (current.total >= 100) {
           // Gasto novo significativo
           increaseItems.push({
-            subcategory: current.subcategory,
             category: current.category,
             currentTotal: current.total,
             previousTotal: 0,
@@ -470,17 +460,16 @@ export default function RaioXFinanceiroScreen() {
         ),
         topExpenses: topExpenses.slice(0, 5).map((exp) => ({
           category: CATEGORIES[exp.category]?.name || exp.category,
-          subcategory: exp.subcategory,
           total: exp.total,
         })),
         leaks: leaks.slice(0, 5).map((leak) => ({
-          subcategory: leak.subcategory,
+          category: CATEGORIES[leak.category]?.name || leak.category,
           total: leak.total,
           count: leak.count,
           avgPerTransaction: leak.avgPerTransaction,
         })),
         increases: increases.slice(0, 3).map((inc) => ({
-          subcategory: inc.subcategory,
+          category: CATEGORIES[inc.category]?.name || inc.category,
           currentTotal: inc.currentTotal,
           previousTotal: inc.previousTotal,
           percentIncrease: inc.percentIncrease,
@@ -660,7 +649,7 @@ Use formatação markdown para organizar a resposta.`;
                           size={20}
                         />
                         <Text style={[styles.leakName, { color: theme.text }]}>
-                          {item.subcategory}
+                          {categoryInfo.name}
                         </Text>
                       </View>
                       <View style={styles.leakRight}>
@@ -739,7 +728,7 @@ Use formatação markdown para organizar a resposta.`;
                         <Text
                           style={[styles.increaseName, { color: theme.text }]}
                         >
-                          {item.subcategory}
+                          {categoryInfo.name}
                         </Text>
                       </View>
                       <View style={styles.increaseRight}>
@@ -808,7 +797,7 @@ Use formatação markdown para organizar a resposta.`;
                           size={18}
                         />
                         <Text style={[styles.topName, { color: theme.text }]}>
-                          {item.subcategory}
+                          {categoryInfo.name}
                         </Text>
                       </View>
                       <View

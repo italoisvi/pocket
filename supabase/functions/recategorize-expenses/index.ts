@@ -43,12 +43,35 @@ serve(async (req) => {
       });
     }
 
-    // Ler parâmetros opcionais
+    // Ler parâmetros
     const body = await req.json().catch(() => ({}));
+
+    // CASO 1: Categorizar um único estabelecimento (chamado pelo app ao adicionar comprovante)
+    if (body.action === 'categorize_single' && body.establishmentName) {
+      console.log(
+        `[recategorize-expenses] Categorizing single: "${body.establishmentName}"`
+      );
+
+      const categorization = await categorizeWithWalts(body.establishmentName, {
+        amount: body.options?.amount,
+        items: body.options?.items,
+        pluggyCategory: body.options?.pluggyCategory,
+        receiverName: body.options?.receiverName,
+        payerName: body.options?.payerName,
+      });
+
+      console.log(
+        `[recategorize-expenses] Result: ${categorization.category}/${categorization.subcategory}`
+      );
+
+      return new Response(JSON.stringify(categorization), { headers });
+    }
+
+    // CASO 2: Recategorizar expenses em batch
     const forceAll = body.forceAll === true;
 
     console.log(
-      `[recategorize-expenses] Starting recategorization for user ${user.id}, forceAll=${forceAll}`
+      `[recategorize-expenses] Starting batch recategorization for user ${user.id}, forceAll=${forceAll}`
     );
 
     // Buscar expenses que precisam ser recategorizadas

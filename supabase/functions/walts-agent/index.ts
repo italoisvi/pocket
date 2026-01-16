@@ -183,10 +183,16 @@ function buildUserMessageContent(
     return text;
   }
 
+  // Include image URLs in text so the LLM can use them when calling create_expense
+  const imageUrlsText = imageUrls
+    .map((url, i) => `[IMAGEM_${i + 1}_URL: ${url}]`)
+    .join('\n');
+  const enrichedText = `${text}\n\n${imageUrlsText}`;
+
   const content: Array<
     | { type: 'text'; text: string }
     | { type: 'image_url'; image_url: { url: string; detail: 'auto' } }
-  > = [{ type: 'text', text }];
+  > = [{ type: 'text', text: enrichedText }];
 
   for (const url of imageUrls) {
     content.push({

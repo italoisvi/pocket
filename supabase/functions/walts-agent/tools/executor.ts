@@ -361,6 +361,7 @@ async function executeFinancialTool(
           date?: string;
           category?: string;
           notes?: string;
+          image_url?: string;
         },
         context
       );
