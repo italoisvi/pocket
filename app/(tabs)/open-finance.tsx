@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Image,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
@@ -16,7 +17,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { OpenFinanceIcon } from '@/components/OpenFinanceIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { LixoIcon } from '@/components/LixoIcon';
 import {
   getConnectedItems,
@@ -580,7 +580,7 @@ export default function OpenFinanceScreen() {
       >
         {loading ? (
           <View style={styles.loader}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : items.length > 0 ? (
           items.map((item) => (

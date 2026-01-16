@@ -18,7 +18,6 @@ import { supabase } from '@/lib/supabase';
 import { sendMessageToDeepSeek } from '@/lib/deepseek';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { GraficoCircularIcon } from '@/components/GraficoCircularIcon';
 import { GraficoBarrasIcon } from '@/components/GraficoBarrasIcon';
@@ -178,12 +177,21 @@ export default function RaioXFinanceiroScreen() {
       const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
 
+      // Formatar data como string para evitar problemas de timezone
+      const formatDateStr = (d: Date) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      const twoMonthsAgoStr = formatDateStr(twoMonthsAgo);
+
       // Buscar gastos MANUAIS dos ultimos 3 meses
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, category, subcategory, date, created_at')
         .eq('user_id', user.id)
-        .gte('date', twoMonthsAgo.toISOString().split('T')[0])
+        .gte('date', twoMonthsAgoStr)
         .order('date', { ascending: false });
 
       // Buscar contas do usuario para transacoes do extrato
@@ -224,9 +232,9 @@ export default function RaioXFinanceiroScreen() {
               if (!txAccountId || !txDate) return false;
               if (!accountIds.includes(txAccountId)) return false;
               if (txType !== 'DEBIT') return false;
-              // Filtrar por periodo (ultimos 3 meses)
-              const date = new Date(txDate);
-              return date >= twoMonthsAgo;
+              // Filtrar por periodo (ultimos 3 meses) usando string
+              const txDateStr = txDate.split('T')[0];
+              return txDateStr >= twoMonthsAgoStr;
             })
             .map((tx: any) => ({
               amount: Math.abs(tx.pluggy_transactions?.amount || 0),
@@ -257,14 +265,16 @@ export default function RaioXFinanceiroScreen() {
 
       // Agrupar por mes e categoria (consolidado por categoria, não subcategoria)
       const groupByMonth = (expenses: any[], monthStart: Date) => {
-        const monthEnd = new Date(
-          monthStart.getFullYear(),
-          monthStart.getMonth() + 1,
-          0
-        );
+        // Usar comparação de strings para evitar problemas de timezone
+        const year = monthStart.getFullYear();
+        const month = monthStart.getMonth();
+        const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
         const filtered = expenses.filter((exp) => {
-          const expDate = new Date(exp.date);
-          return expDate >= monthStart && expDate <= monthEnd;
+          const expDateStr = exp.date.split('T')[0]; // Pegar apenas a parte da data (YYYY-MM-DD)
+          return expDateStr >= startDateStr && expDateStr <= endDateStr;
         });
 
         const grouped = new Map<ExpenseCategory, CategoryExpense>();
@@ -605,7 +615,7 @@ Use formatação markdown para organizar a resposta.`;
       <ScrollView style={styles.content}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" color={theme.primary} />
             <Text style={[styles.loadingText, { color: theme.text }]}>
               Analisando suas finanças...
             </Text>
@@ -1081,7 +1091,7 @@ Use formatação markdown para organizar a resposta.`;
               <View style={styles.analysisContainer}>
                 {loadingAnalysis ? (
                   <View style={styles.analysisLoading}>
-                    <LoadingKangaroo size={80} />
+                    <ActivityIndicator size="large" color={theme.primary} />
                     <Text
                       style={[
                         styles.analysisLoadingText,

@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -35,7 +35,7 @@ export default function ChatScreen() {
   const [conversationId, setConversationId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [showPaywall, setShowPaywall] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     loadUserProfile();
@@ -46,12 +46,6 @@ export default function ChatScreen() {
       loadCurrentConversation();
     }, [])
   );
-
-  useEffect(() => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  }, [messages]);
 
   const loadUserProfile = async () => {
     try {
@@ -264,48 +258,49 @@ export default function ChatScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.messagesContainer}
-        contentContainerStyle={[
-          styles.messagesContent,
-          messages.length === 0 && styles.emptyMessagesContent,
-        ]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {messages.length === 0 && !loading ? (
+      {messages.length === 0 && !loading ? (
+        <View style={[styles.messagesContainer, styles.emptyMessagesContent]}>
           <View style={styles.welcomeContainer}>
             <Text style={[styles.welcomeText, { color: theme.text }]}>
               Olá{userName ? `, ${userName}` : ''}! Em que posso te ajudar?
             </Text>
           </View>
-        ) : (
-          <>
-            {messages.map((message, index) => {
-              const isLastAssistant =
-                message.role === 'assistant' &&
-                index === messages.length - 1 &&
-                !loading;
-
-              return (
-                <ChatMessage
-                  key={message.id}
-                  role={message.role}
-                  content={message.content}
-                  attachments={message.attachments}
-                  sessionId={message.sessionId}
-                  showFeedback={isLastAssistant}
-                />
-              );
-            })}
-            {loading && (
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
+          data={[...messages].reverse()}
+          keyExtractor={(item) => item.id}
+          inverted
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            loading ? (
               <View style={styles.loadingContainer}>
                 <LoadingKangaroo size={50} />
               </View>
-            )}
-          </>
-        )}
-      </ScrollView>
+            ) : null
+          }
+          renderItem={({ item: message, index }) => {
+            const reversedIndex = messages.length - 1 - index;
+            const isLastAssistant =
+              message.role === 'assistant' &&
+              reversedIndex === messages.length - 1 &&
+              !loading;
+
+            return (
+              <ChatMessage
+                role={message.role}
+                content={message.content}
+                attachments={message.attachments}
+                sessionId={message.sessionId}
+                showFeedback={isLastAssistant}
+              />
+            );
+          }}
+        />
+      )}
 
       <ChatInput
         onSendMessage={handleSendMessage}
@@ -375,6 +370,5 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     alignSelf: 'flex-start',
-    padding: 16,
   },
 });

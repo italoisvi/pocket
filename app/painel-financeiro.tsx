@@ -11,9 +11,9 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { BankLogo } from '@/components/BankLogo';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -456,7 +456,7 @@ export default function PainelFinanceiroScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <LoadingKangaroo size={80} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -847,7 +847,7 @@ export default function PainelFinanceiroScreen() {
                       disabled={saving}
                     >
                       {saving ? (
-                        <LoadingKangaroo size={80} />
+                        <ActivityIndicator size="small" color={theme.background === '#000' ? theme.text : '#FFF'} />
                       ) : (
                         <Text
                           style={[

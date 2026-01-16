@@ -14,7 +14,6 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { AlertaIcon } from '@/components/AlertaIcon';
@@ -650,7 +649,7 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
           <View
             style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
           >
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : (
           <>

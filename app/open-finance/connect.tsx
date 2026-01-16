@@ -8,13 +8,13 @@ import {
   TextInput,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { getApiKey, getConnectToken } from '@/lib/pluggy';
 
 type BankLogoProps = {
@@ -298,7 +298,7 @@ export default function ConnectBankScreen() {
       {/* Lista de bancos */}
       {loading ? (
         <View style={styles.loader}>
-          <LoadingKangaroo size={80} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <ScrollView style={styles.content}>

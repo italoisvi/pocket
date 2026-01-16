@@ -7,6 +7,7 @@ import {
   ScrollView,
   Share,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -15,7 +16,6 @@ import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { LapisIcon } from '@/components/LapisIcon';
 import { AdicionarUsuarioIcon } from '@/components/AdicionarUsuarioIcon';
 import { SettingsIcon } from '@/components/SettingsIcon';
@@ -121,7 +121,7 @@ export default function PerfilScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <LoadingKangaroo size={80} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <ScrollView style={styles.content}>

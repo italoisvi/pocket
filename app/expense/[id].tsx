@@ -16,7 +16,6 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { useTheme } from '@/lib/theme';
 import { LixoIcon } from '@/components/LixoIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { LapisIcon } from '@/components/LapisIcon';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 
@@ -128,7 +127,7 @@ export default function ExpenseDetailScreen() {
       <View
         style={[styles.loadingContainer, { backgroundColor: theme.background }]}
       >
-        <LoadingKangaroo size={80} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }

@@ -16,7 +16,6 @@ import { router } from 'expo-router';
 import { supabase, supabaseUrl } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { UsuarioIcon } from '@/components/UsuarioIcon';
 
 export default function EditarPerfilScreen() {
@@ -219,7 +218,7 @@ export default function EditarPerfilScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <LoadingKangaroo size={80} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>

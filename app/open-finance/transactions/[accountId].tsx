@@ -7,12 +7,12 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { SetaParaBaixoIcon } from '@/components/SetaParaBaixoIcon';
 import { SetaParaCimaIcon } from '@/components/SetaParaCimaIcon';
 import { BoletoIcon } from '@/components/BoletoIcon';
@@ -182,7 +182,7 @@ export default function TransactionsScreen() {
       >
         {loading ? (
           <View style={styles.loadingContainer}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : transactions.length > 0 ? (
           Object.keys(groupedTransactions).map((monthYear) => (

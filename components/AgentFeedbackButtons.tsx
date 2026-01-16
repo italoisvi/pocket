@@ -191,7 +191,12 @@ export function AgentFeedbackButtons({
                 onPress={handleSubmitNegative}
                 disabled={submitting}
               >
-                <Text style={[styles.modalButtonText, { color: '#FFF' }]}>
+                <Text
+                  style={[
+                    styles.modalButtonText,
+                    { color: theme.background },
+                  ]}
+                >
                   Enviar
                 </Text>
               </TouchableOpacity>

@@ -15,8 +15,8 @@ import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
+import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { MaisIcon } from '@/components/MaisIcon';
 import { LapisIcon } from '@/components/LapisIcon';
 import { LixoIcon } from '@/components/LixoIcon';
@@ -388,7 +388,7 @@ export default function OrcamentosScreen() {
         <Text style={[styles.label, { color: theme.text }]}>Categoria *</Text>
         <TouchableOpacity
           style={[
-            styles.input,
+            styles.categoryInput,
             {
               backgroundColor: theme.surface,
               borderColor: theme.border,
@@ -409,7 +409,11 @@ export default function OrcamentosScreen() {
               ? CATEGORIES[selectedCategory].name
               : 'Selecione uma categoria'}
           </Text>
-          <ChevronDownIcon size={20} color={theme.textSecondary} />
+          {showCategoryPicker ? (
+            <ChevronDownIcon size={20} color={theme.textSecondary} />
+          ) : (
+            <ChevronRightIcon size={20} color={theme.textSecondary} />
+          )}
         </TouchableOpacity>
 
         {showCategoryPicker && (
@@ -577,7 +581,7 @@ export default function OrcamentosScreen() {
           <View style={styles.placeholder} />
         </SafeAreaView>
         <View style={styles.loadingContainer}>
-          <LoadingKangaroo size={80} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       </View>
     );
@@ -697,6 +701,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     gap: 12,
+  },
+  categoryInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
   },
   inputText: {
     fontSize: 18,

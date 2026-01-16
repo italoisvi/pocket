@@ -6,12 +6,12 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { AlertaIcon } from '@/components/AlertaIcon';
 import { CardBrandIcon } from '@/lib/cardBrand';
 import { supabase } from '@/lib/supabase';
@@ -428,7 +428,7 @@ export default function AlertasPendenciasScreen() {
       >
         {loading ? (
           <View style={styles.loader}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : alerts.length > 0 ? (
           <>

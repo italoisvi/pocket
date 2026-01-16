@@ -8,12 +8,12 @@ import {
   ScrollView,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { syncItem } from '@/lib/pluggy';
 import { MFAModal } from '@/components/MFAModal';
 import { OAuthModal } from '@/components/OAuthModal';
@@ -570,7 +570,10 @@ export default function CredentialsScreen() {
           disabled={loading}
         >
           {loading ? (
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator
+              size="small"
+              color={theme.background === '#000' ? theme.text : '#fff'}
+            />
           ) : (
             <Text
               style={[

@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { categorizeWithWalts } from '@/lib/categorize-with-walts';
 
 type Expense = {
@@ -119,7 +118,7 @@ export default function EditExpenseScreen() {
       <View
         style={[styles.loadingContainer, { backgroundColor: theme.background }]}
       >
-        <LoadingKangaroo size={80} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
