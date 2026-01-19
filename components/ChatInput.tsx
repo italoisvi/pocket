@@ -86,7 +86,7 @@ export function ChatInput({
   isPremium,
   onShowPaywall,
 }: ChatInputProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [inputText, setInputText] = useState('');
   const prevTextRef = useRef('');
 
@@ -414,26 +414,15 @@ export function ChatInput({
           <TouchableOpacity
             style={[
               styles.actionButton,
-              {
-                backgroundColor:
-                  theme.background === '#000' ? 'transparent' : theme.primary,
-                borderColor:
-                  theme.background === '#000' ? 'transparent' : theme.primary,
-              },
+              { backgroundColor: theme.card },
             ]}
             onPress={handleSend}
             disabled={isProcessing}
           >
             {isProcessing ? (
-              <ActivityIndicator
-                size="small"
-                color={theme.background === '#000' ? theme.text : '#FFF'}
-              />
+              <ActivityIndicator size="small" color={theme.text} />
             ) : (
-              <AviaDePapelIcon
-                size={20}
-                color={theme.background === '#000' ? theme.text : '#FFF'}
-              />
+              <AviaDePapelIcon size={20} color={theme.text} />
             )}
           </TouchableOpacity>
         </View>
@@ -459,7 +448,7 @@ export function ChatInput({
             styles.mediaButton,
             {
               backgroundColor:
-                theme.background === '#000' ? 'transparent' : theme.card,
+                isDark ? 'transparent' : theme.card,
             },
           ]}
           onPress={handleGallery}
@@ -511,37 +500,17 @@ export function ChatInput({
           <TouchableOpacity
             style={[
               styles.actionButton,
-              {
-                backgroundColor: isDisabled
-                  ? theme.border
-                  : theme.background === '#000'
-                    ? 'transparent'
-                    : theme.primary,
-                borderColor: isDisabled
-                  ? theme.border
-                  : theme.background === '#000'
-                    ? 'transparent'
-                    : theme.primary,
-              },
+              { backgroundColor: isDisabled ? theme.border : theme.card },
             ]}
             onPress={handleSend}
             disabled={isDisabled}
           >
             {loading || isProcessing ? (
-              <ActivityIndicator
-                size="small"
-                color={theme.background === '#000' ? theme.text : '#FFF'}
-              />
+              <ActivityIndicator size="small" color={theme.text} />
             ) : (
               <AviaDePapelIcon
                 size={20}
-                color={
-                  isDisabled
-                    ? theme.textSecondary
-                    : theme.background === '#000'
-                      ? theme.text
-                      : '#FFF'
-                }
+                color={isDisabled ? theme.textSecondary : theme.text}
               />
             )}
           </TouchableOpacity>
@@ -552,7 +521,7 @@ export function ChatInput({
                 styles.mediaButton,
                 {
                   backgroundColor:
-                    theme.background === '#000' ? 'transparent' : theme.card,
+                    isDark ? 'transparent' : theme.card,
                 },
               ]}
               onPress={handleCamera}
@@ -566,7 +535,7 @@ export function ChatInput({
                 styles.mediaButton,
                 {
                   backgroundColor:
-                    theme.background === '#000' ? 'transparent' : theme.card,
+                    isDark ? 'transparent' : theme.card,
                 },
               ]}
               onPress={handleStartRecording}
@@ -623,7 +592,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },

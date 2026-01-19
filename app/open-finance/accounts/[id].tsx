@@ -39,7 +39,7 @@ type PluggyAccount = {
 };
 
 export default function AccountsScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark, themeMode } = useTheme();
   const params = useLocalSearchParams();
 
   const itemId = params.id as string;
@@ -210,8 +210,10 @@ export default function AccountsScreen() {
       let totalTransactionsSaved = 0;
 
       if (accountsData && accountsData.length > 0) {
-        const to = new Date().toISOString().split('T')[0];
-        const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+        const now = new Date();
+        const to = now.toISOString().split('T')[0];
+        // Primeiro dia do mês corrente
+        const from = new Date(now.getFullYear(), now.getMonth(), 1)
           .toISOString()
           .split('T')[0];
 
@@ -425,10 +427,18 @@ export default function AccountsScreen() {
             styles.actionButton,
             {
               backgroundColor:
-                theme.background === '#000' ? theme.card : theme.primary,
+                themeMode === 'night'
+                  ? '#0a1929'
+                  : isDark
+                    ? '#000'
+                    : theme.primary,
               borderWidth: 2,
               borderColor:
-                theme.background === '#000' ? theme.cardBorder : theme.primary,
+                themeMode === 'night'
+                  ? '#1a3a5c'
+                  : isDark
+                    ? '#2c2c2e'
+                    : theme.primary,
               opacity: syncing ? 0.8 : 1,
             },
           ]}
@@ -439,14 +449,14 @@ export default function AccountsScreen() {
             <View style={styles.syncingContainer}>
               <ActivityIndicator
                 size="small"
-                color={theme.background === '#000' ? theme.text : '#fff'}
+                color={isDark ? theme.text : '#fff'}
               />
               {syncStatus ? (
                 <Text
                   style={[
                     styles.syncStatusText,
                     {
-                      color: theme.background === '#000' ? theme.text : '#fff',
+                      color: isDark ? theme.text : '#fff',
                     },
                   ]}
                 >
@@ -459,7 +469,7 @@ export default function AccountsScreen() {
               style={[
                 styles.actionButtonText,
                 {
-                  color: theme.background === '#000' ? theme.text : '#fff',
+                  color: isDark ? theme.text : '#fff',
                 },
               ]}
             >
@@ -509,12 +519,18 @@ export default function AccountsScreen() {
                 styles.syncButton,
                 {
                   backgroundColor:
-                    theme.background === '#000' ? theme.card : theme.primary,
+                    themeMode === 'night'
+                      ? '#0a1929'
+                      : isDark
+                        ? '#000'
+                        : theme.primary,
                   borderWidth: 2,
                   borderColor:
-                    theme.background === '#000'
-                      ? theme.cardBorder
-                      : theme.primary,
+                    themeMode === 'night'
+                      ? '#1a3a5c'
+                      : isDark
+                        ? '#2c2c2e'
+                        : theme.primary,
                 },
               ]}
               onPress={handleSync}
@@ -523,14 +539,14 @@ export default function AccountsScreen() {
               {syncing ? (
                 <ActivityIndicator
                   size="small"
-                  color={theme.background === '#000' ? theme.text : '#fff'}
+                  color={isDark ? theme.text : '#fff'}
                 />
               ) : (
                 <Text
                   style={[
                     styles.syncButtonText,
                     {
-                      color: theme.background === '#000' ? theme.text : '#fff',
+                      color: isDark ? theme.text : '#fff',
                     },
                   ]}
                 >

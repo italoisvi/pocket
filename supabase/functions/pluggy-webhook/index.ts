@@ -1,6 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { categorizeWithWalts } from '../_shared/categorize-with-walts.ts';
+import {
+  categorizeInBatch,
+  type BatchTransaction,
+} from '../_shared/categorize-with-walts.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -93,47 +96,67 @@ serve(async (req) => {
       },
     });
 
-    // Processar eventos
-    switch (event) {
-      case 'item/created':
-        if (itemId) await handleItemCreated(supabase, itemId);
-        break;
+    // Processar eventos em background para responder rapidamente à Pluggy
+    // A Pluggy tem timeout de 5 segundos, então respondemos imediatamente
+    // e processamos em background usando EdgeRuntime.waitUntil()
+    const processEvent = async () => {
+      try {
+        switch (event) {
+          case 'item/created':
+            if (itemId) await handleItemCreated(supabase, itemId);
+            break;
 
-      case 'item/updated':
-        if (itemId) await handleItemUpdated(supabase, itemId);
-        break;
+          case 'item/updated':
+            if (itemId) await handleItemUpdated(supabase, itemId);
+            break;
 
-      case 'item/deleted':
-        if (itemId) await handleItemDeleted(supabase, itemId);
-        break;
+          case 'item/deleted':
+            if (itemId) await handleItemDeleted(supabase, itemId);
+            break;
 
-      case 'item/error':
-        if (itemId) await handleItemError(supabase, itemId);
-        break;
+          case 'item/error':
+            if (itemId) await handleItemError(supabase, itemId);
+            break;
 
-      case 'item/waiting_user_input':
-        if (itemId) await handleItemWaitingUserInput(supabase, itemId);
-        break;
+          case 'item/waiting_user_input':
+            if (itemId) await handleItemWaitingUserInput(supabase, itemId);
+            break;
 
-      case 'transactions/created':
-        if (accountId) {
-          await handleTransactionsCreated(
-            supabase,
-            accountId,
-            createdTransactionsLink
-          );
+          case 'transactions/created':
+            if (accountId) {
+              await handleTransactionsCreated(
+                supabase,
+                accountId,
+                createdTransactionsLink
+              );
+            }
+            break;
+
+          case 'transactions/deleted':
+            if (accountId) await handleTransactionsDeleted(supabase, accountId);
+            break;
+
+          default:
+            console.log('[pluggy-webhook] Unhandled event:', event);
         }
-        break;
+        console.log(`[pluggy-webhook] Event ${event} processed successfully`);
+      } catch (error) {
+        console.error(`[pluggy-webhook] Error processing event ${event}:`, error);
+      }
+    };
 
-      case 'transactions/deleted':
-        if (accountId) await handleTransactionsDeleted(supabase, accountId);
-        break;
-
-      default:
-        console.log('[pluggy-webhook] Unhandled event:', event);
+    // Usar EdgeRuntime.waitUntil para processar em background
+    // @ts-ignore - EdgeRuntime é disponível no Deno Deploy/Supabase Edge Functions
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(processEvent());
+    } else {
+      // Fallback: processar de forma assíncrona sem esperar
+      processEvent().catch(console.error);
     }
 
-    return new Response(JSON.stringify({ success: true }), { headers });
+    // Responder imediatamente à Pluggy
+    return new Response(JSON.stringify({ success: true, processing: 'background' }), { headers });
   } catch (error) {
     console.error('[pluggy-webhook] Error:', error);
     return new Response(
@@ -505,10 +528,11 @@ async function syncItemTransactions(
     await Promise.all(
       accounts.map(async (account: any) => {
         try {
-          // Buscar transações dos últimos 90 dias
-          const fromDate = new Date();
-          fromDate.setDate(fromDate.getDate() - 90);
-          const fromDateStr = fromDate.toISOString().split('T')[0];
+          // Buscar transações do mês corrente
+          const now = new Date();
+          const fromDateStr = new Date(now.getFullYear(), now.getMonth(), 1)
+            .toISOString()
+            .split('T')[0];
 
           const transactionsResponse = await fetch(
             `https://api.pluggy.ai/transactions?accountId=${account.pluggy_account_id}&from=${fromDateStr}&pageSize=500`,
@@ -555,28 +579,9 @@ async function processTransactions(
   accountData: { id: string; user_id: string }
 ) {
   const transactionsToInsert: any[] = [];
-  const categorizationMap = new Map();
 
-  // Categorizar transações de débito (gastos)
+  // Preparar todas as transações para inserção
   for (const transaction of transactions) {
-    if (transaction.amount < 0) {
-      try {
-        const categorization = await categorizeWithWalts(
-          transaction.description,
-          {
-            pluggyCategory: transaction.category,
-            receiverName: transaction.paymentData?.receiver?.name,
-            payerName: transaction.paymentData?.payer?.name,
-            amount: Math.abs(transaction.amount),
-          }
-        );
-        categorizationMap.set(transaction.id, categorization);
-      } catch (error) {
-        // Continue sem categorização
-      }
-    }
-
-    // Preparar objeto de transação
     transactionsToInsert.push({
       pluggy_transaction_id: transaction.id,
       user_id: accountData.user_id,
@@ -584,16 +589,12 @@ async function processTransactions(
       description: transaction.description,
       description_raw: transaction.descriptionRaw,
       amount: transaction.amount,
-      date: transaction.date,
+      date: transaction.date.split('T')[0],
       category: transaction.category,
-      currency_code: transaction.currencyCode || 'BRL',
-      payment_data_payer_name: transaction.paymentData?.payer?.name,
-      payment_data_payer_document_number:
-        transaction.paymentData?.payer?.documentNumber?.value,
-      payment_data_receiver_name: transaction.paymentData?.receiver?.name,
-      payment_data_receiver_document_number:
-        transaction.paymentData?.receiver?.documentNumber?.value,
-      synced: categorizationMap.has(transaction.id) ? false : null,
+      status: transaction.status,
+      type: transaction.type,
+      provider_code: transaction.providerCode || null,
+      synced: false,
     });
   }
 
@@ -613,19 +614,41 @@ async function processTransactions(
     return;
   }
 
-  // Criar expenses para transações categorizadas que ainda não têm expense
-  const transactionsNeedingExpenses = (savedTransactions || []).filter(
-    (tx: any) =>
-      !tx.expense_id && categorizationMap.has(tx.pluggy_transaction_id)
+  // Filtrar transações de débito para categorização
+  const debitTransactions = (savedTransactions || []).filter(
+    (tx: any) => tx.amount < 0 && !tx.expense_id
   );
 
-  if (transactionsNeedingExpenses.length > 0) {
-    console.log(
-      `[pluggy-webhook] Processing ${transactionsNeedingExpenses.length} transactions for expense creation`
+  if (debitTransactions.length === 0) {
+    console.log('[pluggy-webhook] No debit transactions to categorize');
+    return;
+  }
+
+  console.log(
+    `[pluggy-webhook] Categorizing ${debitTransactions.length} debit transactions in batch`
+  );
+
+  // Preparar batch para categorização
+  const batchInput: BatchTransaction[] = debitTransactions.map((tx: any) => ({
+    id: tx.id,
+    description: tx.description,
+    amount: Math.abs(tx.amount),
+    pluggyCategory: tx.category,
+  }));
+
+  try {
+    // Categorizar todas de uma vez
+    const categorizations = await categorizeInBatch(batchInput, {
+      supabase,
+      userId: accountData.user_id,
+    });
+
+    // Criar mapa de categorizações
+    const categorizationMap = new Map(
+      categorizations.map((cat) => [cat.id, cat])
     );
 
     // Buscar expenses existentes do usuário para verificar duplicidades
-    // (últimos 7 dias para cobrir possíveis transações pendentes)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -638,9 +661,12 @@ async function processTransactions(
     const expensesToCreate: any[] = [];
     const duplicatesFound: { txId: string; expenseId: string }[] = [];
 
-    for (const tx of transactionsNeedingExpenses) {
+    for (const tx of debitTransactions) {
       const txAmount = Math.abs(tx.amount);
       const txDate = new Date(tx.date);
+      const categorization = categorizationMap.get(tx.id);
+
+      if (!categorization) continue;
 
       // Verificar se já existe um expense similar (possível duplicata)
       const duplicate = existingExpenses?.find((exp: any) => {
@@ -662,7 +688,6 @@ async function processTransactions(
       });
 
       if (duplicate) {
-        // Transação é duplicata - vincular ao expense existente
         duplicatesFound.push({
           txId: tx.id,
           expenseId: duplicate.id,
@@ -671,8 +696,6 @@ async function processTransactions(
           `[pluggy-webhook] Duplicate found: ${tx.description} (R$${txAmount}) matches expense ${duplicate.id}`
         );
       } else {
-        // Não é duplicata - criar novo expense
-        const categorization = categorizationMap.get(tx.pluggy_transaction_id);
         expensesToCreate.push({
           tx,
           expenseData: {
@@ -715,7 +738,6 @@ async function processTransactions(
         .select();
 
       if (createdExpenses && createdExpenses.length > 0) {
-        // Vincular expenses às transações
         await Promise.all(
           expensesToCreate.map((e, index) =>
             supabase
@@ -734,5 +756,7 @@ async function processTransactions(
     console.log(
       `[pluggy-webhook] Summary: ${duplicatesFound.length} duplicates linked, ${expensesToCreate.length} new expenses created`
     );
+  } catch (batchError) {
+    console.error('[pluggy-webhook] Batch categorization error:', batchError);
   }
 }

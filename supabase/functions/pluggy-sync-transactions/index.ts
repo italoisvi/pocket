@@ -1,6 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { categorizeWithWalts } from '../_shared/categorize-with-walts.ts';
+import {
+  categorizeInBatch,
+  type BatchTransaction,
+} from '../_shared/categorize-with-walts.ts';
 
 const PLUGGY_CLIENT_ID = Deno.env.get('PLUGGY_CLIENT_ID');
 const PLUGGY_CLIENT_SECRET = Deno.env.get('PLUGGY_CLIENT_SECRET');
@@ -211,6 +214,17 @@ serve(async (req) => {
       return null;
     };
 
+    // PASSO 1: Filtrar transações novas e inserir no banco
+    const insertedTransactions: Array<{
+      dbId: string;
+      pluggyId: string;
+      description: string;
+      amount: number;
+      type: string;
+      pluggyCategory: string | null;
+      isDuplicate: boolean;
+    }> = [];
+
     for (const transaction of transactions) {
       // Verificar se já existe na tabela pluggy_transactions
       const { data: existing } = await supabase
@@ -247,7 +261,7 @@ serve(async (req) => {
             type: transaction.type,
             category: transaction.category || null,
             provider_code: transaction.providerCode || null,
-            synced: isDuplicate, // Marcar como synced se for duplicata
+            synced: isDuplicate,
           })
           .select('id')
           .single();
@@ -262,14 +276,8 @@ serve(async (req) => {
 
       savedCount++;
 
-      // Se for duplicata, aprender associacao e nao categorizar
+      // Se for duplicata, aprender associacao
       if (isDuplicate && duplicateExpense) {
-        console.log(
-          `[pluggy-sync-transactions] Transaction "${transaction.description}" is duplicate of manual expense "${duplicateExpense.establishment_name}", learning association`
-        );
-
-        // APRENDIZADO: Salvar associacao "nome Pix" -> "estabelecimento real + categoria"
-        // Apenas se os nomes forem diferentes (caso interessante)
         const transactionName = transaction.description?.toLowerCase().trim();
         const establishmentName = duplicateExpense.establishment_name
           ?.toLowerCase()
@@ -280,11 +288,9 @@ serve(async (req) => {
           establishmentName &&
           transactionName !== establishmentName
         ) {
-          // Normalizar key para busca futura
           const aliasKey = `merchant_alias_${transactionName.replace(/[^a-z0-9]/g, '_')}`;
 
           try {
-            // Verificar se ja existe essa associacao
             const { data: existingAlias } = await supabase
               .from('walts_memory')
               .select('id, value, use_count')
@@ -294,7 +300,6 @@ serve(async (req) => {
               .single();
 
             if (existingAlias) {
-              // Atualizar contagem de uso (aumenta confianca)
               const newUseCount = (existingAlias.use_count || 0) + 1;
               const newConfidence = Math.min(0.95, 0.8 + newUseCount * 0.03);
 
@@ -307,12 +312,7 @@ serve(async (req) => {
                   last_used_at: new Date().toISOString(),
                 })
                 .eq('id', existingAlias.id);
-
-              console.log(
-                `[pluggy-sync-transactions] Updated alias: "${transactionName}" -> "${establishmentName}" (confidence: ${newConfidence})`
-              );
             } else {
-              // Criar nova associacao
               await supabase.from('walts_memory').insert({
                 user_id: user.id,
                 memory_type: 'merchant_alias',
@@ -328,76 +328,87 @@ serve(async (req) => {
                 confidence: 0.85,
                 source: 'duplicate_detection',
               });
-
-              console.log(
-                `[pluggy-sync-transactions] Learned new alias: "${transactionName}" -> "${establishmentName}" (${duplicateExpense.category})`
-              );
             }
           } catch (aliasError) {
             console.error(
               `[pluggy-sync-transactions] Error saving alias:`,
               aliasError
             );
-            // Nao falhar por causa de erro no aprendizado
           }
         }
-
-        continue; // Pular categorizacao
+        continue; // Nao adicionar duplicatas para categorizacao
       }
 
-      // Categorizar automaticamente apenas debitos (gastos)
-      if (transaction.type === 'DEBIT' && insertedTransaction?.id) {
-        try {
-          // Verificar se ja existe categorizacao
-          const { data: existingCat } = await supabase
+      // Guardar para categorização em batch
+      if (insertedTransaction?.id) {
+        insertedTransactions.push({
+          dbId: insertedTransaction.id,
+          pluggyId: transaction.id,
+          description: transaction.description,
+          amount: transaction.amount,
+          type: transaction.type,
+          pluggyCategory: transaction.category || null,
+          isDuplicate,
+        });
+      }
+    }
+
+    // PASSO 2: Categorizar transações em batch (apenas débitos)
+    const debitTransactions = insertedTransactions.filter(
+      (tx) => tx.type === 'DEBIT' && !tx.isDuplicate
+    );
+
+    if (debitTransactions.length > 0) {
+      console.log(
+        `[pluggy-sync-transactions] Categorizing ${debitTransactions.length} transactions in batch`
+      );
+
+      // Preparar batch para categorização
+      const batchInput: BatchTransaction[] = debitTransactions.map((tx) => ({
+        id: tx.dbId,
+        description: tx.description,
+        amount: tx.amount,
+        pluggyCategory: tx.pluggyCategory,
+      }));
+
+      try {
+        // Categorizar todas de uma vez
+        const categorizations = await categorizeInBatch(batchInput, {
+          supabase,
+          userId: user.id,
+        });
+
+        // Inserir categorizações
+        for (const cat of categorizations) {
+          const { error: catError } = await supabase
             .from('transaction_categories')
-            .select('id')
-            .eq('transaction_id', insertedTransaction.id)
-            .eq('user_id', user.id)
-            .single();
+            .insert({
+              user_id: user.id,
+              transaction_id: cat.id,
+              category: cat.category,
+              subcategory: cat.subcategory,
+              is_fixed_cost: cat.is_fixed_cost,
+              categorized_by: 'walts_auto',
+            });
 
-          if (!existingCat) {
-            // Categorizar com IA (passando supabase e userId para consultar aliases)
-            const categorization = await categorizeWithWalts(
-              transaction.description,
-              {
-                amount: Math.abs(transaction.amount),
-                pluggyCategory: transaction.category,
-                supabase,
-                userId: user.id,
-              }
+          if (catError) {
+            console.error(
+              `[pluggy-sync-transactions] Failed to save categorization:`,
+              catError
             );
-
-            // Inserir categorizacao
-            const { error: catError } = await supabase
-              .from('transaction_categories')
-              .insert({
-                user_id: user.id,
-                transaction_id: insertedTransaction.id,
-                category: categorization.category,
-                subcategory: categorization.subcategory,
-                is_fixed_cost: categorization.is_fixed_cost,
-                categorized_by: 'walts_auto',
-              });
-
-            if (catError) {
-              console.error(
-                `[pluggy-sync-transactions] Failed to categorize transaction:`,
-                catError
-              );
-            } else {
-              categorizedCount++;
-              console.log(
-                `[pluggy-sync-transactions] Categorized "${transaction.description}" as ${categorization.category} (${categorization.is_fixed_cost ? 'fixed' : 'variable'})`
-              );
-            }
+          } else {
+            categorizedCount++;
           }
-        } catch (catError) {
-          console.error(
-            `[pluggy-sync-transactions] Error categorizing transaction:`,
-            catError
-          );
         }
+
+        console.log(
+          `[pluggy-sync-transactions] Batch categorization completed: ${categorizedCount} categorized`
+        );
+      } catch (batchError) {
+        console.error(
+          `[pluggy-sync-transactions] Batch categorization error:`,
+          batchError
+        );
       }
     }
 
