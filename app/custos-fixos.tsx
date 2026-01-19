@@ -25,7 +25,7 @@ type SubcategoryExpense = {
 };
 
 export default function CustosFixosScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const params = useLocalSearchParams<{ year?: string; month?: string }>();
 
   // Usar mês passado por parâmetro ou mês atual como fallback
@@ -300,10 +300,9 @@ export default function CustosFixosScreen() {
                               style={[
                                 styles.extractBadge,
                                 {
-                                  backgroundColor:
-                                    theme.background === '#000'
-                                      ? 'rgba(247, 195, 89, 0.2)'
-                                      : theme.primary,
+                                  backgroundColor: isDark
+                                    ? 'rgba(247, 195, 89, 0.2)'
+                                    : theme.primary,
                                 },
                               ]}
                             >
@@ -311,10 +310,7 @@ export default function CustosFixosScreen() {
                                 style={[
                                   styles.extractBadgeText,
                                   {
-                                    color:
-                                      theme.background === '#000'
-                                        ? theme.primary
-                                        : '#FFF',
+                                    color: isDark ? theme.primary : '#FFF',
                                   },
                                 ]}
                               >
