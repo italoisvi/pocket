@@ -196,14 +196,14 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 12,
     textAlign: 'center',
   },
   description: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -213,13 +213,13 @@ const styles = StyleSheet.create({
   },
   bulletItem: {
     fontSize: 15,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 6,
     textAlign: 'left',
   },
   warning: {
     fontSize: 15,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -241,10 +241,10 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   submitButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
 });

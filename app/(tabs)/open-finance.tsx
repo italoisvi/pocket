@@ -837,8 +837,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   addButton: {
     paddingHorizontal: 16,
@@ -848,7 +848,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   content: {
     flex: 1,
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 4,
   },
   statusRow: {
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   syncButton: {
     marginLeft: 8,
@@ -910,11 +910,11 @@ const styles = StyleSheet.create({
   },
   syncButtonText: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   cardDate: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   emptyState: {
     alignItems: 'center',
@@ -923,13 +923,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginTop: 24,
     marginBottom: 8,
   },
   emptyDescription: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     paddingHorizontal: 32,
     marginBottom: 24,
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   bankLogoContainer: {
     width: 40,
@@ -963,7 +963,7 @@ const styles = StyleSheet.create({
   },
   bankLogoText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     color: '#fff',
   },
   // Learning Period Modal Styles
@@ -998,13 +998,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   learningModalTitle: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     textAlign: 'center',
   },
   learningModalDescription: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     marginBottom: 12,
     lineHeight: 22,
@@ -1018,16 +1018,16 @@ const styles = StyleSheet.create({
   },
   learningModalCounterLabel: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 8,
   },
   learningModalCounterValue: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
   },
   learningModalFooter: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     fontStyle: 'italic',
     marginBottom: 20,
@@ -1039,6 +1039,6 @@ const styles = StyleSheet.create({
   },
   learningModalButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
 });

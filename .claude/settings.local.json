@@ -78,7 +78,8 @@
       "Bash(deno:*)",
       "Bash(npx tsc:*)",
       "WebFetch(domain:langfuse.com)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(find:*)"
     ]
   }
 }

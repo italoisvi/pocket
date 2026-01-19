@@ -148,8 +148,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   placeholder: {
     width: 40,
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 32,
     lineHeight: 26,
   },
@@ -185,12 +185,12 @@ const styles = StyleSheet.create({
   },
   tipTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 4,
   },
   tipDescription: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     lineHeight: 22,
   },
   divider: {
@@ -200,12 +200,12 @@ const styles = StyleSheet.create({
   },
   additionalTipsTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 12,
   },
   bulletPoint: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     lineHeight: 24,
     marginBottom: 8,
   },
@@ -219,6 +219,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
 });

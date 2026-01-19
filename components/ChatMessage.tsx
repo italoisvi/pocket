@@ -372,20 +372,20 @@ export function ChatMessage({
   const markdownStyles = {
     body: {
       fontSize: 20,
-      fontFamily: 'CormorantGaramond-Regular',
+      fontFamily: 'DMSans-Regular',
       lineHeight: 28,
       color: theme.text,
     },
     heading1: {
-      fontSize: 24,
-      fontFamily: 'CormorantGaramond-SemiBold',
+      fontSize: 20,
+      fontFamily: 'DMSans-SemiBold',
       marginBottom: 8,
       marginTop: 12,
       color: theme.text,
     },
     heading2: {
-      fontSize: 22,
-      fontFamily: 'CormorantGaramond-SemiBold',
+      fontSize: 20,
+      fontFamily: 'DMSans-SemiBold',
       marginBottom: 6,
       marginTop: 10,
       color: theme.text,
@@ -395,7 +395,7 @@ export function ChatMessage({
       marginTop: 0,
     },
     strong: {
-      fontFamily: 'CormorantGaramond-Bold',
+      fontFamily: 'DMSans-Bold',
     },
     bullet_list: {
       marginBottom: 8,
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   userText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     lineHeight: 26,
   },
   assistantBubble: {
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   },
   audioTime: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     minWidth: 32,
   },
 });

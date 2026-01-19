@@ -613,11 +613,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 2,
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   placeholder: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   actionButton: {
     width: 40,
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   },
   recordingTime: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginRight: 8,
     minWidth: 35,
   },

@@ -417,9 +417,33 @@ export default function PainelFinanceiroScreen() {
     setSalary(formatted);
   };
 
-  const maskValue = (value: string) => {
-    // Replace all digits with *, but keep dots and commas
-    return value.replace(/\d/g, '*');
+  const renderMaskedValue = (value: string) => {
+    const barColor = theme.background === '#000' ? '#fff' : '#000';
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={[styles.displayCardValue, { color: theme.text }]}>
+          R${' '}
+        </Text>
+        <View
+          style={{
+            backgroundColor: barColor,
+            height: 20,
+            borderRadius: 4,
+            justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          <Text
+            style={[
+              styles.displayCardValue,
+              { color: 'transparent', includeFontPadding: false },
+            ]}
+          >
+            {value}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -523,16 +547,18 @@ export default function PainelFinanceiroScreen() {
                             </TouchableOpacity>
                           </View>
                         </View>
-                        <Text
-                          style={[
-                            styles.displayCardValue,
-                            { color: theme.text },
-                          ]}
-                        >
-                          {showValues
-                            ? `R$ ${card.salary}`
-                            : `R$ ${maskValue(card.salary)}`}
-                        </Text>
+                        {showValues ? (
+                          <Text
+                            style={[
+                              styles.displayCardValue,
+                              { color: theme.text },
+                            ]}
+                          >
+                            R$ {card.salary}
+                          </Text>
+                        ) : (
+                          renderMaskedValue(card.salary)
+                        )}
                         <Text
                           style={[
                             styles.displayCardSubtitle,
@@ -893,8 +919,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     flex: 1,
     textAlign: 'center',
   },
@@ -927,13 +953,13 @@ const styles = StyleSheet.create({
     paddingTop: 100,
   },
   emptyStateText: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 8,
   },
   emptyStateSubtext: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     paddingHorizontal: 40,
   },
@@ -942,7 +968,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 12,
   },
   inputContainer: {
@@ -954,18 +980,18 @@ const styles = StyleSheet.create({
   },
   currency: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginRight: 8,
   },
   input: {
     flex: 1,
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     paddingVertical: 16,
   },
   dayInput: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
@@ -973,7 +999,7 @@ const styles = StyleSheet.create({
   },
   helperText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 8,
   },
   sourceOption: {
@@ -1000,14 +1026,14 @@ const styles = StyleSheet.create({
   },
   sourceLabel: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   accountInfo: {
     flex: 1,
   },
   accountNumber: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 2,
   },
   bankLogoWrapper: {
@@ -1033,7 +1059,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   saveButton: {
     flex: 1,
@@ -1046,7 +1072,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   displayCard: {
     borderRadius: 12,
@@ -1062,7 +1088,7 @@ const styles = StyleSheet.create({
   },
   displayCardTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     flex: 1,
   },
   cardActions: {
@@ -1076,12 +1102,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   displayCardValue: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 8,
   },
   displayCardSubtitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
 });

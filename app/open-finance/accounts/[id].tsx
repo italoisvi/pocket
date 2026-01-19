@@ -566,8 +566,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   actionsContainer: {
     flexDirection: 'row',
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   syncingContainer: {
     flexDirection: 'row',
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
   },
   syncStatusText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   content: {
     flex: 1,
@@ -621,17 +621,17 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     flex: 1,
   },
   cardSubtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 2,
   },
   accountNumber: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   cardFooter: {
     flexDirection: 'row',
@@ -640,12 +640,12 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 4,
   },
   balanceValue: {
-    fontSize: 24,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   creditRow: {
     flexDirection: 'row',
@@ -654,18 +654,18 @@ const styles = StyleSheet.create({
   },
   creditLabel: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   creditValue: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   cardRight: {
     marginLeft: 12,
   },
   viewText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   emptyState: {
     alignItems: 'center',
@@ -674,12 +674,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 8,
   },
   emptyDescription: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     paddingHorizontal: 32,
     marginBottom: 24,
@@ -692,6 +692,6 @@ const styles = StyleSheet.create({
   },
   syncButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
 });

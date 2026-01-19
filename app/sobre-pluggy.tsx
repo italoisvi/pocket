@@ -145,8 +145,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   placeholder: {
     width: 40,
@@ -161,18 +161,18 @@ const styles = StyleSheet.create({
   },
   paragraph: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginTop: 20,
     marginBottom: 8,
   },
   body: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     lineHeight: 26,
   },
   bulletPoint: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     lineHeight: 26,
     marginBottom: 6,
   },

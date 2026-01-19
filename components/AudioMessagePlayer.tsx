@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 2,
   },
 });

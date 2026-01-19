@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   header: {
     flexDirection: 'row',
@@ -326,8 +326,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 26,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 22,
+    fontFamily: 'DMSans-SemiBold',
     position: 'absolute',
     left: 56,
     right: 96,
@@ -357,18 +357,18 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   establishment: {
-    fontSize: 28,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 22,
+    fontFamily: 'DMSans-Bold',
     marginBottom: 8,
   },
   date: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 16,
   },
   amount: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
     marginBottom: 32,
   },
   itemsSection: {
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 16,
   },
   item: {
@@ -392,22 +392,22 @@ const styles = StyleSheet.create({
   },
   itemQuantity: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   itemName: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   itemPrice: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   notesSection: {
     marginBottom: 32,
   },
   notes: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     lineHeight: 24,
   },
   modalOverlay: {
@@ -424,13 +424,13 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 24,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
     marginBottom: 12,
   },
   modalMessage: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     lineHeight: 24,
     marginBottom: 24,
   },
@@ -450,14 +450,14 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   deleteButton: {
     backgroundColor: '#ef4444',
   },
   deleteButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     color: '#fff',
   },
 });

@@ -152,6 +152,6 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: '#FFF',
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
   },
 });

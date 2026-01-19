@@ -467,8 +467,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   content: {
     flex: 1,
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     flex: 1,
   },
   countBadge: {
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     color: '#fff',
   },
   alertCard: {
@@ -525,19 +525,19 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 4,
   },
   alertDescription: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   alertAmount: {
     marginLeft: 12,
   },
   amountValue: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   emptyState: {
     alignItems: 'center',
@@ -546,12 +546,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 8,
   },
   emptyDescription: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     paddingHorizontal: 32,
   },

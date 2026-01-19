@@ -193,17 +193,17 @@ const styles = StyleSheet.create({
   },
   skipButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   title: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
     marginBottom: 12,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 26,
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 8,
   },
   inputWrapper: {
@@ -224,14 +224,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   currency: {
-    fontSize: 24,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     marginRight: 8,
   },
   input: {
     flex: 1,
-    fontSize: 24,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     paddingVertical: 16,
   },
   button: {
@@ -244,11 +244,11 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   hint: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 6,
   },
 });

@@ -303,8 +303,8 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     textAlign: 'center',
     marginHorizontal: 8,
   },
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   },
   monthHeader: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginTop: 16,
     marginBottom: 8,
     textTransform: 'capitalize',
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   transactionDescription: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 4,
   },
   transactionMeta: {
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   },
   transactionCategory: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginRight: 8,
   },
   statusBadge: {
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 10,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     color: '#000',
   },
   transactionRight: {
@@ -368,11 +368,11 @@ const styles = StyleSheet.create({
   },
   transactionAmount: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   transactionDate: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 2,
   },
   emptyState: {
@@ -382,12 +382,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 8,
   },
   emptyDescription: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     paddingHorizontal: 32,
   },

@@ -635,8 +635,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   content: {
     flex: 1,
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 8,
   },
   input: {
@@ -661,7 +661,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: 16,
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   connectButton: {
     borderRadius: 12,
@@ -675,11 +675,11 @@ const styles = StyleSheet.create({
   },
   connectButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   disclaimer: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     marginBottom: 24,
   },

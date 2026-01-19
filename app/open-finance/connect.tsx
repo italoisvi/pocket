@@ -365,8 +365,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   placeholder: {
     width: 40,
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     padding: 12,
     borderRadius: 8,
     borderWidth: 2,
@@ -421,8 +421,8 @@ const styles = StyleSheet.create({
     left: 0,
   },
   bankLogoText: {
-    fontSize: 24,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     color: '#fff',
   },
   bankInfo: {
@@ -431,12 +431,12 @@ const styles = StyleSheet.create({
   },
   bankName: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 2,
   },
   bankType: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   emptyState: {
     alignItems: 'center',
@@ -445,6 +445,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
 });

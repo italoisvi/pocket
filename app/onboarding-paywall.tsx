@@ -412,15 +412,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   title: {
-    fontSize: 28,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 22,
+    fontFamily: 'DMSans-Bold',
     textAlign: 'center',
     marginBottom: 8,
     paddingHorizontal: 16,
   },
   subtitle: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     paddingHorizontal: 24,
   },
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   planHeader: {
     flexDirection: 'row',
@@ -457,12 +457,12 @@ const styles = StyleSheet.create({
   },
   planTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
     marginBottom: 4,
   },
   planSubtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   radioButton: {
     width: 24,
@@ -478,19 +478,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   planPrice: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
   },
   planPeriod: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   featuresContainer: {
     marginBottom: 24,
   },
   featuresTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
     marginBottom: 16,
   },
   featureItem: {
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     flex: 1,
   },
   disclaimer: {
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   },
   disclaimerText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
   },
   footer: {
@@ -526,11 +526,11 @@ const styles = StyleSheet.create({
   },
   continueButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   footerText: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
   },
   topBar: {
@@ -546,6 +546,6 @@ const styles = StyleSheet.create({
   },
   skipButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
 });

@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   thankYouText: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   modalOverlay: {
     flex: 1,
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 80,
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlignVertical: 'top',
     marginBottom: 16,
   },
@@ -264,6 +264,6 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
 });

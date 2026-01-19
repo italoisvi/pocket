@@ -507,7 +507,7 @@ Faça uma análise detalhada e me dê:
 3. 3 sugestões práticas para melhorar
 4. Uma meta sugerida para o próximo mês
 
-Use formatação markdown para organizar a resposta.`;
+Use formatação markdown para organizar a resposta. NÃO use emojis na resposta.`;
 
       const response = await sendMessageToDeepSeek([
         {
@@ -1115,45 +1115,45 @@ Use formatação markdown para organizar a resposta.`;
                       style={{
                         body: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                           fontSize: 16,
                         },
                         text: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                           fontSize: 16,
                         },
                         heading1: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Bold',
+                          fontFamily: 'DMSans-Bold',
                           fontSize: 20,
                           marginTop: 16,
                           marginBottom: 8,
                         },
                         heading2: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-SemiBold',
+                          fontFamily: 'DMSans-SemiBold',
                           fontSize: 18,
                           marginTop: 12,
                           marginBottom: 6,
                         },
                         heading3: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-SemiBold',
+                          fontFamily: 'DMSans-SemiBold',
                           fontSize: 16,
                           marginTop: 8,
                           marginBottom: 4,
                         },
                         heading4: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-SemiBold',
+                          fontFamily: 'DMSans-SemiBold',
                           fontSize: 15,
                           marginTop: 8,
                           marginBottom: 4,
                         },
                         paragraph: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                           fontSize: 16,
                           lineHeight: 24,
                           marginBottom: 8,
@@ -1170,39 +1170,39 @@ Use formatação markdown para organizar a resposta.`;
                         },
                         bullet_list_icon: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                           fontSize: 16,
                         },
                         ordered_list_icon: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                           fontSize: 16,
                         },
                         bullet_list_content: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                           fontSize: 16,
                         },
                         ordered_list_content: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                           fontSize: 16,
                         },
                         strong: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Bold',
+                          fontFamily: 'DMSans-Bold',
                         },
                         em: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Italic',
+                          fontFamily: 'DMSans-Regular',
                         },
                         link: {
                           color: theme.primary,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                         },
                         blockquote: {
                           color: theme.textSecondary,
-                          fontFamily: 'CormorantGaramond-Italic',
+                          fontFamily: 'DMSans-Regular',
                           borderLeftWidth: 3,
                           borderLeftColor: theme.primary,
                           paddingLeft: 12,
@@ -1210,14 +1210,14 @@ Use formatação markdown para organizar a resposta.`;
                         },
                         code_inline: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                           backgroundColor: theme.cardBorder,
                           paddingHorizontal: 4,
                           borderRadius: 4,
                         },
                         fence: {
                           color: theme.text,
-                          fontFamily: 'CormorantGaramond-Regular',
+                          fontFamily: 'DMSans-Regular',
                           backgroundColor: theme.cardBorder,
                           padding: 8,
                           borderRadius: 8,
@@ -1306,8 +1306,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   historyButton: {
     width: 40,
@@ -1327,7 +1327,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 16,
   },
   card: {
@@ -1341,11 +1341,11 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   cardSubtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 4,
   },
   leakRow: {
@@ -1364,18 +1364,18 @@ const styles = StyleSheet.create({
   },
   leakName: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   leakRight: {
     alignItems: 'flex-end',
   },
   leakAmount: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   leakCount: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   leakSummary: {
     marginTop: 16,
@@ -1384,11 +1384,11 @@ const styles = StyleSheet.create({
   },
   leakSummaryText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   leakSummaryValue: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
     marginTop: 4,
   },
   increaseRow: {
@@ -1407,18 +1407,18 @@ const styles = StyleSheet.create({
   },
   increaseName: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   increaseRight: {
     alignItems: 'flex-end',
   },
   increasePercent: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
   },
   increaseAmount: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   topRow: {
     flexDirection: 'row',
@@ -1435,7 +1435,7 @@ const styles = StyleSheet.create({
   },
   topRankText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
   },
   topInfo: {
     flex: 1,
@@ -1448,7 +1448,7 @@ const styles = StyleSheet.create({
   },
   topName: {
     fontSize: 15,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   topBar: {
     height: 6,
@@ -1464,11 +1464,11 @@ const styles = StyleSheet.create({
   },
   topAmount: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   topPercent: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   trendHeader: {
     flexDirection: 'row',
@@ -1498,7 +1498,7 @@ const styles = StyleSheet.create({
   },
   pieLegendText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   trendLabels: {
     flexDirection: 'row',
@@ -1512,11 +1512,11 @@ const styles = StyleSheet.create({
   },
   trendMonthText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   trendValueText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginTop: 4,
   },
   summaryCard: {
@@ -1532,15 +1532,15 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   summaryValue: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     padding: 20,
   },
@@ -1556,7 +1556,7 @@ const styles = StyleSheet.create({
   },
   analysisLoadingText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   analysisContent: {
     marginBottom: 16,
@@ -1571,7 +1571,7 @@ const styles = StyleSheet.create({
   },
   analyzeButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   saveButton: {
     flex: 1,
@@ -1582,7 +1582,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   newAnalysisButton: {
     padding: 14,
@@ -1593,7 +1593,7 @@ const styles = StyleSheet.create({
   },
   newAnalysisButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   analysisButtonsRow: {
     flexDirection: 'row',
@@ -1611,7 +1611,7 @@ const styles = StyleSheet.create({
   },
   balanceSourceText: {
     fontSize: 13,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 4,
     textAlign: 'right',
   },

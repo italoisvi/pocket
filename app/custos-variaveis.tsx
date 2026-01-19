@@ -401,12 +401,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   subtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textTransform: 'capitalize',
   },
   placeholder: {
@@ -429,12 +429,12 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 8,
   },
   totalValue: {
-    fontSize: 36,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
   },
   card: {
     borderRadius: 12,
@@ -467,12 +467,12 @@ const styles = StyleSheet.create({
   },
   subcategoryName: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     flexShrink: 1,
   },
   categoryLabel: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 2,
   },
   row: {
@@ -482,11 +482,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   value: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Medium',
+    fontFamily: 'DMSans-Medium',
   },
   emptyContainer: {
     padding: 40,
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
   },
   extractBadge: {
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
   },
   extractBadgeText: {
     fontSize: 10,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     textTransform: 'uppercase',
   },
 });

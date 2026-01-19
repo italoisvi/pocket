@@ -20,6 +20,7 @@ type NotificationState = {
   budgets: { [budgetId: string]: number }; // Último percentual notificado
   bills: { [billId: string]: boolean }; // Se já foi notificado
   creditCards: { [cardId: string]: number }; // Último percentual notificado
+  leaks?: { [leakKey: string]: boolean }; // Vazamentos notificados (categoria_mês)
 };
 
 async function getNotificationState(): Promise<NotificationState> {
@@ -263,6 +264,40 @@ export async function notifyCreditCardLimit(
   }
 }
 
+// ============ NOTIFICAÇÕES DE VAZAMENTO ============
+
+export async function notifyLeakDetected(
+  category: string,
+  total: number,
+  count: number,
+  avgPerTransaction: number
+): Promise<void> {
+  const hasPermission = await requestNotificationPermissions();
+  if (!hasPermission) return;
+
+  const state = await getNotificationState();
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const leakKey = `${category}_${currentMonth}`;
+
+  if (state.leaks?.[leakKey]) return;
+
+  const title = 'Vazamento detectado';
+  const body = `${category}: ${count} gastos pequenos somaram R$ ${total.toFixed(2)} (média R$ ${avgPerTransaction.toFixed(2)})`;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data: { type: 'leak', category, total, count, avgPerTransaction },
+    },
+    trigger: null,
+  });
+
+  if (!state.leaks) state.leaks = {};
+  state.leaks[leakKey] = true;
+  await saveNotificationState(state);
+}
+
 // ============ RESETAR ESTADO (para novo mês) ============
 
 export async function resetMonthlyNotificationState(): Promise<void> {
@@ -272,6 +307,68 @@ export async function resetMonthlyNotificationState(): Promise<void> {
   state.creditCards = {};
   // Manter bills pois são específicos por transação
   await saveNotificationState(state);
+}
+
+// ============ VERIFICAR VAZAMENTO APÓS ADICIONAR GASTO ============
+
+export async function checkLeakAfterExpense(
+  supabase: { from: (table: string) => unknown },
+  userId: string,
+  category: string
+): Promise<void> {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .split('T')[0];
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    .toISOString()
+    .split('T')[0];
+
+  const { data: expenses, error } = await (
+    supabase.from('expenses') as {
+      select: (cols: string) => {
+        eq: (
+          col: string,
+          val: string
+        ) => {
+          eq: (
+            col: string,
+            val: string
+          ) => {
+            gte: (
+              col: string,
+              val: string
+            ) => {
+              lte: (
+                col: string,
+                val: string
+              ) => Promise<{
+                data: Array<{ amount: number }> | null;
+                error: unknown;
+              }>;
+            };
+          };
+        };
+      };
+    }
+  )
+    .select('amount')
+    .eq('user_id', userId)
+    .eq('category', category)
+    .gte('date', startOfMonth)
+    .lte('date', endOfMonth);
+
+  if (error || !expenses) return;
+
+  const count = expenses.length;
+  if (count < 3) return;
+
+  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const avgPerTransaction = total / count;
+
+  if (avgPerTransaction < 100) {
+    await notifyLeakDetected(category, total, count, avgPerTransaction);
+  }
 }
 
 // ============ VERIFICAR E NOTIFICAR TODOS OS ALERTAS ============

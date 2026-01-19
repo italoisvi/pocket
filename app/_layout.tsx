@@ -213,10 +213,11 @@ function RootLayout() {
       console.log('[RootLayout] Starting font loading...');
       try {
         await Font.loadAsync({
-          'CormorantGaramond-Light': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Light.ttf'),
-          'CormorantGaramond-Regular': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Regular.ttf'),
-          'CormorantGaramond-Medium': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Medium.ttf'),
-          'CormorantGaramond-SemiBold': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-SemiBold.ttf'),
+          'DMSans-Light': require('../assets/fonts/DM_Sans/static/DMSans-Light.ttf'),
+          'DMSans-Regular': require('../assets/fonts/DM_Sans/static/DMSans-Regular.ttf'),
+          'DMSans-Medium': require('../assets/fonts/DM_Sans/static/DMSans-Medium.ttf'),
+          'DMSans-SemiBold': require('../assets/fonts/DM_Sans/static/DMSans-SemiBold.ttf'),
+          'DMSans-Bold': require('../assets/fonts/DM_Sans/static/DMSans-Bold.ttf'),
           'CormorantGaramond-Bold': require('../assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Bold.ttf'),
         });
         console.log('[RootLayout] Fonts loaded successfully');

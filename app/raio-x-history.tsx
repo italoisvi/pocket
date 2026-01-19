@@ -184,45 +184,45 @@ export default function RaioXHistoryScreen() {
                     style={{
                       body: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                         fontSize: 16,
                       },
                       text: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                         fontSize: 16,
                       },
                       heading1: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Bold',
+                        fontFamily: 'DMSans-Bold',
                         fontSize: 20,
                         marginTop: 16,
                         marginBottom: 8,
                       },
                       heading2: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-SemiBold',
+                        fontFamily: 'DMSans-SemiBold',
                         fontSize: 18,
                         marginTop: 12,
                         marginBottom: 6,
                       },
                       heading3: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-SemiBold',
+                        fontFamily: 'DMSans-SemiBold',
                         fontSize: 16,
                         marginTop: 8,
                         marginBottom: 4,
                       },
                       heading4: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-SemiBold',
+                        fontFamily: 'DMSans-SemiBold',
                         fontSize: 15,
                         marginTop: 8,
                         marginBottom: 4,
                       },
                       paragraph: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                         fontSize: 16,
                         lineHeight: 24,
                         marginBottom: 8,
@@ -239,39 +239,39 @@ export default function RaioXHistoryScreen() {
                       },
                       bullet_list_icon: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                         fontSize: 16,
                       },
                       ordered_list_icon: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                         fontSize: 16,
                       },
                       bullet_list_content: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                         fontSize: 16,
                       },
                       ordered_list_content: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                         fontSize: 16,
                       },
                       strong: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Bold',
+                        fontFamily: 'DMSans-Bold',
                       },
                       em: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Italic',
+                        fontFamily: 'DMSans-Regular',
                       },
                       link: {
                         color: theme.primary,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                       },
                       blockquote: {
                         color: theme.textSecondary,
-                        fontFamily: 'CormorantGaramond-Italic',
+                        fontFamily: 'DMSans-Regular',
                         borderLeftWidth: 3,
                         borderLeftColor: theme.primary,
                         paddingLeft: 12,
@@ -279,14 +279,14 @@ export default function RaioXHistoryScreen() {
                       },
                       code_inline: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                         backgroundColor: theme.cardBorder,
                         paddingHorizontal: 4,
                         borderRadius: 4,
                       },
                       fence: {
                         color: theme.text,
-                        fontFamily: 'CormorantGaramond-Regular',
+                        fontFamily: 'DMSans-Regular',
                         backgroundColor: theme.cardBorder,
                         padding: 8,
                         borderRadius: 8,
@@ -338,8 +338,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   placeholder: {
     width: 40,
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 16,
   },
   emptyContainer: {
@@ -368,12 +368,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginTop: 16,
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   },
   cardDate: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   deleteButton: {
     padding: 8,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   },
   previewText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 12,
     lineHeight: 20,
   },

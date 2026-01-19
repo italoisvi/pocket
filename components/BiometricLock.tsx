@@ -188,12 +188,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   lockText: {
-    fontSize: 24,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   lockSubtext: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
   },
 });

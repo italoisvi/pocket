@@ -7,7 +7,8 @@ import { supabase } from './supabase';
 
 export type ExpenseCategory =
   | 'moradia'
-  | 'alimentacao'
+  | 'alimentacao_casa'
+  | 'alimentacao_fora'
   | 'transporte'
   | 'saude'
   | 'educacao'
@@ -15,10 +16,12 @@ export type ExpenseCategory =
   | 'vestuario'
   | 'beleza'
   | 'eletronicos'
-  | 'delivery'
+  | 'pets'
+  | 'tecnologia'
   | 'poupanca'
   | 'previdencia'
   | 'investimentos'
+  | 'consorcio'
   | 'cartao_credito'
   | 'emprestimos'
   | 'financiamentos'

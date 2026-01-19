@@ -732,7 +732,7 @@ export default function GraficosTabelasScreen() {
                                 x={x + barWidth / 2}
                                 y={y - 8}
                                 fontSize={14}
-                                fontFamily="CormorantGaramond-SemiBold"
+                                fontFamily="DMSans-SemiBold"
                                 fill={theme.text}
                                 textAnchor="middle"
                               >
@@ -743,7 +743,7 @@ export default function GraficosTabelasScreen() {
                                 x={x + barWidth / 2}
                                 y={chartHeight + 30}
                                 fontSize={13}
-                                fontFamily="CormorantGaramond-Regular"
+                                fontFamily="DMSans-Regular"
                                 fill={theme.text}
                                 textAnchor="middle"
                               >
@@ -998,8 +998,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   compareButton: {
     width: 40,
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   monthSelectorContainer: {
     flexDirection: 'row',
@@ -1042,12 +1042,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   monthArrowText: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
   },
   monthText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     textTransform: 'capitalize',
   },
   monthsScroll: {
@@ -1066,7 +1066,7 @@ const styles = StyleSheet.create({
   },
   monthButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   loadingContainer: {
     padding: 40,
@@ -1107,8 +1107,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   tableHeader: {
     flexDirection: 'row',
@@ -1117,7 +1117,7 @@ const styles = StyleSheet.create({
   },
   tableHeaderText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     textAlign: 'right',
   },
   tableHeaderCategory: {
@@ -1139,11 +1139,11 @@ const styles = StyleSheet.create({
   categoryName: {
     flex: 1,
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   tableCell: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'right',
   },
   tableValueCell: {
@@ -1152,7 +1152,7 @@ const styles = StyleSheet.create({
   },
   changeIndicator: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginTop: 2,
   },
   tableDivider: {
@@ -1162,12 +1162,12 @@ const styles = StyleSheet.create({
   tableTotalLabel: {
     flex: 1,
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   tableTotalValue: {
     flex: 1,
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     textAlign: 'right',
   },
   emptyContainer: {
@@ -1175,8 +1175,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontSize: 20,
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
   },
   legendScrollView: {
@@ -1208,11 +1208,11 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   legendSubtext: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 2,
   },
 });

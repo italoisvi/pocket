@@ -1067,8 +1067,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   placeholder: {
     width: 40,
@@ -1087,7 +1087,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 12,
     marginTop: 8,
     paddingHorizontal: 4,
@@ -1108,11 +1108,11 @@ const styles = StyleSheet.create({
   },
   settingCardTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   settingCardValue: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   spacer: {
     flex: 1,
@@ -1128,7 +1128,7 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   deleteButton: {
     backgroundColor: '#ff3b30',
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   blurOverlay: {
     position: 'absolute',
@@ -1171,8 +1171,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   themeOption: {
     flexDirection: 'row',
@@ -1191,7 +1191,7 @@ const styles = StyleSheet.create({
   },
   themeOptionText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Medium',
+    fontFamily: 'DMSans-Medium',
   },
   notificationOption: {
     flexDirection: 'row',
@@ -1208,12 +1208,12 @@ const styles = StyleSheet.create({
   },
   notificationTitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 4,
   },
   notificationDescription: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     lineHeight: 20,
   },
   dataModalContent: {
@@ -1221,7 +1221,7 @@ const styles = StyleSheet.create({
   },
   dataDescription: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 8,
     lineHeight: 22,
   },
@@ -1238,12 +1238,12 @@ const styles = StyleSheet.create({
   },
   dataButtonTitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 4,
   },
   dataButtonDescription: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     lineHeight: 18,
   },
   divider: {

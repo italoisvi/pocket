@@ -39,7 +39,7 @@ export function ExpenseCard({
       ]}
       onPress={onPress}
     >
-      <View style={styles.leftSection}>
+      <View style={styles.topSection}>
         {categoryInfo && <CategoryIcon categoryInfo={categoryInfo} size={32} />}
         <View style={styles.content}>
           <View style={styles.titleRow}>
@@ -80,14 +80,16 @@ export function ExpenseCard({
               {subcategory}
             </Text>
           )}
-          <Text style={[styles.date, { color: theme.textSecondary }]}>
-            {currentDate}
-          </Text>
         </View>
       </View>
-      <Text style={[styles.amount, { color: theme.text }]}>
-        {formatCurrency(amount)}
-      </Text>
+      <View style={styles.bottomSection}>
+        <Text style={[styles.date, { color: theme.textSecondary }]}>
+          {currentDate}
+        </Text>
+        <Text style={[styles.amount, { color: theme.text }]}>
+          {formatCurrency(amount)}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -97,9 +99,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     borderWidth: 2,
     shadowOffset: {
       width: 0,
@@ -109,11 +108,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  leftSection: {
+  topSection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1,
   },
   content: {
     flex: 1,
@@ -126,7 +124,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     flexShrink: 1,
   },
   cashBadge: {
@@ -136,20 +134,28 @@ const styles = StyleSheet.create({
   },
   cashBadgeText: {
     fontSize: 10,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     textTransform: 'uppercase',
   },
   subcategory: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Medium',
-    marginBottom: 2,
+    fontFamily: 'DMSans-Medium',
+  },
+  bottomSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
   },
   date: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
+    flexShrink: 1,
   },
   amount: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
+    flexShrink: 0,
+    marginLeft: 8,
   },
 });

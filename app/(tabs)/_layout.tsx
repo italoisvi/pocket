@@ -52,7 +52,7 @@ export default function TabsLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontFamily: 'CormorantGaramond-Medium',
+          fontFamily: 'DMSans-Medium',
           marginBottom: 6,
         },
       }}

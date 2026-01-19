@@ -264,8 +264,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   settingsButton: {
     width: 48,
@@ -321,13 +321,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   userName: {
-    fontSize: 24,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   editButton: {
     width: 44,
@@ -347,11 +347,11 @@ const styles = StyleSheet.create({
   },
   inviteTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   inviteSubtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Medium',
+    fontFamily: 'DMSans-Medium',
     letterSpacing: 1,
   },
 });

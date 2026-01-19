@@ -15,10 +15,12 @@ export type ExpenseCategory =
   | 'beleza' // Salão, barbearia, produtos de beleza
   | 'eletronicos' // Gadgets, acessórios, games
   | 'pets' // Pet shop, veterinário, ração
+  | 'tecnologia' // Serviços de IA, cloud, software
   // INVESTIMENTOS
   | 'poupanca' // Poupança
   | 'previdencia' // Previdência privada
   | 'investimentos' // Ações, fundos, renda fixa
+  | 'consorcio' // Consórcio de casa, carro
   // DÍVIDAS
   | 'cartao_credito' // Fatura do cartão de crédito
   | 'emprestimos' // Empréstimos pessoais
@@ -812,6 +814,98 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     ],
   },
 
+  tecnologia: {
+    name: 'Tecnologia',
+    type: 'nao_essencial',
+    description: 'Serviços de IA, cloud, software e assinaturas tech',
+    icon: 'tecnologia',
+    iconType: 'component',
+    color: '#7E57C2',
+    subcategories: [
+      {
+        name: 'Inteligência Artificial',
+        keywords: [
+          'anthropic',
+          'openai',
+          'chatgpt',
+          'claude',
+          'deepseek',
+          'midjourney',
+          'dall-e',
+          'copilot',
+          'gemini',
+          'perplexity',
+        ],
+      },
+      {
+        name: 'Cloud e Infraestrutura',
+        keywords: [
+          'aws',
+          'amazon web services',
+          'azure',
+          'google cloud',
+          'gcp',
+          'digitalocean',
+          'vercel',
+          'netlify',
+          'heroku',
+          'cloudflare',
+          'railway',
+          'render',
+          'fly.io',
+        ],
+      },
+      {
+        name: 'Software e Serviços',
+        keywords: [
+          'microsoft',
+          'office 365',
+          'microsoft 365',
+          'github',
+          'gitlab',
+          'notion',
+          'slack',
+          'figma',
+          'adobe',
+          'dropbox',
+          'google workspace',
+          'zoom',
+          'canva',
+          'grammarly',
+          '1password',
+          'lastpass',
+          'bitwarden',
+        ],
+      },
+      {
+        name: 'Apple',
+        keywords: [
+          'apple.com',
+          'icloud',
+          'apple one',
+          'apple music',
+          'apple tv+',
+          'apple arcade',
+          'apple fitness',
+          'apple storage',
+          'apple services',
+        ],
+      },
+      {
+        name: 'Domínios e Hospedagem',
+        keywords: [
+          'godaddy',
+          'namecheap',
+          'registro.br',
+          'hostgator',
+          'hostinger',
+          'locaweb',
+          'kinghost',
+        ],
+      },
+    ],
+  },
+
   alimentacao_fora: {
     name: 'Alimentação (Fora)',
     type: 'nao_essencial',
@@ -993,6 +1087,47 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
     ],
   },
 
+  consorcio: {
+    name: 'Consórcio',
+    type: 'investimento',
+    description: 'Consórcio de imóvel ou veículo',
+    icon: 'consorcio',
+    iconType: 'component',
+    color: '#26A69A',
+    subcategories: [
+      {
+        name: 'Consórcio Imóvel',
+        keywords: [
+          'consorcio casa',
+          'consórcio casa',
+          'consorcio imovel',
+          'consórcio imóvel',
+          'consorcio apartamento',
+          'consórcio apartamento',
+          'consorcio residencial',
+          'consórcio residencial',
+        ],
+      },
+      {
+        name: 'Consórcio Veículo',
+        keywords: [
+          'consorcio carro',
+          'consórcio carro',
+          'consorcio veiculo',
+          'consórcio veículo',
+          'consorcio moto',
+          'consórcio moto',
+          'consorcio auto',
+          'consórcio auto',
+        ],
+      },
+      {
+        name: 'Consórcio',
+        keywords: ['consorcio', 'consórcio'],
+      },
+    ],
+  },
+
   // ===== DÍVIDAS =====
   cartao_credito: {
     name: 'Cartão de Crédito',
@@ -1088,8 +1223,6 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
           'prestacao',
           'prestação',
           'parcela',
-          'consorcio',
-          'consórcio',
         ],
       },
     ],
@@ -1221,7 +1354,9 @@ export function categorizeExpense(
     'poupanca',
     'previdencia',
     'investimentos',
-    // Não Essenciais
+    'consorcio',
+    // Não Essenciais (tecnologia antes de eletronicos para priorizar serviços tech)
+    'tecnologia',
     'lazer',
     'vestuario',
     'beleza',

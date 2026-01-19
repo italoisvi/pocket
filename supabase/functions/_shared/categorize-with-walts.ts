@@ -17,9 +17,11 @@ export type ExpenseCategory =
   | 'beleza'
   | 'eletronicos'
   | 'pets'
+  | 'tecnologia'
   | 'poupanca'
   | 'previdencia'
   | 'investimentos'
+  | 'consorcio'
   | 'cartao_credito'
   | 'emprestimos'
   | 'financiamentos'
@@ -50,32 +52,56 @@ Voce e Walts, assistente financeiro do app Pocket.
 Sua tarefa e categorizar gastos com MAXIMA PRECISAO.
 
 # CATEGORIAS DISPONIVEIS:
+
+## ESSENCIAIS (Custos Fixos):
 - moradia: aluguel, conta de luz, agua, gas, internet, condominio
 - alimentacao_casa: supermercado, feira, acougue, mercearia (compras para preparar em casa)
-- alimentacao_fora: restaurante, lanchonete, delivery, ifood, rappi, bar, cafe, cafeteria, padaria, delicatessen, confeitaria, pizzaria, hamburgueria, fast food, acai, sorveteria (consumo imediato ou pronto)
-- transporte: combustivel, uber, estacionamento, mecanica
+- transporte: combustivel, uber, estacionamento, mecanica, IPVA, seguro auto
 - saude: farmacia, plano de saude, consultas, exames
 - educacao: escola, faculdade, cursos, material escolar
-- lazer: cinema, streaming (netflix, spotify), viagens, academia, shows
+
+## NAO ESSENCIAIS (Custos Variaveis):
+- alimentacao_fora: restaurante, lanchonete, delivery, ifood, rappi, bar, cafe, cafeteria, padaria, delicatessen, confeitaria, pizzaria, hamburgueria, fast food, acai, sorveteria (consumo imediato ou pronto)
+- lazer: cinema, streaming (netflix, spotify, disney+, hbo, prime video), viagens, academia, shows
 - vestuario: roupas, calcados, acessorios
 - beleza: salao, barbearia, cosmeticos
-- eletronicos: gadgets, games, acessorios tech
+- eletronicos: gadgets, games, acessorios tech, compra de celular, computador
 - pets: pet shop, veterinario, racao
-- transferencias: PIX para pessoas fisicas
-- outros: quando nao se encaixar em nenhuma
+- tecnologia: servicos de IA (OpenAI, Anthropic, ChatGPT, Claude, DeepSeek, Midjourney, Copilot, Gemini, Perplexity), cloud (AWS, Azure, Google Cloud, Vercel, Netlify, Heroku, DigitalOcean, Cloudflare, Railway, Render), software (GitHub, GitLab, Notion, Slack, Figma, Adobe, Dropbox, Zoom, Canva, 1Password), Apple (iCloud, Apple One, Apple Music, Apple TV+), dominios e hospedagem (GoDaddy, Namecheap, Registro.br, Hostgator, Hostinger, Locaweb)
 
-IMPORTANTE: Padaria, delicatessen, cafeteria, confeitaria sao SEMPRE alimentacao_fora (consumo imediato).
+## INVESTIMENTOS:
+- poupanca: depositos em poupanca
+- previdencia: previdencia privada
+- investimentos: acoes, fundos, renda fixa, corretoras
+- consorcio: consorcio de imovel ou veiculo
+
+## DIVIDAS:
+- cartao_credito: fatura do cartao de credito
+- emprestimos: emprestimos pessoais
+- financiamentos: financiamento de veiculo ou imovel
+
+## TRANSFERENCIAS:
+- transferencias: PIX para pessoas fisicas
+
+## OUTROS:
+- outros: quando nao se encaixar em nenhuma categoria acima
+
+IMPORTANTE:
+- Padaria, delicatessen, cafeteria, confeitaria sao SEMPRE alimentacao_fora (consumo imediato).
+- Servicos de IA como OpenAI, Anthropic, ChatGPT, Claude, DeepSeek sao SEMPRE tecnologia.
+- Consorcio NAO e financiamento - consorcio e categoria propria (investimento).
 
 # DECIDIR SE E CUSTO FIXO OU VARIAVEL (is_fixed_cost):
 VOCE DECIDE LIVREMENTE baseado na natureza do gasto:
 - is_fixed_cost = true: gastos RECORRENTES, mensais, previstos
-  Exemplos: aluguel, plano de saude, assinatura netflix, conta de luz, escola
+  Exemplos: aluguel, plano de saude, assinatura netflix, conta de luz, escola, assinatura OpenAI/Claude
 - is_fixed_cost = false: gastos EVENTUAIS, pontuais, nao recorrentes
   Exemplos: compra na farmacia, almoco no restaurante, cinema, presente, compra de roupa
 
 NAO HA REGRA FIXA - analise o contexto:
 - Farmacia EVENTUAL (remedio para gripe) = is_fixed_cost: false
 - Farmacia MENSAL (remedio continuo) = is_fixed_cost: true
+- Assinatura de servico de IA = is_fixed_cost: true
 - Na duvida, use is_fixed_cost: false (variavel)
 
 # FORMATO DE RESPOSTA (RETORNE APENAS JSON VALIDO):
@@ -138,9 +164,11 @@ function isValidCategory(category: string): category is ExpenseCategory {
     'beleza',
     'eletronicos',
     'pets',
+    'tecnologia',
     'poupanca',
     'previdencia',
     'investimentos',
+    'consorcio',
     'cartao_credito',
     'emprestimos',
     'financiamentos',

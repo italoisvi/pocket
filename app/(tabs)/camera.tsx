@@ -13,6 +13,7 @@ import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CarregarIcon } from '@/components/CarregarIcon';
 import { ExpenseConfirmModal } from '@/components/ExpenseConfirmModal';
 import { CameraInstructionsModal } from '@/components/CameraInstructionsModal';
+import { ImagePreviewModal } from '@/components/ImagePreviewModal';
 import { extractReceiptData, type ReceiptData } from '@/lib/ocr';
 import { supabase } from '@/lib/supabase';
 import { categorizeWithWalts } from '@/lib/categorize-with-walts';
@@ -24,6 +25,8 @@ export default function CameraScreen() {
   const [processingImage, setProcessingImage] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showInstructionsModal, setShowInstructionsModal] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [currentImageUri, setCurrentImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -129,35 +132,46 @@ export default function CameraScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
+        allowsEditing: false,
         quality: 1,
       });
 
       if (!result.canceled && result.assets[0]) {
         const originalUri = result.assets[0].uri;
-        setProcessingImage(true);
-
-        try {
-          // Processar imagem para efeito de scan
-          const processedUri = await processImageToScan(originalUri);
-          setCurrentImageUri(processedUri);
-
-          // Extrair dados do comprovante
-          const data = await extractReceiptData(processedUri);
-          setReceiptData(data);
-          setShowConfirmModal(true);
-        } catch (error) {
-          console.error('Erro ao processar imagem:', error);
-          Alert.alert('Erro', 'Não foi possível processar a imagem.');
-        } finally {
-          setProcessingImage(false);
-        }
+        setPreviewImageUri(originalUri);
+        setShowImagePreview(true);
       }
     } catch (error) {
       console.error('Erro ao selecionar imagem:', error);
-      setProcessingImage(false);
       Alert.alert('Erro', 'Não foi possível selecionar a imagem.');
     }
+  };
+
+  const handleConfirmImagePreview = async () => {
+    if (!previewImageUri) return;
+
+    setProcessingImage(true);
+
+    try {
+      const processedUri = await processImageToScan(previewImageUri);
+      setCurrentImageUri(processedUri);
+
+      const data = await extractReceiptData(processedUri);
+      setReceiptData(data);
+      setShowImagePreview(false);
+      setPreviewImageUri(null);
+      setShowConfirmModal(true);
+    } catch (error) {
+      console.error('Erro ao processar imagem:', error);
+      Alert.alert('Erro', 'Não foi possível processar a imagem.');
+    } finally {
+      setProcessingImage(false);
+    }
+  };
+
+  const handleCancelImagePreview = () => {
+    setShowImagePreview(false);
+    setPreviewImageUri(null);
   };
 
   // Função auxiliar para salvar gasto sem verificação de duplicata
@@ -537,6 +551,16 @@ export default function CameraScreen() {
         onClose={handleCloseInstructions}
       />
 
+      <ImagePreviewModal
+        visible={showImagePreview}
+        imageUri={previewImageUri}
+        onConfirm={handleConfirmImagePreview}
+        onCancel={handleCancelImagePreview}
+        loading={processingImage}
+        confirmText="Processar"
+        cancelText="Cancelar"
+      />
+
       <ExpenseConfirmModal
         visible={showConfirmModal}
         receiptData={receiptData}
@@ -560,8 +584,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   content: {
     flex: 1,
@@ -571,7 +595,7 @@ const styles = StyleSheet.create({
   },
   instruction: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     marginBottom: 40,
   },
@@ -585,7 +609,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginTop: 12,
   },
   processingContainer: {
@@ -595,7 +619,7 @@ const styles = StyleSheet.create({
   },
   processingText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 16,
   },
 });

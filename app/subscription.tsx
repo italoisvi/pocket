@@ -594,8 +594,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   placeholder: {
     width: 40,
@@ -617,14 +617,14 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   premiumTitle: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
     textAlign: 'center',
     marginBottom: 16,
   },
   premiumDescription: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     marginBottom: 32,
     paddingHorizontal: 24,
@@ -637,20 +637,20 @@ const styles = StyleSheet.create({
   },
   manageButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   nonPremiumContainer: {
     flex: 1,
   },
   nonPremiumTitle: {
-    fontSize: 28,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 22,
+    fontFamily: 'DMSans-Bold',
     textAlign: 'center',
     marginBottom: 12,
   },
   nonPremiumDescription: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     marginBottom: 32,
   },
@@ -664,13 +664,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   featureBullet: {
-    fontSize: 24,
+    fontSize: 20,
     marginRight: 12,
     marginTop: -4,
   },
   featureText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     flex: 1,
   },
   subscribeButton: {
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
   },
   subscribeButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   restoreButton: {
     paddingVertical: 12,
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
   },
   restoreButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   modalContainer: {
     flex: 1,
@@ -716,15 +716,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   modalTitle: {
-    fontSize: 28,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 22,
+    fontFamily: 'DMSans-Bold',
     textAlign: 'center',
     marginBottom: 8,
     paddingHorizontal: 16,
   },
   modalSubtitle: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     paddingHorizontal: 24,
   },
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
   },
   modalBadgeText: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   modalPlanHeader: {
     flexDirection: 'row',
@@ -761,12 +761,12 @@ const styles = StyleSheet.create({
   },
   modalPlanTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
     marginBottom: 4,
   },
   modalPlanSubtitle: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   modalRadioButton: {
     width: 24,
@@ -782,19 +782,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modalPlanPrice: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
   },
   modalPlanPeriod: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   modalFeaturesContainer: {
     marginBottom: 24,
   },
   modalFeaturesTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
     marginBottom: 16,
   },
   modalFeatureItem: {
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
   },
   modalFeatureText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     flex: 1,
   },
   modalDisclaimer: {
@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
   },
   modalDisclaimerText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     marginBottom: 12,
   },
@@ -825,12 +825,12 @@ const styles = StyleSheet.create({
   },
   modalLinkText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textDecorationLine: 'underline',
   },
   modalLinkSeparator: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   modalFooter: {
     paddingHorizontal: 24,
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
   },
   modalContinueButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   modalCancelButton: {
     paddingVertical: 12,
@@ -853,6 +853,6 @@ const styles = StyleSheet.create({
   },
   modalCancelButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
 });

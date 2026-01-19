@@ -332,8 +332,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   headerButtons: {
     flexDirection: 'row',
@@ -364,8 +364,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   welcomeText: {
-    fontSize: 26,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 22,
+    fontFamily: 'DMSans-SemiBold',
     textAlign: 'center',
   },
   loadingContainer: {

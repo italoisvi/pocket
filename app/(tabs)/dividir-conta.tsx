@@ -18,6 +18,7 @@ import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
 import { CarregarIcon } from '@/components/CarregarIcon';
+import { ImagePreviewModal } from '@/components/ImagePreviewModal';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { extractReceiptAmount } from '@/lib/ocr';
 import DocumentScanner from 'react-native-document-scanner-plugin';
@@ -28,6 +29,8 @@ export default function DividirContaScreen() {
   const [peopleCount, setPeopleCount] = useState('');
   const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
 
   const formatCurrencyInput = (value: string) => {
     // Remove tudo exceto números
@@ -107,7 +110,6 @@ export default function DividirContaScreen() {
   };
 
   const handlePickImage = async () => {
-    setProcessing(true);
     try {
       const ImagePicker = await import('expo-image-picker');
 
@@ -119,55 +121,69 @@ export default function DividirContaScreen() {
           'Permissão Necessária',
           'Precisamos de permissão para acessar sua galeria.'
         );
-        setProcessing(false);
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
+        allowsEditing: false,
         quality: 1,
       });
 
       if (!result.canceled) {
         const imageUri = result.assets[0].uri;
-
-        try {
-          const receiptData = await extractReceiptAmount(imageUri);
-
-          if (receiptData && receiptData.totalAmount > 0) {
-            const formattedValue = receiptData.totalAmount.toLocaleString(
-              'pt-BR',
-              {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              }
-            );
-            setTotalValue(formattedValue);
-            Alert.alert(
-              'Sucesso',
-              `Valor detectado: ${formatCurrency(receiptData.totalAmount)}`
-            );
-          } else {
-            Alert.alert(
-              'Atenção',
-              'Não foi possível detectar o valor total. Por favor, digite manualmente.'
-            );
-          }
-        } catch (ocrError) {
-          console.error('Erro ao processar OCR:', ocrError);
-          Alert.alert(
-            'Atenção',
-            'Não foi possível detectar o valor automaticamente. Por favor, digite manualmente.'
-          );
-        }
+        setPreviewImageUri(imageUri);
+        setShowImagePreview(true);
       }
     } catch (error) {
       console.error('Erro ao selecionar imagem:', error);
       Alert.alert('Erro', 'Não foi possível abrir a galeria.');
+    }
+  };
+
+  const handleConfirmImagePreview = async () => {
+    if (!previewImageUri) return;
+
+    setProcessing(true);
+
+    try {
+      const receiptData = await extractReceiptAmount(previewImageUri);
+
+      setShowImagePreview(false);
+      setPreviewImageUri(null);
+
+      if (receiptData && receiptData.totalAmount > 0) {
+        const formattedValue = receiptData.totalAmount.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        setTotalValue(formattedValue);
+        Alert.alert(
+          'Sucesso',
+          `Valor detectado: ${formatCurrency(receiptData.totalAmount)}`
+        );
+      } else {
+        Alert.alert(
+          'Atenção',
+          'Não foi possível detectar o valor total. Por favor, digite manualmente.'
+        );
+      }
+    } catch (ocrError) {
+      console.error('Erro ao processar OCR:', ocrError);
+      setShowImagePreview(false);
+      setPreviewImageUri(null);
+      Alert.alert(
+        'Atenção',
+        'Não foi possível detectar o valor automaticamente. Por favor, digite manualmente.'
+      );
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handleCancelImagePreview = () => {
+    setShowImagePreview(false);
+    setPreviewImageUri(null);
   };
 
   const calculateSplit = () => {
@@ -411,6 +427,16 @@ export default function DividirContaScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <ImagePreviewModal
+        visible={showImagePreview}
+        imageUri={previewImageUri}
+        onConfirm={handleConfirmImagePreview}
+        onCancel={handleCancelImagePreview}
+        loading={processing}
+        confirmText="Processar"
+        cancelText="Cancelar"
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -432,8 +458,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   placeholder: {
     width: 40,
@@ -453,12 +479,12 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 8,
   },
   cardSubtitle: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 16,
   },
   captureButtons: {
@@ -475,7 +501,7 @@ const styles = StyleSheet.create({
   },
   captureButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -489,16 +515,16 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   label: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 12,
   },
   input: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     padding: 16,
     borderRadius: 8,
     borderWidth: 2,
@@ -514,7 +540,7 @@ const styles = StyleSheet.create({
   },
   switchSubtext: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 4,
   },
   calculateButton: {
@@ -525,6 +551,6 @@ const styles = StyleSheet.create({
   },
   calculateButtonText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
 });

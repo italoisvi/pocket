@@ -661,8 +661,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   placeholder: {
     width: 40,
@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
     marginBottom: 8,
   },
   input: {
@@ -712,11 +712,11 @@ const styles = StyleSheet.create({
   },
   inputText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   currencyPrefix: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   categoryPicker: {
     borderRadius: 12,
@@ -741,7 +741,7 @@ const styles = StyleSheet.create({
   },
   categoryItemName: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   periodContainer: {
     flexDirection: 'row',
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
   },
   periodText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   notificationRow: {
     flexDirection: 'row',
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
   },
   notificationDescription: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 4,
     lineHeight: 20,
   },
@@ -784,7 +784,7 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
   },
   budgetCard: {
     borderRadius: 12,
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
   },
   categoryName: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   budgetContent: {
     gap: 12,
@@ -832,11 +832,11 @@ const styles = StyleSheet.create({
   },
   budgetLabel: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   budgetValue: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   progressBarContainer: {
     marginTop: 4,
@@ -853,7 +853,7 @@ const styles = StyleSheet.create({
   },
   percentageText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Medium',
+    fontFamily: 'DMSans-Medium',
     textAlign: 'right',
   },
 });

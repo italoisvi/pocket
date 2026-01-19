@@ -465,14 +465,14 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   trialTitle: {
-    fontSize: 36,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontSize: 20,
+    fontFamily: 'DMSans-Bold',
     textAlign: 'center',
     marginBottom: 8,
   },
   trialSubtitle: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     paddingHorizontal: 16,
   },
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   saveBadge: {
     paddingHorizontal: 8,
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   },
   saveBadgeText: {
     fontSize: 12,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
   },
   priceContainer: {
     alignItems: 'center',
@@ -511,20 +511,20 @@ const styles = StyleSheet.create({
   },
   afterTrialText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginBottom: 8,
   },
   priceText: {
     fontSize: 40,
-    fontFamily: 'CormorantGaramond-Bold',
+    fontFamily: 'DMSans-Bold',
   },
   pricePeriod: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   priceEquivalent: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     marginTop: 4,
   },
   featuresContainer: {
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 18,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     flex: 1,
   },
   modalDisclaimer: {
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   },
   modalDisclaimerText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
     marginBottom: 12,
   },
@@ -558,12 +558,12 @@ const styles = StyleSheet.create({
   },
   modalLinkText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textDecorationLine: 'underline',
   },
   modalLinkSeparator: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   modalFooter: {
     paddingHorizontal: 24,
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   },
   mainButtonText: {
     fontSize: 20,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontFamily: 'DMSans-SemiBold',
   },
   restoreButton: {
     paddingVertical: 8,
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   },
   restoreButtonText: {
     fontSize: 14,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
   closeButton: {
     paddingVertical: 12,
@@ -594,6 +594,6 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
   },
 });

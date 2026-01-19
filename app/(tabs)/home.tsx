@@ -366,11 +366,43 @@ export default function HomeScreen() {
     }
   };
 
-  const maskValue = (value: number) => {
-    // Formatar o valor para obter a string formatada
-    const formatted = formatCurrency(value);
-    // Substituir todos os dígitos por asteriscos, mantendo pontos e vírgulas
-    return formatted.replace(/\d/g, '*');
+  const renderSalaryValue = () => {
+    const formatted = formatCurrency(calculatedBalance);
+    const currencySymbol = 'R$ ';
+    const numberPart = formatted.replace('R$ ', '');
+    const barColor = theme.background === '#000' ? '#fff' : '#000';
+
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={[styles.salaryText, { color: theme.text }]}>
+          {currencySymbol}
+        </Text>
+        {salaryVisible ? (
+          <Text style={[styles.salaryText, { color: theme.text }]}>
+            {numberPart}
+          </Text>
+        ) : (
+          <View
+            style={{
+              backgroundColor: barColor,
+              height: 24,
+              borderRadius: 4,
+              justifyContent: 'center',
+              overflow: 'hidden',
+            }}
+          >
+            <Text
+              style={[
+                styles.salaryText,
+                { color: 'transparent', includeFontPadding: false },
+              ]}
+            >
+              {numberPart}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
   };
 
   const handleExpensePress = (id: string) => {
@@ -436,11 +468,7 @@ export default function HomeScreen() {
               }
             }}
           >
-            <Text style={[styles.salaryText, { color: theme.text }]}>
-              {salaryVisible
-                ? formatCurrency(calculatedBalance)
-                : maskValue(calculatedBalance)}
-            </Text>
+            {renderSalaryValue()}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.eyeButton}
@@ -591,8 +619,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   salaryText: {
-    fontSize: 32,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontSize: 30,
+    fontFamily: 'DMSans-Regular',
   },
   eyeButton: {
     width: 36,
@@ -629,14 +657,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48,
   },
   emptyText: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
     textAlign: 'center',
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 16,
-    fontFamily: 'CormorantGaramond-Regular',
+    fontFamily: 'DMSans-Regular',
     textAlign: 'center',
   },
   listContent: {
@@ -653,8 +681,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   monthTitle: {
-    fontSize: 22,
-    fontFamily: 'CormorantGaramond-SemiBold',
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
   },
   cardWrapper: {
     marginBottom: 8,
