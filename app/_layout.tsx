@@ -2,21 +2,13 @@ import { useEffect, useState } from 'react';
 import { Redirect, Stack, useSegments, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
-import {
-  View,
-  StyleSheet,
-  StatusBar,
-  useColorScheme,
-  Linking,
-  Platform,
-} from 'react-native';
+import { StatusBar, Linking, Platform } from 'react-native';
 import * as Font from 'expo-font';
 import { ThemeProvider, useTheme } from '@/lib/theme';
 import { ErrorBoundary } from '@/lib/errorBoundary';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { AnimatedSplashScreen } from '@/components/AnimatedSplashScreen';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import {
   initializeRevenueCat,
   loginRevenueCat,
@@ -322,17 +314,7 @@ function RootLayout() {
   }, [session]);
 
   if (loading || !fontsLoaded) {
-    console.log(
-      '[RootLayout] Showing loading screen. loading:',
-      loading,
-      'fontsLoaded:',
-      fontsLoaded
-    );
-    return (
-      <View style={styles.loadingContainer}>
-        <LoadingKangaroo size={80} />
-      </View>
-    );
+    return null;
   }
 
   const inAuthGroup = segments[0] === '(auth)';
@@ -359,12 +341,3 @@ function RootLayout() {
 }
 
 export default RootLayout;
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-});

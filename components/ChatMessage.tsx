@@ -96,13 +96,35 @@ function MessageAudio({
   );
 
   const loadSound = async () => {
-    if (!soundRef.current) {
+    try {
+      // Se já tem um som, verificar se está carregado
+      if (soundRef.current) {
+        const status = await soundRef.current.getStatusAsync();
+        if (status.isLoaded) {
+          return; // Som já carregado, não precisa recarregar
+        }
+        // Som não carregado, limpar referência e recarregar
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+
+      // Configurar modo de áudio
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
+
       const { sound } = await Audio.Sound.createAsync(
         { uri },
         { shouldPlay: false },
         onPlaybackStatusUpdate
       );
       soundRef.current = sound;
+    } catch (error) {
+      console.error('[MessageAudio] Error loading sound:', error);
+      soundRef.current = null;
     }
   };
 
@@ -146,13 +168,28 @@ function MessageAudio({
   );
 
   const togglePlayback = async () => {
-    await loadSound();
-    if (!soundRef.current) return;
+    try {
+      await loadSound();
+      if (!soundRef.current) return;
 
-    if (isPlayingRef.current) {
-      await soundRef.current.pauseAsync();
-    } else {
-      await soundRef.current.playAsync();
+      // Verificar se o som está carregado antes de tocar
+      const status = await soundRef.current.getStatusAsync();
+      if (!status.isLoaded) {
+        // Tentar recarregar
+        soundRef.current = null;
+        await loadSound();
+        if (!soundRef.current) return;
+      }
+
+      if (isPlayingRef.current) {
+        await soundRef.current.pauseAsync();
+      } else {
+        await soundRef.current.playAsync();
+      }
+    } catch (error) {
+      console.error('[MessageAudio] Error toggling playback:', error);
+      // Tentar recarregar em caso de erro
+      soundRef.current = null;
     }
   };
 
@@ -306,7 +343,7 @@ export function ChatMessage({
   sessionId,
   showFeedback,
 }: ChatMessageProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
 
   const imageAttachments = attachments?.filter((a) => a.type === 'image') || [];
   const audioAttachments = attachments?.filter((a) => a.type === 'audio') || [];
@@ -318,7 +355,7 @@ export function ChatMessage({
     return null;
   }
 
-  const isDarkMode = theme.background === '#000';
+  const isDarkMode = isDark;
 
   if (role === 'user') {
     return (

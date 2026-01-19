@@ -42,11 +42,13 @@ export function AnimatedSplashScreen({
     }
   }, [isReady, opacity, onComplete]);
 
-  const backgroundColor = colorScheme === 'dark' ? '#000' : '#fff';
-  const gifSource =
-    colorScheme === 'dark'
-      ? require('@/assets/videos/Pocketme.gif')
-      : require('@/assets/videos/Pocket.gif');
+  const isDarkMode = colorScheme === 'dark';
+
+  const backgroundColor = isDarkMode ? '#000' : '#fff';
+
+  const gifSource = isDarkMode
+    ? require('@/assets/videos/Pocketme.gif')
+    : require('@/assets/videos/Pocket.gif');
 
   return (
     <Animated.View style={[styles.container, { opacity, backgroundColor }]}>

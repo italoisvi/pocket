@@ -210,8 +210,9 @@ export default function SubscriptionScreen() {
           </View>
         ) : isPremium ? (
           <View style={styles.premiumContainer}>
+            <CoroaIcon size={48} color={theme.text} />
             <Text style={[styles.premiumTitle, { color: theme.text }]}>
-              Você é Premium! 🎉
+              Você é Premium!
             </Text>
             <Text
               style={[
@@ -620,6 +621,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'DMSans-Bold',
     textAlign: 'center',
+    marginTop: 16,
     marginBottom: 16,
   },
   premiumDescription: {

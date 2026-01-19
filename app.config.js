@@ -8,6 +8,7 @@ export default {
     icon: './assets/icon.png',
     userInterfaceStyle: 'automatic',
     scheme: 'pocket',
+    backgroundColor: '#000000',
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,

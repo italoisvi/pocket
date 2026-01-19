@@ -18,6 +18,7 @@ import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CheckIcon } from '@/components/CheckIcon';
 import { ModoEscuroIcon } from '@/components/ModoEscuroIcon';
 import { ModoNoturnoIconFilled } from '@/components/ModoNoturnoIconFilled';
+import { EstrelasDaLuaIcon } from '@/components/EstrelasDaLuaIcon';
 import { SolIcon } from '@/components/SolIcon';
 import { LuaIcon } from '@/components/LuaIcon';
 import { BotaoMovelIcon } from '@/components/BotaoMovelIcon';
@@ -729,7 +730,7 @@ export default function SettingsScreen() {
               onPress={() => handleThemeSelect('night')}
             >
               <View style={styles.themeOptionLeft}>
-                <ModoNoturnoIconFilled size={20} color="#0a1929" />
+                <EstrelasDaLuaIcon size={20} color={theme.text} />
                 <Text style={[styles.themeOptionText, { color: theme.text }]}>
                   Modo Noturno
                 </Text>
