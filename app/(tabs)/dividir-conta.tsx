@@ -24,7 +24,7 @@ import { extractReceiptAmount } from '@/lib/ocr';
 import DocumentScanner from 'react-native-document-scanner-plugin';
 
 export default function DividirContaScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [totalValue, setTotalValue] = useState('');
   const [peopleCount, setPeopleCount] = useState('');
   const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
@@ -382,20 +382,20 @@ export default function DividirContaScreen() {
               value={includeServiceCharge}
               onValueChange={setIncludeServiceCharge}
               trackColor={{
-                false: theme.background === '#000' ? '#333' : '#e0e0e0',
+                false: isDark ? '#333' : '#e0e0e0',
                 true: '#f7c359',
               }}
               thumbColor={
                 includeServiceCharge
-                  ? theme.background === '#000'
+                  ? isDark
                     ? '#fff'
                     : '#000'
-                  : theme.background === '#000'
+                  : isDark
                     ? '#000'
                     : '#fff'
               }
               ios_backgroundColor={
-                theme.background === '#000' ? '#333' : '#e0e0e0'
+                isDark ? '#333' : '#e0e0e0'
               }
             />
           </View>
@@ -407,10 +407,10 @@ export default function DividirContaScreen() {
             styles.calculateButton,
             {
               backgroundColor:
-                theme.background === '#000' ? theme.card : theme.primary,
+                isDark ? theme.card : theme.primary,
               borderWidth: 2,
               borderColor:
-                theme.background === '#000' ? theme.cardBorder : theme.primary,
+                isDark ? theme.cardBorder : theme.primary,
             },
           ]}
           onPress={calculateSplit}
@@ -419,7 +419,7 @@ export default function DividirContaScreen() {
             style={[
               styles.calculateButtonText,
               {
-                color: theme.background === '#000' ? theme.text : '#fff',
+                color: isDark ? theme.text : '#fff',
               },
             ]}
           >

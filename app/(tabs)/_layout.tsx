@@ -35,11 +35,12 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: '#f7c359',
         tabBarInactiveTintColor: theme.textSecondary,
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: theme.surface,
           borderTopWidth: 0,
-          height: 95,
-          paddingBottom: 26,
+          height: 80,
+          paddingBottom: 20,
           paddingTop: 16,
           shadowColor: theme.background === '#000' ? '#fff' : '#000',
           shadowOffset: {
@@ -50,22 +51,17 @@ export default function TabsLayout() {
           shadowRadius: 4,
           elevation: 8,
         },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontFamily: 'DMSans-Medium',
-          marginBottom: 6,
-        },
       }}
     >
       <Tabs.Screen
         name="home"
         options={{
           title: 'Início',
-          tabBarIcon: ({ color, size, focused }) =>
+          tabBarIcon: ({ color, focused }) =>
             focused ? (
-              <CasaIconFilled size={size} color={color} />
+              <CasaIconFilled size={28} color={color} />
             ) : (
-              <CasaIcon size={size} color={color} />
+              <CasaIcon size={28} color={color} />
             ),
         }}
         listeners={{
@@ -76,11 +72,11 @@ export default function TabsLayout() {
         name="camera"
         options={{
           title: 'Adicionar',
-          tabBarIcon: ({ color, size, focused }) =>
+          tabBarIcon: ({ color, focused }) =>
             focused ? (
-              <CameraIconFilled size={size} color={color} />
+              <CameraIconFilled size={28} color={color} />
             ) : (
-              <CameraIcon size={size} color={color} />
+              <CameraIcon size={28} color={color} />
             ),
         }}
         listeners={{
@@ -91,11 +87,11 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: 'Walts',
-          tabBarIcon: ({ color, size, focused }) =>
+          tabBarIcon: ({ color, focused }) =>
             focused ? (
-              <ComenteMedicalIconFilled size={size} color={color} />
+              <ComenteMedicalIconFilled size={28} color={color} />
             ) : (
-              <ComenteMedicalIcon size={size} color={color} />
+              <ComenteMedicalIcon size={28} color={color} />
             ),
         }}
         listeners={{
@@ -106,11 +102,11 @@ export default function TabsLayout() {
         name="open-finance"
         options={{
           title: 'Open Finance',
-          tabBarIcon: ({ color, size, focused }) =>
+          tabBarIcon: ({ color, focused }) =>
             focused ? (
-              <OpenFinanceIconFilled size={size + 40} color={color} />
+              <OpenFinanceIconFilled size={68} color={color} />
             ) : (
-              <OpenFinanceIcon size={size + 40} color={color} />
+              <OpenFinanceIcon size={68} color={color} />
             ),
         }}
         listeners={{
@@ -121,11 +117,11 @@ export default function TabsLayout() {
         name="dividir-conta"
         options={{
           title: 'Dividir Conta',
-          tabBarIcon: ({ color, size, focused }) =>
+          tabBarIcon: ({ color, focused }) =>
             focused ? (
-              <DividirContaIconFilled size={size} color={color} />
+              <DividirContaIconFilled size={28} color={color} />
             ) : (
-              <DividirContaIcon size={size} color={color} />
+              <DividirContaIcon size={28} color={color} />
             ),
         }}
         listeners={{

@@ -52,7 +52,7 @@ type IncomeCard = {
 };
 
 export default function HomeScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const {
     isPremium,
     loading: premiumLoading,
@@ -369,8 +369,9 @@ export default function HomeScreen() {
   const renderSalaryValue = () => {
     const formatted = formatCurrency(calculatedBalance);
     const currencySymbol = 'R$ ';
-    const numberPart = formatted.replace('R$ ', '');
-    const barColor = theme.background === '#000' ? '#fff' : '#000';
+    // formatCurrency retorna "R$\u00A0" (espaço não-quebrável), precisamos remover isso
+    const numberPart = formatted.replace(/^R\$\s*/u, '');
+    const barColor = isDark ? '#fff' : '#000';
 
     return (
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -444,8 +445,22 @@ export default function HomeScreen() {
 
   const getMonthName = (monthKey: string) => {
     const [year, month] = monthKey.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
-    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const monthNames = [
+      'janeiro',
+      'fevereiro',
+      'março',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
+    ];
+    const monthIndex = parseInt(month) - 1;
+    return `${monthNames[monthIndex]} de ${year}`;
   };
 
   return (
@@ -489,7 +504,7 @@ export default function HomeScreen() {
               backgroundColor: theme.surface,
               borderColor: theme.border,
             },
-            getCardShadowStyle(theme.background === '#000'),
+            getCardShadowStyle(isDark),
           ]}
           onPress={() => router.push('/perfil')}
         >
@@ -683,6 +698,7 @@ const styles = StyleSheet.create({
   monthTitle: {
     fontSize: 20,
     fontFamily: 'DMSans-SemiBold',
+    flex: 1,
   },
   cardWrapper: {
     marginBottom: 8,

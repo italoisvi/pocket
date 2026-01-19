@@ -278,7 +278,11 @@ export default function CustosFixosScreen() {
                 >
                   <View style={styles.cardHeader}>
                     <View style={styles.categoryLeft}>
-                      <CategoryIcon categoryInfo={categoryInfo} size={24} />
+                      <CategoryIcon
+                        categoryInfo={categoryInfo}
+                        size={24}
+                        subcategory={item.subcategory}
+                      />
                       <View style={styles.categoryTextContainer}>
                         <View style={styles.subcategoryRow}>
                           <Text

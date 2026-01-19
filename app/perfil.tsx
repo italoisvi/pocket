@@ -85,7 +85,7 @@ export default function PerfilScreen() {
     try {
       await Share.share({
         message:
-          'Experimente o Pocket! Um app simples e elegante para controlar suas finanças pessoais. 💰',
+          'Experimente o Pocket! Um app simples e elegante para controlar suas finanças pessoais.\n\nBaixe agora: https://apps.apple.com/us/app/pocket/id6756937003',
       });
     } catch (error) {
       console.error('Erro ao compartilhar:', error);
@@ -211,7 +211,7 @@ export default function PerfilScreen() {
           </View>
 
           {/* Card de Indique um Amigo */}
-          <View
+          <TouchableOpacity
             style={[
               styles.card,
               {
@@ -220,26 +220,16 @@ export default function PerfilScreen() {
               },
               getCardShadowStyle(theme.background === '#000'),
             ]}
+            onPress={handleInviteFriend}
+            activeOpacity={0.7}
           >
             <View style={styles.inviteCard}>
-              <View style={styles.inviteLeft}>
-                <AdicionarUsuarioIcon size={28} color={theme.primary} />
-                <Text style={[styles.inviteTitle, { color: theme.text }]}>
-                  Indique a um amigo
-                </Text>
-              </View>
-              <TouchableOpacity onPress={handleInviteFriend}>
-                <Text
-                  style={[
-                    styles.inviteSubtitle,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  CONVIDAR
-                </Text>
-              </TouchableOpacity>
+              <AdicionarUsuarioIcon size={28} color={theme.primary} />
+              <Text style={[styles.inviteTitle, { color: theme.text }]}>
+                Indique a um amigo
+              </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         </ScrollView>
       )}
     </View>

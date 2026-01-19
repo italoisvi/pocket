@@ -117,11 +117,11 @@ export function ImagePreviewModal({
                 style={[
                   styles.button,
                   styles.cancelButton,
-                  { backgroundColor: '#fff' },
+                  { backgroundColor: '#000', borderColor: '#fff' },
                 ]}
                 onPress={onCancel}
               >
-                <Text style={[styles.buttonText, { color: '#000' }]}>
+                <Text style={[styles.buttonText, { color: '#fff' }]}>
                   {cancelText}
                 </Text>
               </TouchableOpacity>
@@ -130,7 +130,7 @@ export function ImagePreviewModal({
                 style={[
                   styles.button,
                   styles.confirmButton,
-                  { backgroundColor: theme.primary },
+                  { backgroundColor: '#fff' },
                 ]}
                 onPress={onConfirm}
               >

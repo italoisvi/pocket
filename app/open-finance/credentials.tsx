@@ -14,7 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { syncItem } from '@/lib/pluggy';
+import { syncItem, syncTransactions } from '@/lib/pluggy';
+import { supabase } from '@/lib/supabase';
 import { MFAModal } from '@/components/MFAModal';
 import { OAuthModal } from '@/components/OAuthModal';
 import * as Sentry from '@sentry/react-native';
@@ -408,28 +409,119 @@ export default function CredentialsScreen() {
           console.log(
             '[credentials] ⚠️ Sincronização parcial (alguns produtos falharam)'
           );
-          Alert.alert(
-            'Parcialmente Sincronizado',
-            `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).\n\nAlguns dados podem não ter sido sincronizados completamente. Você pode tentar sincronizar novamente mais tarde.`,
-            [
-              {
-                text: 'OK',
-                onPress: () => router.back(),
-              },
-            ]
-          );
+
+          // 🔄 SINCRONIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES (mesmo em partial)
+          let transactionsSaved = 0;
+          if (syncResult.accountsCount > 0) {
+            try {
+              const { data: accountsData } = await supabase
+                .from('pluggy_accounts')
+                .select('id, name')
+                .eq('item_id', syncResult.item.databaseId);
+
+              if (accountsData && accountsData.length > 0) {
+                // Sincronizar apenas o mês corrente (do dia 1 até hoje)
+                const now = new Date();
+                const to = now.toISOString().split('T')[0];
+                const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+                for (const account of accountsData) {
+                  try {
+                    const txResult = await syncTransactions(account.id, {
+                      from,
+                      to,
+                    });
+                    transactionsSaved += txResult.saved;
+                  } catch (txError) {
+                    console.error(
+                      `[credentials] Error syncing transactions:`,
+                      txError
+                    );
+                  }
+                }
+              }
+            } catch (txSyncError) {
+              console.error(
+                '[credentials] Error in automatic transaction sync:',
+                txSyncError
+              );
+            }
+          }
+
+          let message = `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).`;
+          if (transactionsSaved > 0) {
+            message += `\n\n${transactionsSaved} transação(ões) categorizada(s) automaticamente!`;
+          }
+          message +=
+            '\n\nAlguns dados podem não ter sido sincronizados completamente. Você pode tentar sincronizar novamente mais tarde.';
+
+          Alert.alert('Parcialmente Sincronizado', message, [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ]);
         } else if (syncResult.accountsCount > 0) {
           console.log('[credentials] ✅ Sincronização concluída com sucesso!');
-          Alert.alert(
-            'Sucesso',
-            `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).`,
-            [
-              {
-                text: 'OK',
-                onPress: () => router.back(),
-              },
-            ]
+          console.log(
+            '[credentials] Iniciando sincronização automática de transações...'
           );
+
+          // 🔄 SINCRONIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES
+          // Buscar contas e sincronizar transações do mês atual
+          let transactionsSaved = 0;
+          try {
+            const { data: accountsData } = await supabase
+              .from('pluggy_accounts')
+              .select('id, name')
+              .eq('item_id', syncResult.item.databaseId);
+
+            if (accountsData && accountsData.length > 0) {
+              // Sincronizar apenas o mês corrente (do dia 1 até hoje)
+              const now = new Date();
+              const to = now.toISOString().split('T')[0];
+              const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+              for (const account of accountsData) {
+                try {
+                  console.log(
+                    `[credentials] Syncing transactions for account: ${account.name}`
+                  );
+                  const txResult = await syncTransactions(account.id, {
+                    from,
+                    to,
+                  });
+                  transactionsSaved += txResult.saved;
+                  console.log(
+                    `[credentials] Account ${account.name}: ${txResult.saved} transactions saved, ${txResult.skipped} skipped`
+                  );
+                } catch (txError) {
+                  console.error(
+                    `[credentials] Error syncing transactions for ${account.name}:`,
+                    txError
+                  );
+                }
+              }
+            }
+          } catch (txSyncError) {
+            console.error(
+              '[credentials] Error in automatic transaction sync:',
+              txSyncError
+            );
+          }
+
+          // Mostrar resultado com info de transações
+          let message = `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).`;
+          if (transactionsSaved > 0) {
+            message += `\n\n${transactionsSaved} transação(ões) categorizada(s) automaticamente!`;
+          }
+
+          Alert.alert('Sucesso', message, [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ]);
         } else {
           // UPDATED mas sem contas
           console.log('[credentials] ⚠️ UPDATED mas sem contas');

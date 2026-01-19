@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CheckIcon } from '@/components/CheckIcon';
 import { ModoEscuroIcon } from '@/components/ModoEscuroIcon';
+import { ModoNoturnoIconFilled } from '@/components/ModoNoturnoIconFilled';
 import { SolIcon } from '@/components/SolIcon';
 import { LuaIcon } from '@/components/LuaIcon';
 import { BotaoMovelIcon } from '@/components/BotaoMovelIcon';
@@ -40,7 +41,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
 export default function SettingsScreen() {
-  const { theme, themeMode, setThemeMode } = useTheme();
+  const { theme, themeMode, setThemeMode, isDark } = useTheme();
   const { isPremium, loading: premiumLoading } = usePremium();
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
@@ -291,6 +292,8 @@ export default function SettingsScreen() {
         return 'Modo Claro';
       case 'dark':
         return 'Modo Escuro';
+      case 'night':
+        return 'Modo Noturno';
       case 'system':
         return 'Modo do Sistema';
     }
@@ -345,7 +348,7 @@ export default function SettingsScreen() {
                 backgroundColor: isPremium ? theme.card : theme.card,
                 borderColor: isPremium ? theme.primary : theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => router.push('/subscription')}
           >
@@ -378,7 +381,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => setShowThemeModal(true)}
           >
@@ -402,7 +405,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => setShowNotificationsModal(true)}
           >
@@ -423,7 +426,7 @@ export default function SettingsScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
-                getCardShadowStyle(theme.background === '#000'),
+                getCardShadowStyle(isDark),
               ]}
               onPress={() => setShowBiometricModal(true)}
             >
@@ -448,7 +451,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => setShowDataModal(true)}
           >
@@ -474,7 +477,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => router.push('/sobre-nos')}
           >
@@ -494,7 +497,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => router.push('/politica-privacidade')}
           >
@@ -514,7 +517,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => router.push('/termos-uso')}
           >
@@ -534,7 +537,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => router.push('/sobre-pluggy')}
           >
@@ -560,7 +563,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => handleSendEmail('Feedback do Pocket')}
           >
@@ -580,7 +583,7 @@ export default function SettingsScreen() {
                 backgroundColor: theme.card,
                 borderColor: theme.cardBorder,
               },
-              getCardShadowStyle(theme.background === '#000'),
+              getCardShadowStyle(isDark),
             ]}
             onPress={() => handleSendEmail('Contato - Pocket')}
           >
@@ -601,17 +604,9 @@ export default function SettingsScreen() {
             style={[
               styles.logoutButton,
               {
-                backgroundColor:
-                  themeMode === 'dark' ||
-                  (themeMode === 'system' && theme.background === '#000')
-                    ? theme.card
-                    : theme.primary,
+                backgroundColor: isDark ? theme.card : theme.primary,
                 borderWidth: 2,
-                borderColor:
-                  themeMode === 'dark' ||
-                  (themeMode === 'system' && theme.background === '#000')
-                    ? theme.cardBorder
-                    : theme.primary,
+                borderColor: isDark ? theme.cardBorder : theme.primary,
               },
             ]}
             onPress={handleLogout}
@@ -620,11 +615,7 @@ export default function SettingsScreen() {
               style={[
                 styles.logoutButtonText,
                 {
-                  color:
-                    themeMode === 'dark' ||
-                    (themeMode === 'system' && theme.background === '#000')
-                      ? theme.text
-                      : '#fff',
+                  color: isDark ? theme.text : '#fff',
                 },
               ]}
             >
@@ -683,7 +674,7 @@ export default function SettingsScreen() {
                 themeMode === 'light' && {
                   borderColor: theme.primary,
                 },
-                getCardShadowStyle(theme.background === '#000'),
+                getCardShadowStyle(isDark),
               ]}
               onPress={() => handleThemeSelect('light')}
             >
@@ -708,7 +699,7 @@ export default function SettingsScreen() {
                 themeMode === 'dark' && {
                   borderColor: theme.primary,
                 },
-                getCardShadowStyle(theme.background === '#000'),
+                getCardShadowStyle(isDark),
               ]}
               onPress={() => handleThemeSelect('dark')}
             >
@@ -730,10 +721,35 @@ export default function SettingsScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
+                themeMode === 'night' && {
+                  borderColor: theme.primary,
+                },
+                getCardShadowStyle(isDark),
+              ]}
+              onPress={() => handleThemeSelect('night')}
+            >
+              <View style={styles.themeOptionLeft}>
+                <ModoNoturnoIconFilled size={20} color="#0a1929" />
+                <Text style={[styles.themeOptionText, { color: theme.text }]}>
+                  Modo Noturno
+                </Text>
+              </View>
+              {themeMode === 'night' && (
+                <CheckIcon size={20} color={theme.primary} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.themeOption,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
                 themeMode === 'system' && {
                   borderColor: theme.primary,
                 },
-                getCardShadowStyle(theme.background === '#000'),
+                getCardShadowStyle(isDark),
               ]}
               onPress={() => handleThemeSelect('system')}
             >
@@ -779,7 +795,7 @@ export default function SettingsScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
-                getCardShadowStyle(theme.background === '#000'),
+                getCardShadowStyle(isDark),
               ]}
             >
               <View style={styles.notificationLeft}>
@@ -799,21 +815,19 @@ export default function SettingsScreen() {
                 value={notificationsEnabled}
                 onValueChange={handleNotificationToggle}
                 trackColor={{
-                  false: theme.background === '#000' ? '#333' : '#e0e0e0',
+                  false: isDark ? '#333' : '#e0e0e0',
                   true: '#f7c359',
                 }}
                 thumbColor={
                   notificationsEnabled
-                    ? theme.background === '#000'
+                    ? isDark
                       ? '#fff'
                       : '#000'
-                    : theme.background === '#000'
+                    : isDark
                       ? '#000'
                       : '#fff'
                 }
-                ios_backgroundColor={
-                  theme.background === '#000' ? '#333' : '#e0e0e0'
-                }
+                ios_backgroundColor={isDark ? '#333' : '#e0e0e0'}
               />
             </View>
           </View>
@@ -848,7 +862,7 @@ export default function SettingsScreen() {
                   backgroundColor: theme.card,
                   borderColor: theme.cardBorder,
                 },
-                getCardShadowStyle(theme.background === '#000'),
+                getCardShadowStyle(isDark),
               ]}
             >
               <View style={styles.notificationLeft}>
@@ -868,21 +882,19 @@ export default function SettingsScreen() {
                 value={biometricEnabled}
                 onValueChange={handleBiometricToggle}
                 trackColor={{
-                  false: theme.background === '#000' ? '#333' : '#e0e0e0',
+                  false: isDark ? '#333' : '#e0e0e0',
                   true: '#f7c359',
                 }}
                 thumbColor={
                   biometricEnabled
-                    ? theme.background === '#000'
+                    ? isDark
                       ? '#fff'
                       : '#000'
-                    : theme.background === '#000'
+                    : isDark
                       ? '#000'
                       : '#fff'
                 }
-                ios_backgroundColor={
-                  theme.background === '#000' ? '#333' : '#e0e0e0'
-                }
+                ios_backgroundColor={isDark ? '#333' : '#e0e0e0'}
               />
             </View>
           </View>
@@ -925,7 +937,7 @@ export default function SettingsScreen() {
                     backgroundColor: theme.card,
                     borderColor: theme.cardBorder,
                   },
-                  getCardShadowStyle(theme.background === '#000'),
+                  getCardShadowStyle(isDark),
                 ]}
                 onPress={async () => {
                   setExportingData(true);
@@ -957,7 +969,7 @@ export default function SettingsScreen() {
                     backgroundColor: theme.card,
                     borderColor: theme.cardBorder,
                   },
-                  getCardShadowStyle(theme.background === '#000'),
+                  getCardShadowStyle(isDark),
                 ]}
                 onPress={async () => {
                   setExportingData(true);
@@ -993,7 +1005,7 @@ export default function SettingsScreen() {
                     backgroundColor: theme.card,
                     borderColor: theme.cardBorder,
                   },
-                  getCardShadowStyle(theme.background === '#000'),
+                  getCardShadowStyle(isDark),
                 ]}
                 onPress={handleImportJSON}
                 disabled={importingData}
@@ -1021,7 +1033,7 @@ export default function SettingsScreen() {
                     backgroundColor: theme.card,
                     borderColor: theme.cardBorder,
                   },
-                  getCardShadowStyle(theme.background === '#000'),
+                  getCardShadowStyle(isDark),
                 ]}
                 onPress={handleImportCSV}
                 disabled={importingData}

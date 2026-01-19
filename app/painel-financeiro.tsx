@@ -59,7 +59,7 @@ type BankAccount = {
 };
 
 export default function PainelFinanceiroScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [incomeCards, setIncomeCards] = useState<IncomeCard[]>([]);
@@ -418,7 +418,7 @@ export default function PainelFinanceiroScreen() {
   };
 
   const renderMaskedValue = (value: string) => {
-    const barColor = theme.background === '#000' ? '#fff' : '#000';
+    const barColor = isDark ? '#fff' : '#000';
     return (
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Text style={[styles.displayCardValue, { color: theme.text }]}>
@@ -518,7 +518,7 @@ export default function PainelFinanceiroScreen() {
                             backgroundColor: theme.card,
                             borderColor: theme.cardBorder,
                           },
-                          getCardShadowStyle(theme.background === '#000'),
+                          getCardShadowStyle(isDark),
                         ]}
                       >
                         <View style={styles.displayCardHeader}>
@@ -858,12 +858,12 @@ export default function PainelFinanceiroScreen() {
                         styles.saveButton,
                         {
                           backgroundColor:
-                            theme.background === '#000'
+                            isDark
                               ? theme.card
                               : theme.primary,
                           borderWidth: 2,
                           borderColor:
-                            theme.background === '#000'
+                            isDark
                               ? theme.cardBorder
                               : theme.primary,
                         },
@@ -873,14 +873,14 @@ export default function PainelFinanceiroScreen() {
                       disabled={saving}
                     >
                       {saving ? (
-                        <ActivityIndicator size="small" color={theme.background === '#000' ? theme.text : '#FFF'} />
+                        <ActivityIndicator size="small" color={isDark ? theme.text : '#FFF'} />
                       ) : (
                         <Text
                           style={[
                             styles.saveButtonText,
                             {
                               color:
-                                theme.background === '#000'
+                                isDark
                                   ? theme.text
                                   : '#FFF',
                             },

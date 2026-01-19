@@ -19,7 +19,7 @@ import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { UsuarioIcon } from '@/components/UsuarioIcon';
 
 export default function EditarPerfilScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userName, setUserName] = useState('');
@@ -283,10 +283,10 @@ export default function EditarPerfilScreen() {
                 styles.saveButton,
                 {
                   backgroundColor:
-                    theme.background === '#000' ? theme.card : theme.primary,
+                    isDark ? theme.card : theme.primary,
                   borderWidth: 2,
                   borderColor:
-                    theme.background === '#000'
+                    isDark
                       ? theme.cardBorder
                       : theme.primary,
                 },
@@ -297,14 +297,14 @@ export default function EditarPerfilScreen() {
             >
               {saving ? (
                 <ActivityIndicator
-                  color={theme.background === '#000' ? theme.text : '#FFF'}
+                  color={isDark ? theme.text : '#FFF'}
                 />
               ) : (
                 <Text
                   style={[
                     styles.saveButtonText,
                     {
-                      color: theme.background === '#000' ? theme.text : '#FFF',
+                      color: isDark ? theme.text : '#FFF',
                     },
                   ]}
                 >

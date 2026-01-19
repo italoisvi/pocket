@@ -176,7 +176,7 @@ function BankLogo({ imageUrl, bankName, primaryColor, theme }: BankLogoProps) {
 }
 
 export default function OpenFinanceScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const {
     isPremium,
     loading: premiumLoading,
@@ -546,10 +546,10 @@ export default function OpenFinanceScreen() {
             styles.addButton,
             {
               backgroundColor:
-                theme.background === '#000' ? theme.card : theme.primary,
+                isDark ? theme.card : theme.primary,
               borderWidth: 2,
               borderColor:
-                theme.background === '#000' ? theme.cardBorder : theme.primary,
+                isDark ? theme.cardBorder : theme.primary,
             },
           ]}
           onPress={handleConnectBank}
@@ -558,7 +558,7 @@ export default function OpenFinanceScreen() {
             style={[
               styles.addButtonText,
               {
-                color: theme.background === '#000' ? theme.text : '#fff',
+                color: isDark ? theme.text : '#fff',
               },
             ]}
           >
@@ -661,10 +661,10 @@ export default function OpenFinanceScreen() {
                 styles.emptyButton,
                 {
                   backgroundColor:
-                    theme.background === '#000' ? theme.card : theme.primary,
+                    isDark ? theme.card : theme.primary,
                   borderWidth: 2,
                   borderColor:
-                    theme.background === '#000'
+                    isDark
                       ? theme.cardBorder
                       : theme.primary,
                 },
@@ -675,7 +675,7 @@ export default function OpenFinanceScreen() {
                 style={[
                   styles.emptyButtonText,
                   {
-                    color: theme.background === '#000' ? theme.text : '#fff',
+                    color: isDark ? theme.text : '#fff',
                   },
                 ]}
               >

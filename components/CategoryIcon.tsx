@@ -19,19 +19,21 @@ import { TransferenciasIcon } from './TransferenciasIcon';
 import { OutrosIcon } from './OutrosIcon';
 import { PetsIcon } from './PetsIcon';
 import { TecnologiaIcon } from './TecnologiaIcon';
-import { ConsorcioIcon } from './ConsorcioIcon';
+import { DocumentoIcon } from './DocumentoIcon';
 import type { CategoryInfo } from '@/lib/categories';
 
 type CategoryIconProps = {
   categoryInfo: CategoryInfo;
   size?: number;
   color?: string;
+  subcategory?: string;
 };
 
 export function CategoryIcon({
   categoryInfo,
   size = 24,
   color,
+  subcategory,
 }: CategoryIconProps) {
   // Usar a cor da categoria se não for fornecida uma cor customizada
   const iconColor = color || categoryInfo.color;
@@ -79,8 +81,30 @@ export function CategoryIcon({
         return <PetsIcon size={size} color={iconColor} />;
       case 'tecnologia':
         return <TecnologiaIcon size={size} color={iconColor} />;
-      case 'consorcio':
-        return <ConsorcioIcon size={size} color={iconColor} />;
+      case 'consorcio': {
+        // Ícone dinâmico baseado na subcategoria
+        const subcatLower = subcategory?.toLowerCase() || '';
+        if (
+          subcatLower.includes('casa') ||
+          subcatLower.includes('imóvel') ||
+          subcatLower.includes('imovel') ||
+          subcatLower.includes('apartamento') ||
+          subcatLower.includes('residencial')
+        ) {
+          return <HouseIcon size={size} color={iconColor} />;
+        }
+        if (
+          subcatLower.includes('carro') ||
+          subcatLower.includes('veículo') ||
+          subcatLower.includes('veiculo') ||
+          subcatLower.includes('moto') ||
+          subcatLower.includes('auto')
+        ) {
+          return <TransporteIcon size={size} color={iconColor} />;
+        }
+        // Padrão: ícone de documento (igual ao Termos de Uso)
+        return <DocumentoIcon size={size} color={iconColor} />;
+      }
       default:
         // Fallback para emoji se o componente não existir
         return <Text style={{ fontSize: size }}>{categoryInfo.icon}</Text>;

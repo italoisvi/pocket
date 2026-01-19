@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, View, StyleSheet } from 'react-native';
 import { LoadingKangaroo } from '@/components/LoadingKangaroo';
-import { syncItem } from '@/lib/pluggy';
+import { syncItem, syncTransactions } from '@/lib/pluggy';
+import { supabase } from '@/lib/supabase';
 import * as Sentry from '@sentry/react-native';
 
 export default function OAuthCallback() {
@@ -63,32 +64,97 @@ export default function OAuthCallback() {
           '[OAuth Callback] Aguardando webhook sincronizar contas...'
         );
 
-        // Salvar o item no banco para garantir que existe
-        // (caso o webhook item/created ainda não tenha sido processado)
+        // Salvar o item no banco e sincronizar transações automaticamente
         try {
           const syncResult = await syncItem(itemId as string);
           console.log('[OAuth Callback] Item salvo no banco');
 
+          // 🔄 SINCRONIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES
+          let transactionsSaved = 0;
+          if (syncResult.accountsCount > 0) {
+            console.log(
+              '[OAuth Callback] Iniciando sincronização automática de transações...'
+            );
+
+            try {
+              const { data: accountsData } = await supabase
+                .from('pluggy_accounts')
+                .select('id, name')
+                .eq('item_id', syncResult.item.databaseId);
+
+              if (accountsData && accountsData.length > 0) {
+                // Sincronizar apenas o mês corrente (do dia 1 até hoje)
+                const now = new Date();
+                const to = now.toISOString().split('T')[0];
+                const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+                for (const account of accountsData) {
+                  try {
+                    console.log(
+                      `[OAuth Callback] Syncing transactions for: ${account.name}`
+                    );
+                    const txResult = await syncTransactions(account.id, {
+                      from,
+                      to,
+                    });
+                    transactionsSaved += txResult.saved;
+                    console.log(
+                      `[OAuth Callback] ${account.name}: ${txResult.saved} transactions`
+                    );
+                  } catch (txError) {
+                    console.error(
+                      `[OAuth Callback] Error syncing transactions:`,
+                      txError
+                    );
+                  }
+                }
+              }
+            } catch (txSyncError) {
+              console.error(
+                '[OAuth Callback] Error in automatic transaction sync:',
+                txSyncError
+              );
+            }
+          }
+
+          // Montar mensagem com resultado
+          let message = '';
+          if (syncResult.accountsCount > 0) {
+            message = `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).`;
+            if (transactionsSaved > 0) {
+              message += `\n\n${transactionsSaved} transação(ões) categorizada(s) automaticamente!`;
+            }
+          } else {
+            message =
+              'Banco conectado com sucesso! Suas contas estão sendo sincronizadas.';
+          }
+
           // 🎯 Verificar se houve PARTIAL_SUCCESS
           if (syncResult.item.executionStatus === 'PARTIAL_SUCCESS') {
             console.log('[OAuth Callback] ⚠️ Sincronização parcial detectada');
-            Alert.alert(
-              'Autenticação Concluída!',
-              `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).\n\nAlguns dados podem não ter sido sincronizados completamente. Puxe para atualizar a lista.`,
-              [
-                {
-                  text: 'OK',
-                  onPress: () => router.replace('/(tabs)/open-finance'),
-                },
-              ]
-            );
+            message +=
+              '\n\nAlguns dados podem não ter sido sincronizados completamente. Puxe para atualizar a lista.';
+            Alert.alert('Autenticação Concluída!', message, [
+              {
+                text: 'OK',
+                onPress: () => router.replace('/(tabs)/open-finance'),
+              },
+            ]);
             return;
           }
+
+          Alert.alert('Autenticação Concluída!', message, [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/(tabs)/open-finance'),
+            },
+          ]);
+          return;
         } catch (error) {
           console.error('[OAuth Callback] Erro ao salvar item:', error);
         }
 
-        // Mostrar mensagem e voltar para Open Finance
+        // Fallback se syncItem falhou
         Alert.alert(
           'Autenticação Concluída!',
           'Banco conectado com sucesso! Suas contas estão sendo sincronizadas. Isso pode levar alguns minutos. Puxe para atualizar a lista.',

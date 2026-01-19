@@ -264,7 +264,8 @@ export default function CustosVariaveisScreen() {
             </View>
 
             {categoryExpenses.map((item) => {
-              const categoryInfo = CATEGORIES[item.category] || CATEGORIES.outros;
+              const categoryInfo =
+                CATEGORIES[item.category] || CATEGORIES.outros;
               const percentage =
                 totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
               const isExtract = item.source === 'extrato';
@@ -283,7 +284,11 @@ export default function CustosVariaveisScreen() {
                 >
                   <View style={styles.cardHeader}>
                     <View style={styles.categoryLeft}>
-                      <CategoryIcon categoryInfo={categoryInfo} size={24} />
+                      <CategoryIcon
+                        categoryInfo={categoryInfo}
+                        size={24}
+                        subcategory={item.subcategory}
+                      />
                       <View style={styles.categoryTextContainer}>
                         <View style={styles.subcategoryRow}>
                           <Text

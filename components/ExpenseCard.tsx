@@ -40,7 +40,13 @@ export function ExpenseCard({
       onPress={onPress}
     >
       <View style={styles.topSection}>
-        {categoryInfo && <CategoryIcon categoryInfo={categoryInfo} size={32} />}
+        {categoryInfo && (
+          <CategoryIcon
+            categoryInfo={categoryInfo}
+            size={32}
+            subcategory={subcategory}
+          />
+        )}
         <View style={styles.content}>
           <View style={styles.titleRow}>
             <Text
