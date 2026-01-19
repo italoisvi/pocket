@@ -5,7 +5,7 @@ export default {
     slug: 'pocket',
     version: '1.4.1',
     orientation: 'portrait',
-    icon: './assets/icon.png',
+    icon: './assets/images/kanguroologin.png',
     userInterfaceStyle: 'automatic',
     scheme: 'pocket',
     backgroundColor: '#000000',
