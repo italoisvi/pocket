@@ -394,9 +394,7 @@ export default function DividirContaScreen() {
                     ? '#000'
                     : '#fff'
               }
-              ios_backgroundColor={
-                isDark ? '#333' : '#e0e0e0'
-              }
+              ios_backgroundColor={isDark ? '#333' : '#e0e0e0'}
             />
           </View>
         </View>
@@ -406,11 +404,9 @@ export default function DividirContaScreen() {
           style={[
             styles.calculateButton,
             {
-              backgroundColor:
-                isDark ? theme.card : theme.primary,
+              backgroundColor: isDark ? theme.card : theme.primary,
               borderWidth: 2,
-              borderColor:
-                isDark ? theme.cardBorder : theme.primary,
+              borderColor: isDark ? theme.cardBorder : theme.primary,
             },
           ]}
           onPress={calculateSplit}

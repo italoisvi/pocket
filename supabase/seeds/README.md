@@ -133,8 +133,8 @@ ORDER BY pass_rate ASC;
 
 ## Arquivos
 
-| Arquivo | Descrição |
-|---------|-----------|
-| `eval-cases.sql` | 20 casos de teste cobrindo todas as tools principais |
+| Arquivo              | Descrição                                                        |
+| -------------------- | ---------------------------------------------------------------- |
+| `eval-cases.sql`     | 20 casos de teste cobrindo todas as tools principais             |
 | `eval-test-user.sql` | Dados seed do usuário de teste (profile, budgets, expenses, etc) |
-| `README.md` | Este arquivo |
+| `README.md`          | Este arquivo                                                     |

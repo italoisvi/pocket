@@ -286,4 +286,3 @@ export type EvalCase = {
   max_tool_calls: number;
   max_iterations: number;
 };
-

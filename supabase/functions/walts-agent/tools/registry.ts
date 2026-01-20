@@ -1347,7 +1347,8 @@ NAO USE ESTA FERRAMENTA PARA:
           },
           category: {
             type: 'string',
-            description: 'Nova categoria. IMPORTANTE: Para alimentação fora de casa (restaurante, delivery, padaria, lanchonete, açaí, café, bar) use alimentacao_fora. Para supermercado/feira use alimentacao_casa.',
+            description:
+              'Nova categoria. IMPORTANTE: Para alimentação fora de casa (restaurante, delivery, padaria, lanchonete, açaí, café, bar) use alimentacao_fora. Para supermercado/feira use alimentacao_casa.',
             enum: [
               'moradia',
               'alimentacao_casa',

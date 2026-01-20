@@ -490,11 +490,9 @@ export default function OpenFinanceScreen() {
           style={[
             styles.addButton,
             {
-              backgroundColor:
-                isDark ? theme.card : theme.primary,
+              backgroundColor: isDark ? theme.card : theme.primary,
               borderWidth: 2,
-              borderColor:
-                isDark ? theme.cardBorder : theme.primary,
+              borderColor: isDark ? theme.cardBorder : theme.primary,
             },
           ]}
           onPress={handleConnectBank}
@@ -605,13 +603,9 @@ export default function OpenFinanceScreen() {
               style={[
                 styles.emptyButton,
                 {
-                  backgroundColor:
-                    isDark ? theme.card : theme.primary,
+                  backgroundColor: isDark ? theme.card : theme.primary,
                   borderWidth: 2,
-                  borderColor:
-                    isDark
-                      ? theme.cardBorder
-                      : theme.primary,
+                  borderColor: isDark ? theme.cardBorder : theme.primary,
                 },
               ]}
               onPress={handleConnectBank}

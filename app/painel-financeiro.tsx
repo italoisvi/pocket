@@ -857,15 +857,11 @@ export default function PainelFinanceiroScreen() {
                       style={[
                         styles.saveButton,
                         {
-                          backgroundColor:
-                            isDark
-                              ? theme.card
-                              : theme.primary,
+                          backgroundColor: isDark ? theme.card : theme.primary,
                           borderWidth: 2,
-                          borderColor:
-                            isDark
-                              ? theme.cardBorder
-                              : theme.primary,
+                          borderColor: isDark
+                            ? theme.cardBorder
+                            : theme.primary,
                         },
                         saving && styles.saveButtonDisabled,
                       ]}
@@ -873,16 +869,16 @@ export default function PainelFinanceiroScreen() {
                       disabled={saving}
                     >
                       {saving ? (
-                        <ActivityIndicator size="small" color={isDark ? theme.text : '#FFF'} />
+                        <ActivityIndicator
+                          size="small"
+                          color={isDark ? theme.text : '#FFF'}
+                        />
                       ) : (
                         <Text
                           style={[
                             styles.saveButtonText,
                             {
-                              color:
-                                isDark
-                                  ? theme.text
-                                  : '#FFF',
+                              color: isDark ? theme.text : '#FFF',
                             },
                           ]}
                         >

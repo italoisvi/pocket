@@ -1218,12 +1218,7 @@ export const CATEGORIES: Record<ExpenseCategory, CategoryInfo> = {
       },
       {
         name: 'Financiamento',
-        keywords: [
-          'financiamento',
-          'prestacao',
-          'prestação',
-          'parcela',
-        ],
+        keywords: ['financiamento', 'prestacao', 'prestação', 'parcela'],
       },
     ],
   },

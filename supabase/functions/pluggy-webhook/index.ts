@@ -141,7 +141,10 @@ serve(async (req) => {
         }
         console.log(`[pluggy-webhook] Event ${event} processed successfully`);
       } catch (error) {
-        console.error(`[pluggy-webhook] Error processing event ${event}:`, error);
+        console.error(
+          `[pluggy-webhook] Error processing event ${event}:`,
+          error
+        );
       }
     };
 
@@ -156,7 +159,10 @@ serve(async (req) => {
     }
 
     // Responder imediatamente à Pluggy
-    return new Response(JSON.stringify({ success: true, processing: 'background' }), { headers });
+    return new Response(
+      JSON.stringify({ success: true, processing: 'background' }),
+      { headers }
+    );
   } catch (error) {
     console.error('[pluggy-webhook] Error:', error);
     return new Response(

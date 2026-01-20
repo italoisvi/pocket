@@ -508,7 +508,10 @@ export async function categorizeInBatch(
       maxTokens
     );
 
-    console.log('[categorizeInBatch] Raw LLM response length:', response.length);
+    console.log(
+      '[categorizeInBatch] Raw LLM response length:',
+      response.length
+    );
 
     const cleanedResponse = response.trim().replace(/```json\n?|\n?```/g, '');
     const llmResults = JSON.parse(cleanedResponse) as BatchCategorizeResult[];

@@ -88,7 +88,10 @@ export function ChatImagePreview({
             {attachment.type === 'image' && (
               <Image
                 source={{ uri: attachment.uri }}
-                style={[styles.image, { width: size.width, height: size.height }]}
+                style={[
+                  styles.image,
+                  { width: size.width, height: size.height },
+                ]}
               />
             )}
             <TouchableOpacity

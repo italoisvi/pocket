@@ -19,16 +19,18 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 const LANGFUSE_SECRET_KEY = Deno.env.get('LANGFUSE_SECRET_KEY');
 const LANGFUSE_PUBLIC_KEY = Deno.env.get('LANGFUSE_PUBLIC_KEY');
-const LANGFUSE_HOST = Deno.env.get('LANGFUSE_HOST') || 'https://cloud.langfuse.com';
+const LANGFUSE_HOST =
+  Deno.env.get('LANGFUSE_HOST') || 'https://cloud.langfuse.com';
 
 // Initialize Langfuse (optional - only if keys are configured)
-const langfuse = LANGFUSE_SECRET_KEY && LANGFUSE_PUBLIC_KEY
-  ? new Langfuse({
-      secretKey: LANGFUSE_SECRET_KEY,
-      publicKey: LANGFUSE_PUBLIC_KEY,
-      baseUrl: LANGFUSE_HOST,
-    })
-  : null;
+const langfuse =
+  LANGFUSE_SECRET_KEY && LANGFUSE_PUBLIC_KEY
+    ? new Langfuse({
+        secretKey: LANGFUSE_SECRET_KEY,
+        publicKey: LANGFUSE_PUBLIC_KEY,
+        baseUrl: LANGFUSE_HOST,
+      })
+    : null;
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -47,7 +49,15 @@ async function callOpenAI(
   messages: OpenAIMessage[],
   includeTools: boolean = true,
   traceSpan?: any
-): Promise<{ content: string | null; tool_calls?: ToolCall[]; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
+): Promise<{
+  content: string | null;
+  tool_calls?: ToolCall[];
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}> {
   const body: Record<string, unknown> = {
     model: 'gpt-4o',
     messages,
@@ -218,7 +228,12 @@ async function reactLoop(
   imageUrls?: string[],
   maxIterationsOverride?: number,
   trace?: any
-): Promise<{ response: string; thoughts: AgentThought[]; iterations: number; traceId?: string }> {
+): Promise<{
+  response: string;
+  thoughts: AgentThought[];
+  iterations: number;
+  traceId?: string;
+}> {
   const thoughts: AgentThought[] = [];
   const maxIter = maxIterationsOverride ?? MAX_ITERATIONS;
   let iterationsUsed = 0;

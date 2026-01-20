@@ -44,7 +44,11 @@ type CreditCardAccount = {
 
 export default function FinancialOverviewScreen() {
   const { theme } = useTheme();
-  const { isPremium, loading: premiumLoading, refresh: refreshPremium } = usePremium();
+  const {
+    isPremium,
+    loading: premiumLoading,
+    refresh: refreshPremium,
+  } = usePremium();
   const [showPaywall, setShowPaywall] = useState(false);
   const [monthlySalary, setMonthlySalary] = useState<number>(0);
   const [salaryPaymentDay, setSalaryPaymentDay] = useState<number>(1);

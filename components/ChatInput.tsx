@@ -412,10 +412,7 @@ export function ChatInput({
           </View>
 
           <TouchableOpacity
-            style={[
-              styles.actionButton,
-              { backgroundColor: theme.card },
-            ]}
+            style={[styles.actionButton, { backgroundColor: theme.card }]}
             onPress={handleSend}
             disabled={isProcessing}
           >
@@ -447,8 +444,7 @@ export function ChatInput({
           style={[
             styles.mediaButton,
             {
-              backgroundColor:
-                isDark ? 'transparent' : theme.card,
+              backgroundColor: isDark ? 'transparent' : theme.card,
             },
           ]}
           onPress={handleGallery}
@@ -520,8 +516,7 @@ export function ChatInput({
               style={[
                 styles.mediaButton,
                 {
-                  backgroundColor:
-                    isDark ? 'transparent' : theme.card,
+                  backgroundColor: isDark ? 'transparent' : theme.card,
                 },
               ]}
               onPress={handleCamera}
@@ -534,8 +529,7 @@ export function ChatInput({
               style={[
                 styles.mediaButton,
                 {
-                  backgroundColor:
-                    isDark ? 'transparent' : theme.card,
+                  backgroundColor: isDark ? 'transparent' : theme.card,
                 },
               ]}
               onPress={handleStartRecording}

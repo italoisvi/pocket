@@ -305,7 +305,9 @@ export async function exportData(
     let fileName: string;
     let contentType: string;
     const timestamp = new Date().toISOString().split('T')[0];
-    const periodSuffix = params.period ? `_${params.period.replace(':', '-')}` : '';
+    const periodSuffix = params.period
+      ? `_${params.period.replace(':', '-')}`
+      : '';
 
     if (format === 'csv') {
       const csvParts: string[] = [];
@@ -394,15 +396,15 @@ export async function exportData(
             transactions:
               (exportResult.transactions as Array<unknown>)?.length || 0,
           },
-          message: 'Dados exportados. O upload falhou, mas aqui estão os dados diretamente.',
+          message:
+            'Dados exportados. O upload falhou, mas aqui estão os dados diretamente.',
         },
       };
     }
 
     // Gerar URL assinada (válida por 1 hora)
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from('exports')
-      .createSignedUrl(filePath, 3600); // 1 hora
+    const { data: signedUrlData, error: signedUrlError } =
+      await supabase.storage.from('exports').createSignedUrl(filePath, 3600); // 1 hora
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
       console.error('[reports.exportData] Signed URL error:', signedUrlError);

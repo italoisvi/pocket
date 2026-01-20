@@ -79,7 +79,10 @@
       "Bash(npx tsc:*)",
       "WebFetch(domain:langfuse.com)",
       "Bash(wc:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(while read f)",
+      "Bash(do grep -l \"try\\\\|catch\" \"$f\")",
+      "Bash(done)"
     ]
   }
 }

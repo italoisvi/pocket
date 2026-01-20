@@ -16,6 +16,11 @@ import {
 } from '@/lib/revenuecat';
 import { BiometricLock } from '@/components/BiometricLock';
 import { registerAgentWorker } from '@/lib/agent-worker';
+import { VoiceProvider, useVoice } from '@/lib/voice-context';
+import { FloatingVoiceButton } from '@/components/FloatingVoiceButton';
+import { VoiceOverlay } from '@/components/VoiceOverlay';
+import { usePremium } from '@/lib/usePremium';
+import { PaywallModal } from '@/components/PaywallModal';
 
 // Initialize Sentry
 const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
@@ -43,9 +48,22 @@ try {
   console.error('[RootLayout] RevenueCat initialization failed:', error);
 }
 
+function VoiceComponents() {
+  const { openOverlay } = useVoice();
+
+  return (
+    <>
+      <FloatingVoiceButton onPress={openOverlay} />
+      <VoiceOverlay />
+    </>
+  );
+}
+
 function ThemedStack() {
   const { isDark } = useTheme();
   const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const { isPremium } = usePremium();
   const router = useRouter();
 
   // Handle deep linking for password reset
@@ -124,7 +142,10 @@ function ThemedStack() {
   }, [isDark]);
 
   return (
-    <>
+    <VoiceProvider
+      isPremium={isPremium}
+      onShowPaywall={() => setShowPaywall(true)}
+    >
       <Stack
         screenOptions={{
           headerShown: false,
@@ -186,10 +207,15 @@ function ThemedStack() {
           }}
         />
       </Stack>
+      <VoiceComponents />
       {showAnimatedSplash && (
         <AnimatedSplashScreen onComplete={() => setShowAnimatedSplash(false)} />
       )}
-    </>
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+      />
+    </VoiceProvider>
   );
 }
 

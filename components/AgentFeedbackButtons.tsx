@@ -192,10 +192,7 @@ export function AgentFeedbackButtons({
                 disabled={submitting}
               >
                 <Text
-                  style={[
-                    styles.modalButtonText,
-                    { color: theme.background },
-                  ]}
+                  style={[styles.modalButtonText, { color: theme.background }]}
                 >
                   Enviar
                 </Text>

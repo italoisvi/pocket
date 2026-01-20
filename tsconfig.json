@@ -7,5 +7,5 @@
     }
   },
   "include": ["./**/*.ts", "./**/*.tsx"],
-  "exclude": ["node_modules", "supabase/functions", "backup"]
+  "exclude": ["node_modules", "supabase/functions", "backup", "**/*.spec.ts"]
 }
