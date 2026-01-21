@@ -3,7 +3,7 @@ export default {
     owner: 'gladius-sistemas',
     name: 'Pocket',
     slug: 'pocket',
-    version: '1.4.1',
+    version: '1.5.1',
     orientation: 'portrait',
     icon: './assets/images/kanguroologin.png',
     userInterfaceStyle: 'automatic',
