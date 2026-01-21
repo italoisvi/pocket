@@ -235,6 +235,7 @@ export type WaltsAgentRequest = {
   }>;
   imageUrls?: string[];
   audioUrls?: string[];
+  isVoiceMode?: boolean;
 };
 
 export type WaltsAgentResponse = {

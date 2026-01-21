@@ -36,11 +36,16 @@ export type AgentResult = {
   sessionId: string;
 };
 
+export type SendMessageOptions = {
+  isVoiceMode?: boolean;
+};
+
 /**
  * Envia mensagem para o Walts Agent
  */
 export async function sendMessageToWaltsAgent(
-  messages: Message[]
+  messages: Message[],
+  options?: SendMessageOptions
 ): Promise<AgentResult> {
   try {
     const session = await supabase.auth.getSession();
@@ -110,6 +115,7 @@ export async function sendMessageToWaltsAgent(
           history,
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
           audioUrls: audioUrls.length > 0 ? audioUrls : undefined,
+          isVoiceMode: options?.isVoiceMode ?? false,
         },
       }
     );

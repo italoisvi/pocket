@@ -452,6 +452,7 @@ serve(async (req) => {
       history = [],
       imageUrls,
       audioUrls,
+      isVoiceMode = false,
     } = (await req.json()) as WaltsAgentRequest;
 
     // Check OpenAI key first (needed for transcription)
@@ -505,7 +506,9 @@ serve(async (req) => {
     });
 
     // Step 2: Generate dynamic system prompt
-    const systemPrompt = generateSystemPrompt(userContext);
+    const systemPrompt = generateSystemPrompt(userContext, isVoiceMode);
+
+    console.log('[walts-agent] Voice mode:', isVoiceMode);
 
     // Create Langfuse trace (if configured)
     const trace = langfuse?.trace({
@@ -516,6 +519,7 @@ serve(async (req) => {
         hasImages: imageUrls && imageUrls.length > 0,
         hasAudio: audioUrls && audioUrls.length > 0,
         historyLength: history.length,
+        isVoiceMode,
       },
       input: { message: finalMessage, imageCount: imageUrls?.length || 0 },
     });

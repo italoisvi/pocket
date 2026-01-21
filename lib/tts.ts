@@ -4,8 +4,33 @@ import Constants from 'expo-constants';
 
 const TTS_ENDPOINT = 'https://api.openai.com/v1/audio/speech';
 const TTS_MODEL = 'gpt-4o-mini-tts';
-const TTS_INSTRUCTIONS =
-  'Fale em português brasileiro de forma natural e amigável. Use tom conversacional.';
+const TTS_SPEED = 1.12;
+const TTS_INSTRUCTIONS = `Você é o Walts, assistente financeiro brasileiro, jovem e descontraído.
+
+INFLEXÃO BRASILEIRA NATURAL:
+- Suba o tom no FINAL de perguntas, como brasileiro faz: "tudo bem com você?" ↗
+- Baixe o tom em afirmações e conclusões: "registrei pra você" ↘
+- Alongue levemente vogais em palavras de ênfase: "muuito bom", "tá ótimo"
+- Use a melodia típica do português brasileiro com altos e baixos naturais
+- Dê uma leve subida de tom antes de informações importantes
+
+RITMO E PAUSAS:
+- Fale com energia mas sem correria
+- Faça micro-pausas naturais entre frases, como numa conversa real
+- Respire entre ideias - não despeje tudo de uma vez
+- Acelere um pouco em partes menos importantes, desacelere no que importa
+
+EXPRESSIVIDADE:
+- Demonstre surpresa genuína: "nossa, você economizou bastante!"
+- Empatia real: "entendo, gastos de saúde a gente não controla né"
+- Entusiasmo nas boas notícias: "que massa, você tá dentro do orçamento!"
+- Tom acolhedor e próximo, nunca formal ou robótico
+
+EVITE:
+- Monotonia - varie SEMPRE a entonação
+- Falar tudo no mesmo tom plano
+- Pausas artificiais ou exageradas
+- Sotaque que não seja brasileiro natural`;
 
 export type TTSVoice =
   | 'alloy'
@@ -23,7 +48,7 @@ let currentSound: Audio.Sound | null = null;
 
 export async function synthesizeSpeech(
   text: string,
-  voice: TTSVoice = 'nova'
+  voice: TTSVoice = 'onyx'
 ): Promise<string> {
   const openaiApiKey = Constants.expoConfig?.extra?.openaiApiKey;
 
@@ -46,6 +71,7 @@ export async function synthesizeSpeech(
       model: TTS_MODEL,
       input: text,
       voice,
+      speed: TTS_SPEED,
       response_format: 'mp3',
       instructions: TTS_INSTRUCTIONS,
     }),
@@ -70,36 +96,39 @@ export async function synthesizeSpeech(
 }
 
 export async function playTTSAudio(uri: string): Promise<void> {
-  try {
-    await stopTTSAudio();
+  return new Promise(async (resolve, reject) => {
+    try {
+      await stopTTSAudio();
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-    });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
 
-    const { sound } = await Audio.Sound.createAsync(
-      { uri },
-      { shouldPlay: true }
-    );
+      const { sound } = await Audio.Sound.createAsync(
+        { uri },
+        { shouldPlay: true }
+      );
 
-    currentSound = sound;
+      currentSound = sound;
 
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        cleanupSound();
-      }
-    });
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          cleanupSound();
+          resolve();
+        }
+      });
 
-    console.log('[tts] Playing audio');
-  } catch (error) {
-    console.error('[tts] Playback error:', error);
-    cleanupSound();
-    throw error;
-  }
+      console.log('[tts] Playing audio');
+    } catch (error) {
+      console.error('[tts] Playback error:', error);
+      cleanupSound();
+      reject(error);
+    }
+  });
 }
 
 export async function stopTTSAudio(): Promise<void> {

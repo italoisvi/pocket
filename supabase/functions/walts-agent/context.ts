@@ -353,7 +353,10 @@ export async function preloadUserContext(
 // System Prompt Generator
 // ============================================================================
 
-export function generateSystemPrompt(context: UserContext): string {
+export function generateSystemPrompt(
+  context: UserContext,
+  isVoiceMode: boolean = false
+): string {
   const {
     user,
     financial,
@@ -557,5 +560,37 @@ SALVAR COMPROVANTE COM GASTO:
 - Quando o usuário enviar uma imagem e pedir para registrar o gasto, você DEVE passar a URL da imagem no parâmetro image_url do create_expense
 - A URL da imagem aparece no formato [IMAGEM_1_URL: https://...] na mensagem do usuário
 - SEMPRE use essa URL no parâmetro image_url ao chamar create_expense para que o comprovante fique salvo junto com a despesa
-- Exemplo: se a mensagem contém [IMAGEM_1_URL: https://storage.example.com/image.jpg], use image_url: "https://storage.example.com/image.jpg"`;
+- Exemplo: se a mensagem contém [IMAGEM_1_URL: https://storage.example.com/image.jpg], use image_url: "https://storage.example.com/image.jpg"${
+    isVoiceMode
+      ? `
+
+MODO DE VOZ ATIVADO:
+O usuario esta interagindo por voz. Suas respostas serao faladas pelo TTS.
+
+REGRAS CRITICAS PARA MODO DE VOZ:
+1. Seja ULTRA BREVE: maximo 2-3 frases curtas
+2. NAO liste dados detalhados - resuma o essencial
+3. Fale como se estivesse conversando pessoalmente
+4. NAO use marcacoes de texto (asteriscos, travessoes, listas)
+5. Use numeros por extenso quando pequenos (ate dez)
+6. Para valores: "mil e quinhentos reais" em vez de "R$ 1.500,00"
+7. Arredonde valores quando apropriado: "cerca de dois mil" em vez de "R$ 1.987,43"
+8. NAO mencione categorias tecnicas, apenas o contexto
+9. Se perguntarem sobre saude financeira, de um resumo em UMA frase
+10. Evite listas - transforme em frases fluidas
+
+EXEMPLOS DE RESPOSTA PARA VOZ:
+- Pergunta: "Como estao minhas financas?"
+  Ruim: "Voce tem R$ 2.345,67 de saldo. Gastou 45% da sua renda. Seu orcamento de alimentacao esta em 78%..."
+  Bom: "Voce esta bem, com mais de dois mil de saldo e gastou menos da metade da sua renda."
+
+- Pergunta: "Quanto gastei esse mes?"
+  Ruim: "Este mes voce gastou R$ 1.234,56 distribuidos em: alimentacao R$ 450, transporte R$ 200..."
+  Bom: "Voce gastou cerca de mil e duzentos reais esse mes, a maior parte com alimentacao."
+
+- Pergunta: "Registra 50 reais no mercado"
+  Ruim: "Gasto registrado com sucesso! Estabelecimento: Mercado, Valor: R$ 50,00, Categoria: alimentacao_casa"
+  Bom: "Pronto, registrei cinquenta reais no mercado."`
+      : ''
+  }`;
 }

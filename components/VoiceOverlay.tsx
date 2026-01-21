@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,66 +6,178 @@ import {
   StyleSheet,
   Modal,
   Animated,
-  ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { useTheme } from '@/lib/theme';
 import { useVoice } from '@/lib/voice-context';
 import { CloseIcon } from './CloseIcon';
-import { VoiceCommandIcon } from './VoiceCommandIcon';
 
-function AnimatedWaveformBar({
-  level,
-  isActive,
-  color,
-}: {
-  level: number;
-  isActive: boolean;
-  color: string;
-}) {
-  const heightAnim = useRef(new Animated.Value(8)).current;
-  const opacityAnim = useRef(new Animated.Value(0.3)).current;
+const BAR_COLOR = '#FEE077';
+const BAR_COUNT = 4;
+const MIN_HEIGHT = 20;
+const MAX_HEIGHT = 120;
+const SILENCE_THRESHOLD = 0.15;
+const IDLE_LEVEL = 0.05;
+
+function AnimatedBar({ level, index }: { level: number; index: number }) {
+  const heightAnim = useRef(new Animated.Value(MIN_HEIGHT)).current;
 
   useEffect(() => {
-    const targetHeight = Math.max(8, level * 60);
-    Animated.parallel([
-      Animated.spring(heightAnim, {
-        toValue: targetHeight,
-        useNativeDriver: false,
-        tension: 300,
-        friction: 10,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: isActive ? 1 : 0.3,
-        duration: 150,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }, [level, isActive, heightAnim, opacityAnim]);
+    const targetHeight = MIN_HEIGHT + level * (MAX_HEIGHT - MIN_HEIGHT);
+
+    Animated.timing(heightAnim, {
+      toValue: targetHeight,
+      duration: 50,
+      useNativeDriver: false,
+    }).start();
+  }, [level, heightAnim]);
 
   return (
     <Animated.View
       style={[
-        styles.waveformBar,
+        styles.bar,
         {
           height: heightAnim,
-          backgroundColor: color,
-          opacity: opacityAnim,
+          backgroundColor: BAR_COLOR,
+          opacity: 0.6 + level * 0.4,
         },
       ]}
     />
   );
 }
 
+function VoiceWaveform({
+  levels,
+  isActive,
+  isProcessing,
+  isPlayingResponse,
+}: {
+  levels: number[];
+  isActive: boolean;
+  isProcessing: boolean;
+  isPlayingResponse: boolean;
+}) {
+  const [barLevels, setBarLevels] = useState<number[]>(
+    Array(BAR_COUNT).fill(0)
+  );
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const animationInterval = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (animationInterval.current) {
+      clearInterval(animationInterval.current);
+      animationInterval.current = null;
+    }
+
+    if (isProcessing) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.05,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+
+      let phase = 0;
+      animationInterval.current = setInterval(() => {
+        phase += 0.3;
+        const newLevels = Array.from({ length: BAR_COUNT }, (_, i) => {
+          return 0.3 + Math.abs(Math.sin(phase + i * 0.8)) * 0.4;
+        });
+        setBarLevels(newLevels);
+      }, 100);
+
+      return () => {
+        pulse.stop();
+        if (animationInterval.current) {
+          clearInterval(animationInterval.current);
+          animationInterval.current = null;
+        }
+      };
+    }
+
+    if (isPlayingResponse) {
+      animationInterval.current = setInterval(() => {
+        const newLevels = Array.from({ length: BAR_COUNT }, () => {
+          return 0.3 + Math.random() * 0.7;
+        });
+        setBarLevels(newLevels);
+      }, 80);
+
+      return () => {
+        if (animationInterval.current) {
+          clearInterval(animationInterval.current);
+          animationInterval.current = null;
+        }
+      };
+    }
+
+    pulseAnim.setValue(1);
+    if (!isActive) {
+      setBarLevels(Array(BAR_COUNT).fill(0));
+    }
+  }, [isProcessing, isPlayingResponse, isActive, pulseAnim]);
+
+  useEffect(() => {
+    if (isProcessing || isPlayingResponse) {
+      return;
+    }
+
+    if (!isActive) {
+      return;
+    }
+
+    const lastLevel = levels[levels.length - 1] ?? 0;
+
+    // Apply silence threshold - only animate when there's actual sound
+    const isSilent = lastLevel < SILENCE_THRESHOLD;
+
+    if (isSilent) {
+      // During silence, show minimal idle animation
+      const newLevels = Array.from({ length: BAR_COUNT }, () => {
+        return IDLE_LEVEL + Math.random() * 0.03;
+      });
+      setBarLevels(newLevels);
+    } else {
+      // Active speech - amplify and show full waveform
+      const normalizedLevel =
+        (lastLevel - SILENCE_THRESHOLD) / (1 - SILENCE_THRESHOLD);
+      const amplified = Math.min(1, normalizedLevel * 1.3);
+
+      const newLevels = Array.from({ length: BAR_COUNT }, () => {
+        const variation = 0.7 + Math.random() * 0.3;
+        return amplified * variation;
+      });
+      setBarLevels(newLevels);
+    }
+  }, [levels, isActive, isProcessing, isPlayingResponse]);
+
+  return (
+    <Animated.View
+      style={[styles.waveformContainer, { transform: [{ scale: pulseAnim }] }]}
+    >
+      {barLevels.map((level, index) => (
+        <AnimatedBar key={index} level={level} index={index} />
+      ))}
+    </Animated.View>
+  );
+}
+
 export function VoiceOverlay() {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const {
     state,
     closeOverlay,
-    startRecording,
-    stopRecording,
+    startConversation,
+    endConversation,
     cancelInteraction,
-    stopPlayback,
   } = useVoice();
 
   const {
@@ -73,200 +185,34 @@ export function VoiceOverlay() {
     isRecording,
     isProcessing,
     isPlayingResponse,
-    transcript,
-    response,
+    isConversationActive,
     error,
     waveformLevels,
   } = state;
 
-  useEffect(() => {
-    if (isOverlayOpen && !isRecording && !isProcessing && !response && !error) {
-      startRecording();
-    }
-  }, [
-    isOverlayOpen,
-    isRecording,
-    isProcessing,
-    response,
-    error,
-    startRecording,
-  ]);
-
   const handleMainButtonPress = () => {
-    if (isRecording) {
-      stopRecording();
-    } else if (isPlayingResponse) {
-      stopPlayback();
-    } else if (response || error) {
-      startRecording();
+    if (isConversationActive) {
+      // End conversation (stop button)
+      endConversation();
+    } else {
+      // Start conversation (mic button)
+      startConversation();
     }
   };
 
-  const renderContent = () => {
-    if (error) {
-      return (
-        <View style={styles.centerContent}>
-          <Text style={[styles.errorText, { color: theme.error }]}>
-            {error}
-          </Text>
-          {response && (
-            <View style={styles.responseContainer}>
-              <Text
-                style={[styles.responseLabel, { color: theme.textSecondary }]}
-              >
-                Resposta:
-              </Text>
-              <ScrollView style={styles.responseScroll}>
-                <Text style={[styles.responseText, { color: theme.text }]}>
-                  {response}
-                </Text>
-              </ScrollView>
-            </View>
-          )}
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: theme.primary }]}
-            onPress={() => startRecording()}
-          >
-            <Text style={styles.retryButtonText}>Tentar novamente</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (isProcessing) {
-      return (
-        <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-            Processando...
-          </Text>
-          {transcript && (
-            <View style={styles.transcriptContainer}>
-              <Text
-                style={[styles.transcriptLabel, { color: theme.textSecondary }]}
-              >
-                Você disse:
-              </Text>
-              <Text style={[styles.transcriptText, { color: theme.text }]}>
-                "{transcript}"
-              </Text>
-            </View>
-          )}
-        </View>
-      );
-    }
-
-    if (response) {
-      return (
-        <View style={styles.responseContent}>
-          {transcript && (
-            <View style={styles.transcriptContainer}>
-              <Text
-                style={[styles.transcriptLabel, { color: theme.textSecondary }]}
-              >
-                Você disse:
-              </Text>
-              <Text style={[styles.transcriptText, { color: theme.text }]}>
-                "{transcript}"
-              </Text>
-            </View>
-          )}
-          <View style={styles.responseContainer}>
-            <Text
-              style={[styles.responseLabel, { color: theme.textSecondary }]}
-            >
-              Walts:
-            </Text>
-            <ScrollView style={styles.responseScroll}>
-              <Text style={[styles.responseText, { color: theme.text }]}>
-                {response}
-              </Text>
-            </ScrollView>
-          </View>
-          {isPlayingResponse && (
-            <View style={styles.playingIndicator}>
-              <ActivityIndicator size="small" color={theme.primary} />
-              <Text
-                style={[styles.playingText, { color: theme.textSecondary }]}
-              >
-                Reproduzindo...
-              </Text>
-            </View>
-          )}
-          <TouchableOpacity
-            style={[styles.newQuestionButton, { borderColor: theme.primary }]}
-            onPress={() => startRecording()}
-          >
-            <VoiceCommandIcon size={20} color={theme.primary} />
-            <Text style={[styles.newQuestionText, { color: theme.primary }]}>
-              Nova pergunta
-            </Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (isRecording) {
-      return (
-        <View style={styles.centerContent}>
-          <View style={styles.waveformContainer}>
-            {Array.from({ length: 30 }).map((_, i) => (
-              <AnimatedWaveformBar
-                key={i}
-                level={waveformLevels[i] ?? 0}
-                isActive={waveformLevels[i] !== undefined}
-                color={theme.primary}
-              />
-            ))}
-          </View>
-          <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-            Ouvindo...
-          </Text>
-          <Text style={[styles.hintText, { color: theme.textSecondary }]}>
-            Toque no botao para enviar
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.centerContent}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-          Iniciando...
-        </Text>
-      </View>
-    );
-  };
-
-  const getMainButtonStyle = () => {
-    if (isRecording) {
-      return { backgroundColor: theme.primary };
-    }
-    if (isPlayingResponse) {
-      return { backgroundColor: theme.error };
-    }
-    return {
-      backgroundColor: theme.card,
-      borderWidth: 2,
-      borderColor: theme.primary,
-    };
-  };
-
-  const getMainButtonContent = () => {
-    if (isRecording) {
-      return <View style={styles.stopIcon} />;
-    }
-    if (isPlayingResponse) {
-      return <View style={styles.stopIcon} />;
-    }
-    return <VoiceCommandIcon size={32} color={theme.primary} />;
+  const getStatusText = (): string => {
+    if (error) return 'Ocorreu um erro';
+    if (isRecording) return 'Ouvindo...';
+    if (isProcessing) return 'Pensando...';
+    if (isPlayingResponse) return 'Walts';
+    if (isConversationActive) return 'Aguardando...';
+    return 'Toque para iniciar';
   };
 
   return (
     <Modal
       visible={isOverlayOpen}
-      animationType="slide"
+      animationType="fade"
       presentationStyle="fullScreen"
       onRequestClose={closeOverlay}
     >
@@ -278,34 +224,45 @@ export function VoiceOverlay() {
           >
             <CloseIcon size={20} color={theme.text} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.text }]}>Walts</Text>
-          <View style={styles.placeholder} />
         </View>
 
-        <View style={styles.content}>{renderContent()}</View>
+        <View style={styles.content}>
+          <VoiceWaveform
+            levels={waveformLevels}
+            isActive={isRecording || isPlayingResponse}
+            isProcessing={isProcessing}
+            isPlayingResponse={isPlayingResponse}
+          />
+          <Text style={[styles.statusText, { color: theme.textSecondary }]}>
+            {getStatusText()}
+          </Text>
+        </View>
 
-        {!isProcessing && (
-          <View style={styles.footer}>
-            {isRecording && (
-              <TouchableOpacity
-                style={[styles.cancelButton, { backgroundColor: theme.card }]}
-                onPress={cancelInteraction}
-              >
-                <Text style={[styles.cancelText, { color: theme.error }]}>
-                  Cancelar
-                </Text>
-              </TouchableOpacity>
-            )}
+        <View style={styles.footer}>
+          {!isProcessing && (
             <TouchableOpacity
-              style={[styles.mainButton, getMainButtonStyle()]}
+              style={[
+                styles.mainButton,
+                {
+                  backgroundColor: isConversationActive
+                    ? theme.error
+                    : theme.fabBackground,
+                  borderWidth: isConversationActive ? 0 : 2,
+                  borderColor: theme.border,
+                },
+              ]}
               onPress={handleMainButtonPress}
-              disabled={isProcessing}
             >
-              {getMainButtonContent()}
+              {isConversationActive ? (
+                <View style={styles.stopIcon} />
+              ) : (
+                <View
+                  style={[styles.micIcon, { backgroundColor: theme.fabIcon }]}
+                />
+              )}
             </TouchableOpacity>
-            {isRecording && <View style={styles.cancelButton} />}
-          </View>
-        )}
+          )}
+        </View>
       </View>
     </Modal>
   );
@@ -318,7 +275,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 16,
@@ -330,133 +287,41 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 18,
-    fontFamily: 'DMSans-SemiBold',
-  },
-  placeholder: {
-    width: 40,
-  },
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  centerContent: {
     alignItems: 'center',
-    gap: 24,
-  },
-  responseContent: {
-    flex: 1,
-    gap: 16,
+    gap: 40,
   },
   waveformContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 80,
-    gap: 4,
+    height: 150,
+    gap: 12,
   },
-  waveformBar: {
-    width: 6,
-    borderRadius: 3,
+  bar: {
+    width: 8,
+    borderRadius: 4,
   },
   statusText: {
     fontSize: 18,
     fontFamily: 'DMSans-Medium',
-  },
-  hintText: {
-    fontSize: 14,
-    fontFamily: 'DMSans-Regular',
-  },
-  transcriptContainer: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  transcriptLabel: {
-    fontSize: 12,
-    fontFamily: 'DMSans-Medium',
-    marginBottom: 4,
-  },
-  transcriptText: {
-    fontSize: 16,
-    fontFamily: 'DMSans-Regular',
-    fontStyle: 'italic',
-  },
-  responseContainer: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  responseLabel: {
-    fontSize: 12,
-    fontFamily: 'DMSans-Medium',
-    marginBottom: 8,
-  },
-  responseScroll: {
-    flex: 1,
-  },
-  responseText: {
-    fontSize: 16,
-    fontFamily: 'DMSans-Regular',
-    lineHeight: 24,
-  },
-  playingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  playingText: {
-    fontSize: 14,
-    fontFamily: 'DMSans-Regular',
-  },
-  newQuestionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    borderWidth: 2,
-    alignSelf: 'center',
-  },
-  newQuestionText: {
-    fontSize: 16,
-    fontFamily: 'DMSans-SemiBold',
-  },
-  errorText: {
-    fontSize: 16,
-    fontFamily: 'DMSans-Medium',
-    textAlign: 'center',
-  },
-  retryButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontFamily: 'DMSans-SemiBold',
-    color: '#000',
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 48,
-    gap: 16,
+    paddingBottom: 60,
+    gap: 24,
   },
   cancelButton: {
     width: 80,
     alignItems: 'center',
   },
   cancelText: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: 'DMSans-Medium',
   },
   mainButton: {
@@ -466,15 +331,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   stopIcon: {
     width: 24,
     height: 24,
     borderRadius: 4,
-    backgroundColor: '#000',
+    backgroundColor: '#fff',
+  },
+  micIcon: {
+    width: 20,
+    height: 28,
+    borderRadius: 10,
   },
 });

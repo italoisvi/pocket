@@ -80,23 +80,34 @@ export type RecordingResult = {
 };
 
 export async function stopRecording(): Promise<RecordingResult | null> {
+  const currentRecording = recording;
+  const currentLevels = [...meteringLevels];
+
+  // Reset state immediately
+  recording = null;
+  meteringCallback = null;
+  meteringLevels = [];
+
+  if (!currentRecording) {
+    console.log('[speech] No recording to stop');
+    return null;
+  }
+
   try {
-    if (!recording) {
-      console.log('[speech] No recording to stop');
-      return null;
-    }
+    await currentRecording.stopAndUnloadAsync();
+    const uri = currentRecording.getURI();
 
-    await recording.stopAndUnloadAsync();
-    const uri = recording.getURI();
-    recording = null;
-    meteringCallback = null;
-
+    // Reset audio mode
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
     });
 
     // Sample the waveform to ~30 bars for display
-    const waveform = sampleWaveform(meteringLevels, 30);
+    const waveform = sampleWaveform(currentLevels, 30);
 
     console.log(
       '[speech] Recording stopped:',
@@ -107,8 +118,15 @@ export async function stopRecording(): Promise<RecordingResult | null> {
     return uri ? { uri, waveform } : null;
   } catch (error) {
     console.error('[speech] Stop recording error:', error);
-    recording = null;
-    meteringCallback = null;
+    // Try to reset audio mode even on error
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+    } catch {
+      // Ignore
+    }
     return null;
   }
 }
@@ -132,17 +150,35 @@ function sampleWaveform(levels: number[], targetBars: number): number[] {
 }
 
 export async function cancelRecording(): Promise<void> {
-  try {
-    if (recording) {
-      await recording.stopAndUnloadAsync();
-      recording = null;
+  // Always reset state first
+  const currentRecording = recording;
+  recording = null;
+  meteringCallback = null;
+  meteringLevels = [];
+
+  // Try to stop the recording if it exists
+  if (currentRecording) {
+    try {
+      const status = await currentRecording.getStatusAsync();
+      if (status.isRecording || status.canRecord) {
+        await currentRecording.stopAndUnloadAsync();
+      }
+    } catch (error) {
+      console.log('[speech] Recording already stopped or invalid');
     }
+  }
+
+  // Always reset audio mode to allow new recordings
+  try {
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
     });
   } catch (error) {
-    console.error('[speech] Cancel recording error:', error);
-    recording = null;
+    console.error('[speech] Failed to reset audio mode:', error);
   }
 }
 
