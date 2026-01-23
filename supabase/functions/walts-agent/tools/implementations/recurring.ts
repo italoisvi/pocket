@@ -27,8 +27,8 @@ export async function listFixedCosts(
   const { userId, supabase } = context;
 
   try {
-    // Buscar transacoes marcadas como custo fixo
-    const { data: fixedCosts, error } = await supabase
+    // 1. Buscar transacoes do EXTRATO marcadas como custo fixo
+    const { data: extractFixedCosts, error: extractError } = await supabase
       .from('transaction_categories')
       .select(
         `
@@ -46,12 +46,25 @@ export async function listFixedCosts(
       .eq('user_id', userId)
       .eq('is_fixed_cost', true);
 
-    if (error) {
-      console.error('[recurring.listFixedCosts] DB Error:', error);
-      return { success: false, error: 'Erro ao buscar custos fixos' };
+    if (extractError) {
+      console.error(
+        '[recurring.listFixedCosts] Extract DB Error:',
+        extractError
+      );
     }
 
-    // Tambem buscar padroes detectados como recorrentes
+    // 2. Buscar gastos MANUAIS marcados como custo fixo
+    const { data: manualFixedCosts, error: manualError } = await supabase
+      .from('expenses')
+      .select('id, establishment_name, amount, date, category, subcategory')
+      .eq('user_id', userId)
+      .eq('is_fixed_cost', true);
+
+    if (manualError) {
+      console.error('[recurring.listFixedCosts] Manual DB Error:', manualError);
+    }
+
+    // 3. Buscar padroes detectados como recorrentes
     const { data: patterns } = await supabase
       .from('user_financial_patterns')
       .select('*')
@@ -59,14 +72,29 @@ export async function listFixedCosts(
       .eq('pattern_type', 'recurring_expense')
       .gte('confidence', 0.7);
 
-    const confirmedFixedCosts = (fixedCosts || []).map((fc) => ({
+    // Mapear custos fixos do extrato
+    const extractCosts = (extractFixedCosts || []).map((fc) => ({
       id: fc.id,
       description: fc.pluggy_transactions?.description || 'Desconhecido',
       amount: Math.abs(fc.pluggy_transactions?.amount || 0),
       category: fc.category,
       subcategory: fc.subcategory,
+      source: 'extrato' as const,
       type: 'confirmed' as const,
     }));
+
+    // Mapear custos fixos manuais
+    const manualCosts = (manualFixedCosts || []).map((exp) => ({
+      id: exp.id,
+      description: exp.establishment_name,
+      amount: exp.amount,
+      category: exp.category,
+      subcategory: exp.subcategory,
+      source: 'manual' as const,
+      type: 'confirmed' as const,
+    }));
+
+    const confirmedFixedCosts = [...extractCosts, ...manualCosts];
 
     const estimatedFixedCosts = params.include_estimated
       ? (patterns || []).map((p) => ({
@@ -74,6 +102,8 @@ export async function listFixedCosts(
           description: p.pattern_key,
           amount: (p.pattern_value as { avg_amount?: number })?.avg_amount || 0,
           category: p.category || 'outros',
+          subcategory: null,
+          source: 'detectado' as const,
           confidence: Math.round(p.confidence * 100),
           type: 'estimated' as const,
         }))
@@ -95,6 +125,8 @@ export async function listFixedCosts(
         fixedCosts: allCosts,
         summary: {
           confirmedCount: confirmedFixedCosts.length,
+          fromExtract: extractCosts.length,
+          fromManual: manualCosts.length,
           estimatedCount: estimatedFixedCosts.length,
           totalConfirmed,
           totalEstimated,
@@ -103,7 +135,7 @@ export async function listFixedCosts(
         message:
           allCosts.length === 0
             ? 'Nenhum custo fixo identificado ainda. Continue usando o app para que eu possa detectar seus gastos recorrentes.'
-            : undefined,
+            : `Encontrei ${confirmedFixedCosts.length} custos fixos confirmados (${extractCosts.length} do extrato, ${manualCosts.length} manuais) totalizando R$ ${totalConfirmed.toFixed(2)}.`,
       },
     };
   } catch (error) {
@@ -135,19 +167,93 @@ export async function detectRecurringExpenses(
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     const startDate = sixMonthsAgo.toISOString().split('T')[0];
 
-    const { data: expenses, error } = await supabase
+    // 1. Buscar gastos MANUAIS
+    const { data: manualExpenses, error: manualError } = await supabase
       .from('expenses')
       .select('establishment_name, amount, date, category')
       .eq('user_id', userId)
       .gte('date', startDate)
       .order('date', { ascending: true });
 
-    if (error) {
-      console.error('[recurring.detectRecurringExpenses] DB Error:', error);
-      return { success: false, error: 'Erro ao buscar gastos' };
+    if (manualError) {
+      console.error(
+        '[recurring.detectRecurringExpenses] Manual DB Error:',
+        manualError
+      );
     }
 
-    if (!expenses || expenses.length === 0) {
+    // 2. Buscar transacoes do EXTRATO
+    const { data: accounts } = await supabase
+      .from('pluggy_accounts')
+      .select('id')
+      .eq('user_id', userId);
+
+    let extractExpenses: Array<{
+      description: string;
+      amount: number;
+      date: string;
+      category: string;
+    }> = [];
+
+    if (accounts && accounts.length > 0) {
+      const accountIds = accounts.map((a: any) => a.id);
+
+      // Buscar transacoes categorizadas
+      const { data: categorizedTx } = await supabase
+        .from('transaction_categories')
+        .select(
+          `
+          category,
+          pluggy_transactions!inner(
+            description,
+            amount,
+            date,
+            account_id,
+            type
+          )
+        `
+        )
+        .eq('user_id', userId);
+
+      if (categorizedTx) {
+        extractExpenses = categorizedTx
+          .filter((tx: any) => {
+            const txDate = tx.pluggy_transactions?.date;
+            const txAccountId = tx.pluggy_transactions?.account_id;
+            const txType = tx.pluggy_transactions?.type;
+            if (!txDate || !txAccountId) return false;
+            if (!accountIds.includes(txAccountId)) return false;
+            if (txType !== 'DEBIT') return false; // Apenas saidas
+            return new Date(txDate) >= sixMonthsAgo;
+          })
+          .map((tx: any) => ({
+            description: tx.pluggy_transactions.description,
+            amount: Math.abs(tx.pluggy_transactions.amount),
+            date: tx.pluggy_transactions.date,
+            category: tx.category || 'outros',
+          }));
+      }
+    }
+
+    // Combinar gastos manuais e do extrato
+    const allExpenses = [
+      ...(manualExpenses || []).map((e) => ({
+        name: e.establishment_name,
+        amount: e.amount,
+        date: e.date,
+        category: e.category || 'outros',
+        source: 'manual' as const,
+      })),
+      ...extractExpenses.map((e) => ({
+        name: e.description,
+        amount: e.amount,
+        date: e.date,
+        category: e.category,
+        source: 'extrato' as const,
+      })),
+    ];
+
+    if (allExpenses.length === 0) {
       return {
         success: true,
         data: {
@@ -157,23 +263,38 @@ export async function detectRecurringExpenses(
       };
     }
 
-    // Agrupar por estabelecimento e analisar recorrencia
-    const byEstablishment: Record<
+    // Agrupar por nome normalizado e analisar recorrencia
+    const byName: Record<
       string,
-      { amounts: number[]; dates: string[]; category: string }
+      {
+        amounts: number[];
+        dates: string[];
+        category: string;
+        sources: Set<string>;
+      }
     > = {};
 
-    for (const expense of expenses) {
-      const key = expense.establishment_name.toLowerCase().trim();
-      if (!byEstablishment[key]) {
-        byEstablishment[key] = {
+    for (const expense of allExpenses) {
+      // Normalizar nome (remover numeros, espacos extras, etc.)
+      const key = expense.name
+        .toLowerCase()
+        .replace(/[0-9]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (!key || key.length < 3) continue; // Ignorar nomes muito curtos
+
+      if (!byName[key]) {
+        byName[key] = {
           amounts: [],
           dates: [],
-          category: expense.category || 'outros',
+          category: expense.category,
+          sources: new Set(),
         };
       }
-      byEstablishment[key].amounts.push(expense.amount);
-      byEstablishment[key].dates.push(expense.date);
+      byName[key].amounts.push(expense.amount);
+      byName[key].dates.push(expense.date);
+      byName[key].sources.add(expense.source);
     }
 
     // Identificar padroes recorrentes
@@ -185,9 +306,10 @@ export async function detectRecurringExpenses(
       category: string;
       confidence: number;
       isSubscription: boolean;
+      sources: string[];
     }> = [];
 
-    for (const [establishment, data] of Object.entries(byEstablishment)) {
+    for (const [name, data] of Object.entries(byName)) {
       const occurrences = data.amounts.length;
       if (occurrences < minOccurrences) continue;
 
@@ -206,7 +328,7 @@ export async function detectRecurringExpenses(
           0
         ) / data.amounts.length;
       const stdDev = Math.sqrt(variance);
-      const coefficientOfVariation = stdDev / avgAmount;
+      const coefficientOfVariation = avgAmount > 0 ? stdDev / avgAmount : 1;
 
       // Alta confianca se valores sao consistentes
       const valueConsistency = 1 - Math.min(coefficientOfVariation, 1);
@@ -217,14 +339,14 @@ export async function detectRecurringExpenses(
       const isSubscription = coefficientOfVariation < 0.1;
 
       recurring.push({
-        establishment:
-          establishment.charAt(0).toUpperCase() + establishment.slice(1),
+        establishment: name.charAt(0).toUpperCase() + name.slice(1),
         avgAmount: Math.round(avgAmount * 100) / 100,
         occurrences,
         monthsPresent: uniqueMonths,
         category: data.category,
         confidence: Math.round(confidence * 100),
         isSubscription,
+        sources: Array.from(data.sources),
       });
     }
 
@@ -249,10 +371,15 @@ export async function detectRecurringExpenses(
           (sum, r) => sum + r.avgAmount,
           0
         ),
+        analyzedExpenses: {
+          manual: (manualExpenses || []).length,
+          extract: extractExpenses.length,
+          total: allExpenses.length,
+        },
         message:
           recurring.length === 0
             ? 'Nenhum gasto recorrente detectado com os criterios especificados.'
-            : `Encontrei ${subscriptions.length} possiveis assinaturas e ${otherRecurring.length} outros gastos recorrentes.`,
+            : `Encontrei ${subscriptions.length} possiveis assinaturas e ${otherRecurring.length} outros gastos recorrentes (analisando ${allExpenses.length} transacoes).`,
       },
     };
   } catch (error) {
@@ -276,8 +403,8 @@ export async function calculateFixedCostsTotal(
   const { userId, supabase } = context;
 
   try {
-    // Buscar custos fixos confirmados
-    const { data: fixedCosts } = await supabase
+    // 1. Buscar custos fixos do EXTRATO (transaction_categories)
+    const { data: extractFixedCosts } = await supabase
       .from('transaction_categories')
       .select(
         `
@@ -290,7 +417,14 @@ export async function calculateFixedCostsTotal(
       .eq('user_id', userId)
       .eq('is_fixed_cost', true);
 
-    // Buscar padroes recorrentes detectados
+    // 2. Buscar custos fixos MANUAIS (expenses)
+    const { data: manualFixedCosts } = await supabase
+      .from('expenses')
+      .select('category, amount')
+      .eq('user_id', userId)
+      .eq('is_fixed_cost', true);
+
+    // 3. Buscar padroes recorrentes detectados
     const { data: patterns } = await supabase
       .from('user_financial_patterns')
       .select('category, pattern_value, confidence')
@@ -298,18 +432,29 @@ export async function calculateFixedCostsTotal(
       .eq('pattern_type', 'recurring_expense')
       .gte('confidence', 0.7);
 
-    // Calcular totais
-    const confirmedByCategory: Record<string, number> = {};
-    let totalConfirmed = 0;
+    // Calcular totais por categoria - EXTRATO
+    const extractByCategory: Record<string, number> = {};
+    let totalExtract = 0;
 
-    for (const fc of fixedCosts || []) {
+    for (const fc of extractFixedCosts || []) {
       const amount = Math.abs(fc.pluggy_transactions?.amount || 0);
       const category = fc.category || 'outros';
-      confirmedByCategory[category] =
-        (confirmedByCategory[category] || 0) + amount;
-      totalConfirmed += amount;
+      extractByCategory[category] = (extractByCategory[category] || 0) + amount;
+      totalExtract += amount;
     }
 
+    // Calcular totais por categoria - MANUAL
+    const manualByCategory: Record<string, number> = {};
+    let totalManual = 0;
+
+    for (const exp of manualFixedCosts || []) {
+      const amount = exp.amount || 0;
+      const category = exp.category || 'outros';
+      manualByCategory[category] = (manualByCategory[category] || 0) + amount;
+      totalManual += amount;
+    }
+
+    // Calcular totais por categoria - ESTIMADO (padroes)
     const estimatedByCategory: Record<string, number> = {};
     let totalEstimated = 0;
 
@@ -322,23 +467,30 @@ export async function calculateFixedCostsTotal(
       totalEstimated += amount;
     }
 
-    // Combinar categorias
+    // Combinar todas as categorias
     const allCategories = new Set([
-      ...Object.keys(confirmedByCategory),
+      ...Object.keys(extractByCategory),
+      ...Object.keys(manualByCategory),
       ...Object.keys(estimatedByCategory),
     ]);
 
-    const byCategory = Array.from(allCategories).map((category) => ({
-      category,
-      confirmed: confirmedByCategory[category] || 0,
-      estimated: estimatedByCategory[category] || 0,
-      total:
-        (confirmedByCategory[category] || 0) +
-        (estimatedByCategory[category] || 0),
-    }));
+    const byCategory = Array.from(allCategories).map((category) => {
+      const extract = extractByCategory[category] || 0;
+      const manual = manualByCategory[category] || 0;
+      const estimated = estimatedByCategory[category] || 0;
+      return {
+        category,
+        fromExtract: extract,
+        fromManual: manual,
+        confirmed: extract + manual,
+        estimated,
+        total: extract + manual + estimated,
+      };
+    });
 
     byCategory.sort((a, b) => b.total - a.total);
 
+    const totalConfirmed = totalExtract + totalManual;
     const grandTotal = totalConfirmed + totalEstimated;
 
     return {
@@ -346,6 +498,8 @@ export async function calculateFixedCostsTotal(
       data: {
         byCategory,
         summary: {
+          totalFromExtract: totalExtract,
+          totalFromManual: totalManual,
           totalConfirmed,
           totalEstimated,
           grandTotal,
@@ -355,6 +509,9 @@ export async function calculateFixedCostsTotal(
           grandTotal > 0
             ? `Seus custos fixos somam aproximadamente R$ ${grandTotal.toFixed(2)} por mes.`
             : 'Nenhum custo fixo identificado ainda.',
+          totalConfirmed > 0
+            ? `Desse total, R$ ${totalConfirmed.toFixed(2)} sao confirmados (${(extractFixedCosts || []).length} do extrato, ${(manualFixedCosts || []).length} manuais).`
+            : '',
           byCategory.length > 0
             ? `A maior parte vai para ${byCategory[0].category} (R$ ${byCategory[0].total.toFixed(2)}).`
             : '',

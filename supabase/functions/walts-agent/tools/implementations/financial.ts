@@ -69,22 +69,26 @@ export async function getFinancialContext(
   const { start, end } = getDateRange(period);
 
   try {
-    const [profileResult, budgetsResult, expensesResult] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('name, income_cards')
-        .eq('id', userId)
-        .single(),
-      supabase.from('budgets').select('*').eq('user_id', userId),
-      supabase
-        .from('expenses')
-        .select('id, establishment_name, amount, date, category, subcategory')
-        .eq('user_id', userId)
-        .gte('date', start)
-        .lte('date', end)
-        .order('date', { ascending: false })
-        .limit(20),
-    ]);
+    const [profileResult, budgetsResult, expensesResult, accountsResult] =
+      await Promise.all([
+        supabase
+          .from('profiles')
+          .select('name, income_cards')
+          .eq('id', userId)
+          .single(),
+        supabase.from('budgets').select('*').eq('user_id', userId),
+        supabase
+          .from('expenses')
+          .select(
+            'id, establishment_name, amount, date, category, subcategory, is_fixed_cost'
+          )
+          .eq('user_id', userId)
+          .gte('date', start)
+          .lte('date', end)
+          .order('date', { ascending: false })
+          .limit(30),
+        supabase.from('pluggy_accounts').select('id').eq('user_id', userId),
+      ]);
 
     const incomeCards = profileResult.data?.income_cards || [];
     const totalIncome = incomeCards.reduce(
@@ -92,29 +96,152 @@ export async function getFinancialContext(
       0
     );
 
-    const expenses = expensesResult.data || [];
-    const totalExpenses = expenses.reduce(
+    const manualExpenses = expensesResult.data || [];
+    const totalManualExpenses = manualExpenses.reduce(
       (sum: number, e: { amount: number }) => sum + e.amount,
       0
     );
 
+    // Buscar transacoes categorizadas do extrato bancario
+    let extractTransactions: Array<{
+      id: string;
+      description: string;
+      amount: number;
+      date: string;
+      category: string;
+      subcategory?: string;
+      is_fixed_cost: boolean;
+    }> = [];
+    let totalExtractExpenses = 0;
+
+    const accounts = accountsResult.data || [];
+    if (accounts.length > 0) {
+      const accountIds = accounts.map((a: any) => a.id);
+
+      const { data: categorizedTx } = await supabase
+        .from('transaction_categories')
+        .select(
+          `
+          id,
+          category,
+          subcategory,
+          is_fixed_cost,
+          pluggy_transactions!inner(
+            id,
+            description,
+            amount,
+            date,
+            account_id,
+            type
+          )
+        `
+        )
+        .eq('user_id', userId);
+
+      if (categorizedTx) {
+        extractTransactions = categorizedTx
+          .filter((tx: any) => {
+            const txDate = tx.pluggy_transactions?.date;
+            const txAccountId = tx.pluggy_transactions?.account_id;
+            const txType = tx.pluggy_transactions?.type;
+            if (!txDate || !txAccountId) return false;
+            if (!accountIds.includes(txAccountId)) return false;
+            if (txType !== 'DEBIT') return false; // Apenas saidas
+            const date = new Date(txDate);
+            const startDate = new Date(start);
+            const endDate = new Date(end);
+            return date >= startDate && date <= endDate;
+          })
+          .map((tx: any) => ({
+            id: tx.pluggy_transactions.id,
+            description: tx.pluggy_transactions.description,
+            amount: Math.abs(tx.pluggy_transactions.amount),
+            date: tx.pluggy_transactions.date,
+            category: tx.category,
+            subcategory: tx.subcategory,
+            is_fixed_cost: tx.is_fixed_cost,
+          }));
+
+        totalExtractExpenses = extractTransactions.reduce(
+          (sum, tx) => sum + tx.amount,
+          0
+        );
+      }
+    }
+
+    const totalExpenses = totalManualExpenses + totalExtractExpenses;
+
+    // Calcular gastos por categoria (manual + extrato)
+    const expensesByCategory: Record<
+      string,
+      { manual: number; extract: number; total: number }
+    > = {};
+
+    for (const exp of manualExpenses) {
+      const cat = exp.category || 'outros';
+      if (!expensesByCategory[cat])
+        expensesByCategory[cat] = { manual: 0, extract: 0, total: 0 };
+      expensesByCategory[cat].manual += exp.amount;
+      expensesByCategory[cat].total += exp.amount;
+    }
+
+    for (const tx of extractTransactions) {
+      const cat = tx.category || 'outros';
+      if (!expensesByCategory[cat])
+        expensesByCategory[cat] = { manual: 0, extract: 0, total: 0 };
+      expensesByCategory[cat].extract += tx.amount;
+      expensesByCategory[cat].total += tx.amount;
+    }
+
+    // Calcular orcamentos com dados combinados
     const budgets = (budgetsResult.data || []).map((b: any) => {
-      const categoryExpenses = expenses.filter(
-        (e: any) => e.category === b.category_id
-      );
-      const spent = categoryExpenses.reduce(
-        (sum: number, e: { amount: number }) => sum + e.amount,
-        0
-      );
+      const categoryData = expensesByCategory[b.category_id] || {
+        manual: 0,
+        extract: 0,
+        total: 0,
+      };
       const limit = parseFloat(b.amount);
       return {
         category: b.category_id,
         limit,
-        spent,
-        remaining: Math.max(0, limit - spent),
-        percentUsed: limit > 0 ? Math.round((spent / limit) * 100) : 0,
+        spent: categoryData.total,
+        spentManual: categoryData.manual,
+        spentExtract: categoryData.extract,
+        remaining: Math.max(0, limit - categoryData.total),
+        percentUsed:
+          limit > 0 ? Math.round((categoryData.total / limit) * 100) : 0,
       };
     });
+
+    // Combinar gastos recentes (manual + extrato) ordenados por data
+    const allExpenses = [
+      ...manualExpenses.map((e: any) => ({
+        id: e.id,
+        establishment: e.establishment_name,
+        amount: e.amount,
+        date: e.date,
+        category: e.category,
+        source: 'manual' as const,
+        isFixedCost: e.is_fixed_cost,
+      })),
+      ...extractTransactions.map((tx) => ({
+        id: tx.id,
+        establishment: tx.description,
+        amount: tx.amount,
+        date: tx.date,
+        category: tx.category,
+        source: 'extrato' as const,
+        isFixedCost: tx.is_fixed_cost,
+      })),
+    ]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 20);
+
+    // Calcular custos fixos vs variaveis
+    const fixedCosts = allExpenses
+      .filter((e) => e.isFixedCost)
+      .reduce((sum, e) => sum + e.amount, 0);
+    const variableCosts = totalExpenses - fixedCosts;
 
     return {
       success: true,
@@ -123,14 +250,19 @@ export async function getFinancialContext(
         dateRange: { start, end },
         totalIncome,
         totalExpenses,
+        totalManualExpenses,
+        totalExtractExpenses,
+        fixedCosts,
+        variableCosts,
         balance: totalIncome - totalExpenses,
         budgets,
-        recentExpenses: expenses.slice(0, 10).map((e: any) => ({
-          establishment: e.establishment_name,
-          amount: e.amount,
-          date: e.date,
-          category: e.category,
-        })),
+        recentExpenses: allExpenses,
+        expensesByCategory: Object.entries(expensesByCategory)
+          .map(([category, data]) => ({
+            category,
+            ...data,
+          }))
+          .sort((a, b) => b.total - a.total),
       },
     };
   } catch (error) {
@@ -336,31 +468,80 @@ export async function checkBudgetStatus(
     }
 
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString()
-      .split('T')[0];
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      .toISOString()
-      .split('T')[0];
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const monthStartStr = monthStart.toISOString().split('T')[0];
+    const monthEndStr = monthEnd.toISOString().split('T')[0];
 
-    const { data: expenses } = await supabase
+    // Buscar gastos manuais
+    const { data: manualExpenses } = await supabase
       .from('expenses')
       .select('amount, category')
       .eq('user_id', userId)
-      .gte('date', monthStart)
-      .lte('date', monthEnd);
+      .gte('date', monthStartStr)
+      .lte('date', monthEndStr);
+
+    // Buscar contas do usuario
+    const { data: accounts } = await supabase
+      .from('pluggy_accounts')
+      .select('id')
+      .eq('user_id', userId);
+
+    // Buscar transacoes categorizadas do extrato
+    let extractExpensesByCategory: Record<string, number> = {};
+
+    if (accounts && accounts.length > 0) {
+      const accountIds = accounts.map((a: any) => a.id);
+
+      const { data: categorizedTx } = await supabase
+        .from('transaction_categories')
+        .select(
+          `
+          category,
+          pluggy_transactions!inner(
+            amount,
+            date,
+            account_id,
+            type
+          )
+        `
+        )
+        .eq('user_id', userId);
+
+      if (categorizedTx) {
+        for (const tx of categorizedTx) {
+          const txData = tx.pluggy_transactions as any;
+          if (!txData?.date || !txData?.account_id) continue;
+          if (!accountIds.includes(txData.account_id)) continue;
+          if (txData.type !== 'DEBIT') continue; // Apenas saidas
+
+          const txDate = new Date(txData.date);
+          if (txDate < monthStart || txDate > monthEnd) continue;
+
+          const category = tx.category || 'outros';
+          extractExpensesByCategory[category] =
+            (extractExpensesByCategory[category] || 0) +
+            Math.abs(txData.amount);
+        }
+      }
+    }
+
+    // Calcular gastos manuais por categoria
+    const manualExpensesByCategory: Record<string, number> = {};
+    for (const exp of manualExpenses || []) {
+      const cat = exp.category || 'outros';
+      manualExpensesByCategory[cat] =
+        (manualExpensesByCategory[cat] || 0) + exp.amount;
+    }
 
     const budgetStatuses = budgets.map((b: any) => {
-      const categoryExpenses = (expenses || []).filter(
-        (e: any) => e.category === b.category_id
-      );
-      const spent = categoryExpenses.reduce(
-        (sum: number, e: { amount: number }) => sum + e.amount,
-        0
-      );
+      const manualSpent = manualExpensesByCategory[b.category_id] || 0;
+      const extractSpent = extractExpensesByCategory[b.category_id] || 0;
+      const totalSpent = manualSpent + extractSpent;
       const limit = parseFloat(b.amount);
-      const remaining = Math.max(0, limit - spent);
-      const percentUsed = limit > 0 ? Math.round((spent / limit) * 100) : 0;
+      const remaining = Math.max(0, limit - totalSpent);
+      const percentUsed =
+        limit > 0 ? Math.round((totalSpent / limit) * 100) : 0;
 
       let status: string;
       if (percentUsed >= 100) {
@@ -376,7 +557,9 @@ export async function checkBudgetStatus(
       return {
         category: b.category_id,
         limit,
-        spent,
+        spent: totalSpent,
+        spentManual: manualSpent,
+        spentExtract: extractSpent,
         remaining,
         percentUsed,
         status,
@@ -395,6 +578,7 @@ export async function checkBudgetStatus(
           exceeded: budgetStatuses.filter((b: any) => b.status === 'ESTOURADO')
             .length,
         },
+        note: 'Os valores incluem gastos manuais e transacoes categorizadas do extrato bancario.',
       },
     };
   } catch (error) {

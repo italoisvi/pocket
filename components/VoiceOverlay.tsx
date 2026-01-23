@@ -6,10 +6,15 @@ import {
   StyleSheet,
   Modal,
   Animated,
+  Pressable,
 } from 'react-native';
 import { useTheme } from '@/lib/theme';
 import { useVoice } from '@/lib/voice-context';
 import { CloseIcon } from './CloseIcon';
+import { MicrophoneIcon } from './MicrophoneIcon';
+import { StopIcon } from './StopIcon';
+import { PauseIcon } from './PauseIcon';
+import { PlayIcon } from './PlayIcon';
 
 const BAR_COLOR = '#FEE077';
 const BAR_COUNT = 4;
@@ -17,8 +22,9 @@ const MIN_HEIGHT = 20;
 const MAX_HEIGHT = 120;
 const SILENCE_THRESHOLD = 0.15;
 const IDLE_LEVEL = 0.05;
+const LONG_PRESS_DURATION = 500;
 
-function AnimatedBar({ level, index }: { level: number; index: number }) {
+function AnimatedBar({ level }: { level: number }) {
   const heightAnim = useRef(new Animated.Value(MIN_HEIGHT)).current;
 
   useEffect(() => {
@@ -164,7 +170,7 @@ function VoiceWaveform({
       style={[styles.waveformContainer, { transform: [{ scale: pulseAnim }] }]}
     >
       {barLevels.map((level, index) => (
-        <AnimatedBar key={index} level={level} index={index} />
+        <AnimatedBar key={index} level={level} />
       ))}
     </Animated.View>
   );
@@ -178,6 +184,8 @@ export function VoiceOverlay() {
     minimizeOverlay,
     startConversation,
     endConversation,
+    pauseConversation,
+    resumeConversation,
   } = useVoice();
 
   const {
@@ -186,9 +194,23 @@ export function VoiceOverlay() {
     isProcessing,
     isPlayingResponse,
     isConversationActive,
+    isPaused,
     error,
     waveformLevels,
   } = state;
+
+  // State for split button animation
+  const [showSplitButtons, setShowSplitButtons] = useState(false);
+  const splitAnimValue = useRef(new Animated.Value(0)).current;
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Reset split buttons when conversation state changes
+  useEffect(() => {
+    if (!isConversationActive || isPaused) {
+      setShowSplitButtons(false);
+      splitAnimValue.setValue(0);
+    }
+  }, [isConversationActive, isPaused, splitAnimValue]);
 
   // Quando clicar no X: minimizar se conversa ativa, senão fechar
   const handleClose = () => {
@@ -200,13 +222,76 @@ export function VoiceOverlay() {
   };
 
   const handleMainButtonPress = () => {
-    if (isConversationActive) {
+    console.log('[VoiceOverlay] Button pressed:', {
+      showSplitButtons,
+      isPaused,
+      isConversationActive,
+      isProcessing,
+      isRecording,
+    });
+
+    if (showSplitButtons) {
+      // If split buttons are showing, close them
+      closeSplitButtons();
+      return;
+    }
+
+    if (isPaused) {
+      // Resume conversation
+      console.log('[VoiceOverlay] Resuming conversation...');
+      resumeConversation();
+    } else if (isConversationActive) {
       // End conversation (stop button)
+      console.log('[VoiceOverlay] Ending conversation...');
       endConversation();
     } else {
       // Start conversation (mic button)
+      console.log('[VoiceOverlay] Starting conversation...');
       startConversation();
     }
+  };
+
+  const handleLongPressIn = () => {
+    // Only allow long press when conversation is active and not paused
+    if (!isConversationActive || isPaused || isProcessing) return;
+
+    longPressTimer.current = setTimeout(() => {
+      // Show split buttons
+      setShowSplitButtons(true);
+      Animated.spring(splitAnimValue, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 10,
+      }).start();
+    }, LONG_PRESS_DURATION);
+  };
+
+  const handleLongPressOut = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const closeSplitButtons = () => {
+    Animated.timing(splitAnimValue, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowSplitButtons(false);
+    });
+  };
+
+  const handlePausePress = () => {
+    closeSplitButtons();
+    pauseConversation();
+  };
+
+  const handleStopPress = () => {
+    closeSplitButtons();
+    endConversation();
   };
 
   const getStatusText = (): string => {
@@ -214,8 +299,67 @@ export function VoiceOverlay() {
     if (isRecording) return 'Ouvindo...';
     if (isProcessing) return 'Pensando...';
     if (isPlayingResponse) return 'Walts';
+    if (isPaused) return 'Pausado';
     if (isConversationActive) return 'Aguardando...';
     return 'Toque para iniciar';
+  };
+
+  // Animation interpolations for split buttons
+  const leftButtonTranslate = splitAnimValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -50],
+  });
+
+  const rightButtonTranslate = splitAnimValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 50],
+  });
+
+  const mainButtonOpacity = splitAnimValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0, 0],
+  });
+
+  const splitButtonOpacity = splitAnimValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0.5, 1],
+  });
+
+  const splitButtonScale = splitAnimValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.5, 1],
+  });
+
+  const renderMainButton = () => {
+    console.log('[VoiceOverlay] Rendering button:', {
+      isPaused,
+      isConversationActive,
+      icon: isPaused
+        ? 'PlayIcon'
+        : isConversationActive
+          ? 'StopIcon'
+          : 'MicrophoneIcon',
+    });
+
+    if (isPaused) {
+      // Play icon in primary/yellow color
+      return <PlayIcon size={28} color={theme.primary} />;
+    }
+    if (isConversationActive) {
+      // Stop icon in red color
+      return <StopIcon size={24} color={theme.error || '#FF3B30'} />;
+    }
+    // Microphone icon in text color
+    return <MicrophoneIcon size={28} color={theme.text} />;
+  };
+
+  const getMainButtonStyle = () => {
+    // All states use same background, only icon changes color
+    return {
+      backgroundColor: theme.fabBackground,
+      borderWidth: 2,
+      borderColor: theme.border,
+    };
   };
 
   return (
@@ -242,34 +386,94 @@ export function VoiceOverlay() {
             isProcessing={isProcessing}
             isPlayingResponse={isPlayingResponse}
           />
-          <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-            {getStatusText()}
-          </Text>
         </View>
 
         <View style={styles.footer}>
+          {/* Status text above button */}
+          <Text style={[styles.statusText, { color: theme.textSecondary }]}>
+            {getStatusText()}
+          </Text>
+
+          {/* Button container */}
           {!isProcessing && (
-            <TouchableOpacity
-              style={[
-                styles.mainButton,
-                {
-                  backgroundColor: isConversationActive
-                    ? theme.error
-                    : theme.fabBackground,
-                  borderWidth: isConversationActive ? 0 : 2,
-                  borderColor: theme.border,
-                },
-              ]}
-              onPress={handleMainButtonPress}
-            >
-              {isConversationActive ? (
-                <View style={styles.stopIcon} />
-              ) : (
-                <View
-                  style={[styles.micIcon, { backgroundColor: theme.fabIcon }]}
-                />
+            <View style={styles.buttonContainer}>
+              {/* Split buttons (pause and stop) */}
+              {showSplitButtons && (
+                <>
+                  <Animated.View
+                    style={[
+                      styles.splitButtonWrapper,
+                      {
+                        opacity: splitButtonOpacity,
+                        transform: [
+                          { translateX: leftButtonTranslate },
+                          { scale: splitButtonScale },
+                        ],
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.splitButton,
+                        {
+                          backgroundColor: theme.fabBackground,
+                          borderWidth: 2,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={handlePausePress}
+                    >
+                      <PauseIcon size={24} color={theme.primary} />
+                    </TouchableOpacity>
+                  </Animated.View>
+
+                  <Animated.View
+                    style={[
+                      styles.splitButtonWrapper,
+                      {
+                        opacity: splitButtonOpacity,
+                        transform: [
+                          { translateX: rightButtonTranslate },
+                          { scale: splitButtonScale },
+                        ],
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.splitButton,
+                        {
+                          backgroundColor: theme.fabBackground,
+                          borderWidth: 2,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={handleStopPress}
+                    >
+                      <StopIcon size={20} color={theme.error || '#FF3B30'} />
+                    </TouchableOpacity>
+                  </Animated.View>
+                </>
               )}
-            </TouchableOpacity>
+
+              {/* Main button */}
+              <Animated.View
+                style={[
+                  styles.mainButtonWrapper,
+                  { opacity: showSplitButtons ? mainButtonOpacity : 1 },
+                ]}
+              >
+                <Pressable
+                  style={[styles.mainButton, getMainButtonStyle()]}
+                  onPress={handleMainButtonPress}
+                  onPressIn={handleLongPressIn}
+                  onPressOut={handleLongPressOut}
+                  disabled={showSplitButtons}
+                >
+                  {renderMainButton()}
+                </Pressable>
+              </Animated.View>
+            </View>
           )}
         </View>
       </View>
@@ -300,7 +504,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 40,
   },
   waveformContainer: {
     flexDirection: 'row',
@@ -316,22 +519,23 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 18,
     fontFamily: 'DMSans-Medium',
+    marginBottom: 24,
   },
   footer: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 60,
-    gap: 24,
+    paddingBottom: 80,
   },
-  cancelButton: {
-    width: 80,
+  buttonContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    height: 80,
+    width: 200,
   },
-  cancelText: {
-    fontSize: 16,
-    fontFamily: 'DMSans-Medium',
+  mainButtonWrapper: {
+    position: 'absolute',
   },
   mainButton: {
     width: 72,
@@ -339,21 +543,15 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
   },
-  stopIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
-    backgroundColor: '#fff',
+  splitButtonWrapper: {
+    position: 'absolute',
   },
-  micIcon: {
-    width: 20,
-    height: 28,
-    borderRadius: 10,
+  splitButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

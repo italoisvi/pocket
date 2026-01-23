@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
 import { supabase } from '@/lib/supabase';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { TrashIcon } from '@/components/TrashIcon';
 import { useTheme } from '@/lib/theme';
 
@@ -134,7 +134,7 @@ export default function RaioXHistoryScreen() {
       <ScrollView style={styles.content}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" />
             <Text style={[styles.loadingText, { color: theme.text }]}>
               Carregando análises...
             </Text>

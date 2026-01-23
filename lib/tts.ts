@@ -140,4 +140,17 @@ async function cleanupSound(): Promise<void> {
     }
     currentSound = null;
   }
+
+  // Reset audio mode to allow recording to take over
+  try {
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    });
+  } catch {
+    // Ignore - might already be reset
+  }
 }

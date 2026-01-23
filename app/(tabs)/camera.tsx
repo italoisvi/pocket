@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,7 +16,6 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import DocumentScanner from 'react-native-document-scanner-plugin';
 import { useTheme } from '@/lib/theme';
 import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CarregarIcon } from '@/components/CarregarIcon';
 import { ExpenseConfirmModal } from '@/components/ExpenseConfirmModal';
 import { CameraInstructionsModal } from '@/components/CameraInstructionsModal';
@@ -500,7 +506,7 @@ export default function CameraScreen() {
       <View style={styles.content}>
         {processingImage ? (
           <View style={styles.processingContainer}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" />
             <Text style={[styles.processingText, { color: theme.text }]}>
               Processando comprovante...
             </Text>

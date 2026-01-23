@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -12,7 +13,6 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { useTheme } from '@/lib/theme';
 
 type CreditCardInvoice = {
@@ -166,8 +166,8 @@ export default function FaturasScreen() {
 
       // Buscar TODAS as transações do mês selecionado
       // No Pluggy, transações de cartão de crédito:
-      // - type='CREDIT' = compras (aumenta a dívida)
-      // - type='DEBIT' = pagamentos (diminui a dívida)
+      // - type='DEBIT' = compras (aumenta a dívida, valor negativo)
+      // - type='CREDIT' = pagamentos (diminui a dívida, valor positivo)
       const { data: monthTransactions } = await supabase
         .from('pluggy_transactions')
         .select('id, amount, date, type')
@@ -176,11 +176,11 @@ export default function FaturasScreen() {
         .lte('date', endOfMonth.toISOString().split('T')[0])
         .order('date', { ascending: false });
 
-      // Separar compras e pagamentos
+      // Separar compras e pagamentos (DEBIT = compras, CREDIT = pagamentos)
       const purchases =
-        monthTransactions?.filter((tx) => tx.type === 'CREDIT') || [];
-      const payments =
         monthTransactions?.filter((tx) => tx.type === 'DEBIT') || [];
+      const payments =
+        monthTransactions?.filter((tx) => tx.type === 'CREDIT') || [];
 
       // Calcular totais
       const totalPurchases = purchases.reduce(
@@ -329,7 +329,7 @@ export default function FaturasScreen() {
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" />
           </View>
         ) : (
           <View style={styles.invoicesContainer}>
@@ -492,13 +492,13 @@ export default function FaturasScreen() {
                                 styles.transactionAmount,
                                 {
                                   color:
-                                    tx.type === 'DEBIT'
+                                    tx.type === 'CREDIT'
                                       ? '#10b981'
                                       : theme.text,
                                 },
                               ]}
                             >
-                              {tx.type === 'DEBIT' ? '+' : ''}
+                              {tx.type === 'CREDIT' ? '+' : '-'}
                               {formatCurrency(Math.abs(tx.amount))}
                             </Text>
                           </View>

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -13,7 +14,6 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { useTheme } from '@/lib/theme';
 import { CardBrandIcon } from '@/lib/cardBrand';
@@ -111,7 +111,7 @@ export default function CartoesScreen() {
       <ScrollView style={styles.content}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" />
           </View>
         ) : banks.length === 0 ? (
           <View style={styles.emptyContainer}>

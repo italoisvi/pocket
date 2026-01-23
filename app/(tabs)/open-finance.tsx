@@ -40,6 +40,32 @@ type PluggyItem = {
   primaryColor?: string;
 };
 
+function getRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) {
+    return 'agora';
+  } else if (diffMinutes === 1) {
+    return 'há 1 minuto';
+  } else if (diffMinutes < 60) {
+    return `há ${diffMinutes} minutos`;
+  } else if (diffHours === 1) {
+    return 'há 1 hora';
+  } else if (diffHours < 24) {
+    return `há ${diffHours} horas`;
+  } else if (diffDays === 1) {
+    return 'há 1 dia';
+  } else {
+    return `há ${diffDays} dias`;
+  }
+}
+
 type BankLogoProps = {
   imageUrl?: string;
   bankName: string;
@@ -574,13 +600,7 @@ export default function OpenFinanceScreen() {
                     <Text
                       style={[styles.cardDate, { color: theme.textSecondary }]}
                     >
-                      Sincronizado:{' '}
-                      {new Date(item.last_sync_at).toLocaleString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      Sincronizado {getRelativeTime(item.last_sync_at)}
                     </Text>
                   )}
                 </View>

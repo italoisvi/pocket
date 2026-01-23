@@ -12,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { CoroaIcon } from '@/components/CoroaIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CheckIcon } from '@/components/CheckIcon';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { usePremium } from '@/lib/usePremium';
@@ -217,7 +216,7 @@ export default function OnboardingPaywallScreen() {
           { backgroundColor: theme.background, justifyContent: 'center' },
         ]}
       >
-        <LoadingKangaroo size={80} />
+        <ActivityIndicator size="large" />
       </View>
     );
   }

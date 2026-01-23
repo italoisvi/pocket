@@ -1,14 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   TouchableOpacity,
   StyleSheet,
   Platform,
   View,
   Animated,
+  PanResponder,
+  Dimensions,
 } from 'react-native';
 import { usePathname, useSegments } from 'expo-router';
 import { useTheme } from '@/lib/theme';
-import { VoiceCommandIcon } from './VoiceCommandIcon';
+import { WaltsIcon } from './WaltsIcon';
 
 type FloatingVoiceButtonProps = {
   onPress: () => void;
@@ -42,9 +44,9 @@ const ROUTES_WITH_TAB_BAR = [
   'dividir-conta',
 ];
 
-// Bottom position when tab bar is visible vs hidden
-const BOTTOM_WITH_TAB_BAR = Platform.OS === 'ios' ? 100 : 90;
-const BOTTOM_WITHOUT_TAB_BAR = Platform.OS === 'ios' ? 40 : 30;
+// Button size
+const BUTTON_SIZE = 56;
+const WALTS_ICON_COLOR = '#FEE077';
 
 // Mini waveform constants
 const MINI_BAR_COUNT = 3;
@@ -105,7 +107,114 @@ export function FloatingVoiceButton({
 }: FloatingVoiceButtonProps) {
   const pathname = usePathname();
   const segments = useSegments() as string[];
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+
+  // Get screen dimensions
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+  // Determine if tab bar is visible
+  const isInTabsGroup = segments[0] === '(tabs)';
+  const currentTabScreen = segments[1];
+  const hasTabBar =
+    isInTabsGroup && ROUTES_WITH_TAB_BAR.includes(currentTabScreen ?? '');
+
+  // Calculate safe boundaries
+  const topBoundary = Platform.OS === 'ios' ? 100 : 80;
+  const bottomBoundary = hasTabBar
+    ? Platform.OS === 'ios'
+      ? 180
+      : 160
+    : Platform.OS === 'ios'
+      ? 100
+      : 80;
+  const sidePadding = 16;
+
+  // Initial position (bottom right)
+  const initialX = screenWidth - BUTTON_SIZE - sidePadding;
+  const initialY = screenHeight - bottomBoundary;
+
+  // Animated position values
+  const posX = useRef(new Animated.Value(initialX)).current;
+  const posY = useRef(new Animated.Value(initialY)).current;
+
+  // Current position tracking
+  const currentPos = useRef({ x: initialX, y: initialY });
+
+  // Track if we're dragging
+  const isDragging = useRef(false);
+  const lastTap = useRef<number>(0);
+
+  // Update position when tab bar visibility changes
+  useEffect(() => {
+    const maxY = screenHeight - bottomBoundary;
+    if (currentPos.current.y > maxY) {
+      currentPos.current.y = maxY;
+      posY.setValue(maxY);
+    }
+  }, [hasTabBar, bottomBoundary, screenHeight, posY]);
+
+  // PanResponder for drag handling
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3;
+      },
+      onPanResponderGrant: () => {
+        isDragging.current = false;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3) {
+          isDragging.current = true;
+        }
+
+        // Calculate new position directly from gesture
+        const newX = Math.min(
+          Math.max(currentPos.current.x + gestureState.dx, sidePadding),
+          screenWidth - BUTTON_SIZE - sidePadding
+        );
+        const newY = Math.min(
+          Math.max(currentPos.current.y + gestureState.dy, topBoundary),
+          screenHeight - bottomBoundary
+        );
+
+        posX.setValue(newX);
+        posY.setValue(newY);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (isDragging.current) {
+          // Calculate final position
+          const newX = Math.min(
+            Math.max(currentPos.current.x + gestureState.dx, sidePadding),
+            screenWidth - BUTTON_SIZE - sidePadding
+          );
+          const newY = Math.min(
+            Math.max(currentPos.current.y + gestureState.dy, topBoundary),
+            screenHeight - bottomBoundary
+          );
+
+          // Snap to nearest horizontal edge
+          const snapToLeft = newX < screenWidth / 2;
+          const snapX = snapToLeft
+            ? sidePadding
+            : screenWidth - BUTTON_SIZE - sidePadding;
+
+          // Animate to snapped position
+          Animated.spring(posX, {
+            toValue: snapX,
+            useNativeDriver: false,
+            friction: 7,
+            tension: 40,
+          }).start();
+
+          // Update current position
+          currentPos.current = { x: snapX, y: newY };
+        }
+
+        isDragging.current = false;
+      },
+    })
+  ).current;
 
   const shouldHide = HIDDEN_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route)
@@ -115,55 +224,64 @@ export function FloatingVoiceButton({
     return null;
   }
 
-  // Determine if tab bar is visible
-  // Tab bar is visible only when inside (tabs) group and on a main tab screen
-  const isInTabsGroup = segments[0] === '(tabs)';
-  const currentTabScreen = segments[1];
-  const hasTabBar =
-    isInTabsGroup && ROUTES_WITH_TAB_BAR.includes(currentTabScreen ?? '');
-
-  const bottomPosition = hasTabBar
-    ? BOTTOM_WITH_TAB_BAR
-    : BOTTOM_WITHOUT_TAB_BAR;
-
   const handlePress = () => {
+    // Prevent press during drag
+    if (isDragging.current) return;
+
+    const now = Date.now();
+    // Debounce rapid taps
+    if (now - lastTap.current < 300) return;
+    lastTap.current = now;
+
     if (isMinimized && onEndConversation) {
-      // Se minimizado, encerrar conversa
       onEndConversation();
     } else {
-      // Caso normal, abrir overlay
       onPress();
     }
   };
 
   return (
-    <TouchableOpacity
+    <Animated.View
       style={[
-        styles.button,
+        styles.container,
         {
-          backgroundColor: theme.fabBackground,
-          bottom: bottomPosition,
+          left: posX,
+          top: posY,
         },
       ]}
-      onPress={handlePress}
-      activeOpacity={0.8}
+      {...panResponder.panHandlers}
     >
-      {isMinimized ? (
-        <MiniWaveform />
-      ) : (
-        <VoiceCommandIcon size={24} color={theme.fabIcon} />
-      )}
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.button,
+          {
+            backgroundColor: theme.fabBackground,
+            shadowColor: isDark ? '#fff' : '#000',
+            shadowOpacity: isDark ? 0.3 : 0.25,
+          },
+        ]}
+        onPress={handlePress}
+        activeOpacity={0.8}
+      >
+        {isMinimized ? (
+          <MiniWaveform />
+        ) : (
+          <WaltsIcon size={24} color={WALTS_ICON_COLOR} />
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  button: {
+  container: {
     position: 'absolute',
-    right: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    zIndex: 100,
+  },
+  button: {
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -171,7 +289,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
-    zIndex: 100,
   },
   miniWaveform: {
     flexDirection: 'row',

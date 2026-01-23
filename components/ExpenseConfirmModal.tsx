@@ -31,7 +31,7 @@ export function ExpenseConfirmModal({
   onCancel,
   loading = false,
 }: ExpenseConfirmModalProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [editedData, setEditedData] = useState<ReceiptData | null>(receiptData);
 
   // Update editedData when receiptData changes
@@ -149,21 +149,19 @@ export function ExpenseConfirmModal({
                   setEditedData({ ...editedData, isCash: value })
                 }
                 trackColor={{
-                  false: theme.background === '#000' ? '#333' : '#e0e0e0',
+                  false: isDark ? '#333' : '#e0e0e0',
                   true: '#f7c359',
                 }}
                 thumbColor={
                   editedData.isCash
-                    ? theme.background === '#000'
+                    ? isDark
                       ? '#fff'
                       : '#000'
-                    : theme.background === '#000'
+                    : isDark
                       ? '#000'
                       : '#fff'
                 }
-                ios_backgroundColor={
-                  theme.background === '#000' ? '#333' : '#e0e0e0'
-                }
+                ios_backgroundColor={isDark ? '#333' : '#e0e0e0'}
               />
             </View>
 
@@ -213,14 +211,12 @@ export function ExpenseConfirmModal({
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator
-                  color={theme.background === '#000' ? '#000' : '#fff'}
-                />
+                <ActivityIndicator color={isDark ? '#000' : '#fff'} />
               ) : (
                 <Text
                   style={[
                     styles.confirmButtonText,
-                    { color: theme.background === '#000' ? '#000' : '#fff' },
+                    { color: isDark ? '#000' : '#fff' },
                   ]}
                 >
                   Confirmar

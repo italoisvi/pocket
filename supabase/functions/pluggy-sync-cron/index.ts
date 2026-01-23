@@ -71,6 +71,33 @@ serve(async (req) => {
 
     const { apiKey } = await apiKeyResponse.json();
 
+    // SEMPRE forçar atualização do item no Pluggy antes de buscar dados
+    // Independente de quando foi a última sincronização
+    if (accountData.item_id) {
+      console.log(
+        `[pluggy-sync-cron] Triggering item refresh for item ${accountData.item_id}`
+      );
+
+      const updateResponse = await fetch(
+        `https://api.pluggy.ai/items/${accountData.item_id}/update`,
+        {
+          method: 'POST',
+          headers: { 'X-API-KEY': apiKey },
+        }
+      );
+
+      if (updateResponse.ok) {
+        console.log(`[pluggy-sync-cron] Item update triggered successfully`);
+        // Esperar um pouco para o Pluggy processar
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      } else {
+        console.log(
+          `[pluggy-sync-cron] Item update failed:`,
+          await updateResponse.text()
+        );
+      }
+    }
+
     // Buscar transações dos últimos 30 dias
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 30);

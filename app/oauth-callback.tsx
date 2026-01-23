@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert, View, StyleSheet } from 'react-native';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
+import { Alert, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { syncItem, syncTransactions } from '@/lib/pluggy';
 import { supabase } from '@/lib/supabase';
 import * as Sentry from '@sentry/react-native';
@@ -189,7 +188,7 @@ export default function OAuthCallback() {
   // Tela de loading durante processamento
   return (
     <View style={styles.container}>
-      <LoadingKangaroo size={80} />
+      <ActivityIndicator size="large" />
     </View>
   );
 }

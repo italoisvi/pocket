@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CheckIcon } from '@/components/CheckIcon';
 import { CoroaIcon } from '@/components/CoroaIcon';
 import { usePremium } from '@/lib/usePremium';
@@ -206,7 +205,7 @@ export default function SubscriptionScreen() {
       <View style={styles.content}>
         {premiumLoading ? (
           <View style={styles.loadingContainer}>
-            <LoadingKangaroo size={80} />
+            <ActivityIndicator size="large" />
           </View>
         ) : isPremium ? (
           <View style={styles.premiumContainer}>

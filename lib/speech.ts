@@ -26,11 +26,38 @@ export async function startRecording(
       return false;
     }
 
+    // Cancel any existing recording first
+    if (recording) {
+      console.log('[speech] Cleaning up previous recording...');
+      try {
+        await recording.stopAndUnloadAsync();
+      } catch {
+        // Ignore - recording might already be stopped
+      }
+      recording = null;
+    }
+
     // Reset metering data
     meteringLevels = [];
     meteringCallback = onMeteringUpdate || null;
 
-    // Configurar modo de áudio com todas as opções necessárias
+    // First, reset audio mode to playback (deactivate recording mode)
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+    } catch (error) {
+      console.log('[speech] Reset audio mode warning:', error);
+    }
+
+    // Small delay to ensure audio session is fully released
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Now configure for recording
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: true,
       playsInSilentModeIOS: true,

@@ -15,7 +15,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
-import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
@@ -184,7 +183,7 @@ export default function EditBudgetScreen() {
           <View style={styles.placeholder} />
         </SafeAreaView>
         <View style={styles.loadingContainer}>
-          <LoadingKangaroo size={80} />
+          <ActivityIndicator size="large" />
         </View>
       </View>
     );

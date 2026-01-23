@@ -81,6 +81,7 @@ export default function OrcamentosScreen() {
           0
         );
 
+        // 1. Buscar gastos MANUAIS
         const { data: expensesData } = await supabase
           .from('expenses')
           .select('amount, category, date')
@@ -88,19 +89,67 @@ export default function OrcamentosScreen() {
           .gte('date', firstDayOfMonth.toISOString().split('T')[0])
           .lte('date', lastDayOfMonth.toISOString().split('T')[0]);
 
+        // 2. Buscar gastos do EXTRATO BANCÁRIO (transações categorizadas)
+        const { data: accounts } = await supabase
+          .from('pluggy_accounts')
+          .select('id')
+          .eq('user_id', user.id);
+
+        let extractExpenses: { amount: number; category: string }[] = [];
+        if (accounts && accounts.length > 0) {
+          const accountIds = accounts.map((a) => a.id);
+
+          const { data: categorizedTx } = await supabase
+            .from('transaction_categories')
+            .select(
+              `
+              category,
+              pluggy_transactions!inner(
+                amount,
+                date,
+                account_id
+              )
+            `
+            )
+            .eq('user_id', user.id);
+
+          if (categorizedTx) {
+            // Filtrar por período e contas
+            extractExpenses = categorizedTx
+              .filter((tx: any) => {
+                const txDate = tx.pluggy_transactions?.date;
+                const txAccountId = tx.pluggy_transactions?.account_id;
+                if (!txDate || !txAccountId) return false;
+                if (!accountIds.includes(txAccountId)) return false;
+                const date = new Date(txDate);
+                return date >= firstDayOfMonth && date <= lastDayOfMonth;
+              })
+              .map((tx: any) => ({
+                amount: Math.abs(tx.pluggy_transactions?.amount || 0),
+                category: tx.category,
+              }));
+          }
+        }
+
         const budgetsWithSpent = budgetsData.map((budget) => {
-          const spent = expensesData
+          // Somar gastos manuais
+          const manualSpent = expensesData
             ? expensesData
                 .filter((exp) => exp.category === budget.category_id)
                 .reduce((sum, exp) => sum + exp.amount, 0)
             : 0;
+
+          // Somar gastos do extrato
+          const extractSpent = extractExpenses
+            .filter((exp) => exp.category === budget.category_id)
+            .reduce((sum, exp) => sum + exp.amount, 0);
 
           return {
             id: budget.id,
             category_id: budget.category_id,
             amount: parseFloat(budget.amount),
             period_type: budget.period_type,
-            spent,
+            spent: manualSpent + extractSpent,
             notifications_enabled: budget.notifications_enabled,
           };
         });
