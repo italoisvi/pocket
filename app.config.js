@@ -63,6 +63,7 @@ export default {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
+      elevenLabsApiKey: process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY,
       sentryDsn: process.env.SENTRY_DSN,
       revenueCatApiKey: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY,
     },

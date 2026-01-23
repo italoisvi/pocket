@@ -12,19 +12,21 @@ import {
   cancelRecording,
   transcribeAudio,
 } from './speech';
-import { sendMessageToWaltsAgent } from './walts-agent';
+import { streamMessageToWaltsAgent } from './walts-agent';
 import type { Message } from './walts-agent';
 import { synthesizeSpeech, playTTSAudio, stopTTSAudio } from './tts';
 import { checkNetworkConnection } from './network';
 
-// Adaptive silence detection settings
-const CALIBRATION_DURATION_MS = 500; // Time to calibrate background noise
-const SPEECH_THRESHOLD_MULTIPLIER = 1.8; // How much louder than baseline = speech
-const SILENCE_DURATION_MS = 1800; // Time after speech stops to process
+// Speech detection settings
+const SILENCE_DURATION_MS = 1000; // Time after speech stops to process (1 second)
 const MIN_SPEECH_DURATION_MS = 300; // Minimum speech duration to be valid
+// Thresholds based on real device levels (your mic shows ~0.5 baseline)
+const SPEECH_THRESHOLD = 0.55; // Level above this = speaking
+const SILENCE_THRESHOLD = 0.48; // Level below this = not speaking (your baseline is ~0.48-0.53)
 
 type VoiceState = {
   isOverlayOpen: boolean;
+  isMinimized: boolean; // Conversa ativa mas overlay fechado
   isRecording: boolean;
   isProcessing: boolean;
   isPlayingResponse: boolean;
@@ -39,6 +41,7 @@ type VoiceContextValue = {
   state: VoiceState;
   openOverlay: () => Promise<void>;
   closeOverlay: () => Promise<void>;
+  minimizeOverlay: () => void;
   startConversation: () => Promise<void>;
   endConversation: () => Promise<void>;
   cancelInteraction: () => Promise<void>;
@@ -46,6 +49,7 @@ type VoiceContextValue = {
 
 const initialState: VoiceState = {
   isOverlayOpen: false,
+  isMinimized: false,
   isRecording: false,
   isProcessing: false,
   isPlayingResponse: false,
@@ -76,11 +80,7 @@ export function VoiceProvider({
   const conversationActiveRef = useRef<boolean>(false);
   const conversationHistoryRef = useRef<Message[]>([]);
 
-  // Adaptive silence detection refs
-  const calibrationSamplesRef = useRef<number[]>([]);
-  const baselineNoiseRef = useRef<number>(0);
-  const isCalibrationDoneRef = useRef<boolean>(false);
-  const calibrationStartRef = useRef<number | null>(null);
+  // Speech detection refs
   const speechDetectedRef = useRef<boolean>(false);
   const speechStartTimeRef = useRef<number | null>(null);
   const lastSpeechTimeRef = useRef<number | null>(null);
@@ -101,11 +101,7 @@ export function VoiceProvider({
     }
     conversationActiveRef.current = false;
     conversationHistoryRef.current = [];
-    // Reset adaptive detection
-    calibrationSamplesRef.current = [];
-    baselineNoiseRef.current = 0;
-    isCalibrationDoneRef.current = false;
-    calibrationStartRef.current = null;
+    // Reset speech detection
     speechDetectedRef.current = false;
     speechStartTimeRef.current = null;
     lastSpeechTimeRef.current = null;
@@ -136,6 +132,12 @@ export function VoiceProvider({
   }, []);
 
   const openOverlay = useCallback(async () => {
+    // Se estiver minimizado, apenas reabrir o overlay
+    if (state.isMinimized) {
+      updateState({ isOverlayOpen: true, isMinimized: false });
+      return;
+    }
+
     if (!isPremium) {
       onShowPaywall();
       return;
@@ -152,7 +154,12 @@ export function VoiceProvider({
 
     // Just open overlay, don't start recording yet
     updateState({ isOverlayOpen: true, error: null });
-  }, [isPremium, onShowPaywall, updateState]);
+  }, [isPremium, onShowPaywall, updateState, state.isMinimized]);
+
+  // Minimizar overlay sem encerrar conversa
+  const minimizeOverlay = useCallback(() => {
+    updateState({ isOverlayOpen: false, isMinimized: true });
+  }, [updateState]);
 
   const closeOverlay = useCallback(async () => {
     // Abort any ongoing operations
@@ -168,6 +175,7 @@ export function VoiceProvider({
   // Process a single voice turn (record -> transcribe -> agent -> TTS)
   const processSingleTurn = useCallback(async (): Promise<boolean> => {
     const signal = abortControllerRef.current?.signal;
+    const totalStart = Date.now();
 
     try {
       const result = await stopAudioRecording();
@@ -183,7 +191,13 @@ export function VoiceProvider({
 
       updateState({ isRecording: false, isProcessing: true });
 
+      // Step 1: Transcription
+      const transcribeStart = Date.now();
       const transcript = await transcribeAudio(result.uri);
+      console.log(
+        `[voice-context] TIMING - Transcription: ${Date.now() - transcribeStart}ms`
+      );
+
       if (!transcript || transcript.trim().length === 0) {
         console.log('[voice-context] Empty transcript');
         updateState({ isProcessing: false });
@@ -206,15 +220,41 @@ export function VoiceProvider({
       };
       conversationHistoryRef.current.push(userMessage);
 
-      const { response } = await sendMessageToWaltsAgent(
-        conversationHistoryRef.current,
-        { isVoiceMode: true }
+      // Step 2: Walts Agent with STREAMING
+      const agentStart = Date.now();
+
+      // Use streaming for faster response
+      const streamResult = await new Promise<{
+        response: string;
+        sessionId: string;
+      }>((resolve, reject) => {
+        let accumulatedText = '';
+
+        streamMessageToWaltsAgent(conversationHistoryRef.current, {
+          onChunk: (chunk) => {
+            accumulatedText += chunk;
+            // Update UI with partial response
+            updateState({ response: accumulatedText });
+          },
+          onComplete: (fullResponse, sessionId) => {
+            resolve({ response: fullResponse, sessionId });
+          },
+          onError: (error) => {
+            reject(error);
+          },
+        });
+      });
+
+      console.log(
+        `[voice-context] TIMING - Walts Agent (streaming): ${Date.now() - agentStart}ms`
       );
 
       if (signal?.aborted) {
         console.log('[voice-context] Cancelled after agent response');
         return false;
       }
+
+      const response = streamResult.response;
 
       // Add assistant response to history
       const assistantMessage: Message = {
@@ -228,12 +268,17 @@ export function VoiceProvider({
       updateState({ response });
 
       try {
+        // Step 3: TTS (already has timing logs in tts.ts)
         const audioUri = await synthesizeSpeech(response);
 
         if (signal?.aborted) {
           console.log('[voice-context] Cancelled after TTS synthesis');
           return false;
         }
+
+        console.log(
+          `[voice-context] TIMING - Total processing: ${Date.now() - totalStart}ms`
+        );
 
         updateState({ isProcessing: false, isPlayingResponse: true });
         startPlaybackAnimation();
@@ -272,10 +317,6 @@ export function VoiceProvider({
 
   // Reset listening state for new turn
   const resetListeningState = useCallback(() => {
-    calibrationSamplesRef.current = [];
-    baselineNoiseRef.current = 0;
-    isCalibrationDoneRef.current = false;
-    calibrationStartRef.current = null;
     speechDetectedRef.current = false;
     speechStartTimeRef.current = null;
     lastSpeechTimeRef.current = null;
@@ -315,33 +356,9 @@ export function VoiceProvider({
         recentLevelsRef.current.reduce((a, b) => a + b, 0) /
         recentLevelsRef.current.length;
 
-      // Phase 1: Calibration - learn background noise level
-      if (!isCalibrationDoneRef.current) {
-        if (calibrationStartRef.current === null) {
-          calibrationStartRef.current = now;
-          console.log('[voice-context] Starting calibration...');
-        }
-
-        calibrationSamplesRef.current.push(level);
-
-        if (now - calibrationStartRef.current >= CALIBRATION_DURATION_MS) {
-          // Calculate baseline as the average of samples
-          const samples = calibrationSamplesRef.current;
-          baselineNoiseRef.current =
-            samples.reduce((a, b) => a + b, 0) / samples.length;
-          isCalibrationDoneRef.current = true;
-          console.log(
-            '[voice-context] Calibration done, baseline:',
-            baselineNoiseRef.current.toFixed(3)
-          );
-        }
-        return;
-      }
-
-      // Phase 2: Detect speech vs silence relative to baseline
-      const speechThreshold =
-        baselineNoiseRef.current * SPEECH_THRESHOLD_MULTIPLIER;
-      const isSpeaking = smoothedLevel > Math.max(speechThreshold, 0.15);
+      // Use fixed thresholds for reliable detection
+      const isSpeaking = smoothedLevel > SPEECH_THRESHOLD;
+      const isSilent = smoothedLevel < SILENCE_THRESHOLD;
 
       if (isSpeaking) {
         if (!speechDetectedRef.current) {
@@ -349,12 +366,24 @@ export function VoiceProvider({
           speechStartTimeRef.current = now;
           console.log(
             '[voice-context] Speech started, level:',
-            smoothedLevel.toFixed(3),
-            'threshold:',
-            speechThreshold.toFixed(3)
+            smoothedLevel.toFixed(3)
           );
         }
         lastSpeechTimeRef.current = now;
+      }
+
+      // Log periodically for debugging
+      if (Math.random() < 0.1) {
+        console.log(
+          '[voice-context] Level:',
+          smoothedLevel.toFixed(3),
+          'Speaking:',
+          isSpeaking,
+          'Silent:',
+          isSilent,
+          'Detected:',
+          speechDetectedRef.current
+        );
       }
     });
 
@@ -381,8 +410,8 @@ export function VoiceProvider({
         return;
       }
 
-      // Only check for end of speech if calibration is done and speech was detected
-      if (!isCalibrationDoneRef.current || !speechDetectedRef.current) {
+      // Only check for end of speech if speech was detected
+      if (!speechDetectedRef.current) {
         return;
       }
 
@@ -456,6 +485,7 @@ export function VoiceProvider({
       isProcessing: false,
       isPlayingResponse: false,
       isConversationActive: false,
+      isMinimized: false,
       transcript: null,
       response: null,
       error: null,
@@ -471,6 +501,7 @@ export function VoiceProvider({
     state,
     openOverlay,
     closeOverlay,
+    minimizeOverlay,
     startConversation,
     endConversation,
     cancelInteraction,

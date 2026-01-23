@@ -188,6 +188,7 @@ export function isRecording(): boolean {
 
 export async function transcribeAudio(audioUri: string): Promise<string> {
   try {
+    const startTime = Date.now();
     const openaiApiKey = Constants.expoConfig?.extra?.openaiApiKey;
 
     if (!openaiApiKey) {
@@ -200,9 +201,7 @@ export async function transcribeAudio(audioUri: string): Promise<string> {
       throw new Error('Audio file not found');
     }
 
-    const base64Audio = await FileSystem.readAsStringAsync(audioUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    console.log('[speech] Starting transcription...');
 
     const formData = new FormData();
     formData.append('file', {
@@ -212,6 +211,8 @@ export async function transcribeAudio(audioUri: string): Promise<string> {
     } as any);
     formData.append('model', 'whisper-1');
     formData.append('language', 'pt');
+    // Use text format for faster response (no JSON parsing overhead)
+    formData.append('response_format', 'text');
 
     const response = await fetch(
       'https://api.openai.com/v1/audio/transcriptions',
@@ -230,10 +231,12 @@ export async function transcribeAudio(audioUri: string): Promise<string> {
       throw new Error(`Transcription failed: ${response.status}`);
     }
 
-    const data = await response.json();
-    console.log('[speech] Transcription result:', data.text);
+    // With response_format: "text", response is plain text
+    const text = await response.text();
+    const elapsed = Date.now() - startTime;
+    console.log(`[speech] Transcription completed in ${elapsed}ms:`, text);
 
-    return data.text || '';
+    return text || '';
   } catch (error) {
     console.error('[speech] Transcribe error:', error);
     throw error;

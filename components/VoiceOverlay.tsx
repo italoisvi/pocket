@@ -175,9 +175,9 @@ export function VoiceOverlay() {
   const {
     state,
     closeOverlay,
+    minimizeOverlay,
     startConversation,
     endConversation,
-    cancelInteraction,
   } = useVoice();
 
   const {
@@ -189,6 +189,15 @@ export function VoiceOverlay() {
     error,
     waveformLevels,
   } = state;
+
+  // Quando clicar no X: minimizar se conversa ativa, senão fechar
+  const handleClose = () => {
+    if (isConversationActive) {
+      minimizeOverlay();
+    } else {
+      closeOverlay();
+    }
+  };
 
   const handleMainButtonPress = () => {
     if (isConversationActive) {
@@ -214,13 +223,13 @@ export function VoiceOverlay() {
       visible={isOverlayOpen}
       animationType="fade"
       presentationStyle="fullScreen"
-      onRequestClose={closeOverlay}
+      onRequestClose={handleClose}
     >
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.closeButton, { backgroundColor: theme.card }]}
-            onPress={closeOverlay}
+            onPress={handleClose}
           >
             <CloseIcon size={20} color={theme.text} />
           </TouchableOpacity>

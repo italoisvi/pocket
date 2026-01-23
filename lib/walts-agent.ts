@@ -38,6 +38,13 @@ export type AgentResult = {
 
 export type SendMessageOptions = {
   isVoiceMode?: boolean;
+  stream?: boolean;
+};
+
+export type StreamingCallbacks = {
+  onChunk: (chunk: string) => void;
+  onComplete: (fullResponse: string, sessionId: string) => void;
+  onError: (error: Error) => void;
 };
 
 /**
@@ -155,6 +162,107 @@ export async function sendMessageToWaltsAgent(
 
     throw new Error(
       'Não foi possível conectar ao assistente. Verifique sua conexão e tente novamente.'
+    );
+  }
+}
+
+/**
+ * Envia mensagem para o Walts Agent com streaming (para modo voz)
+ * React Native não suporta ReadableStream, então processamos a resposta SSE completa
+ */
+export async function streamMessageToWaltsAgent(
+  messages: Message[],
+  callbacks: StreamingCallbacks
+): Promise<void> {
+  try {
+    const session = await supabase.auth.getSession();
+
+    if (!session.data.session?.access_token) {
+      throw new Error('Usuário não autenticado');
+    }
+
+    const lastMessage = messages[messages.length - 1];
+
+    // Build history (simplified for voice, no images)
+    const history = messages.slice(0, -1).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    console.log('[walts-agent-client] Starting streaming request');
+
+    // Get the Supabase functions URL
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const functionsUrl = `${supabaseUrl}/functions/v1/walts-agent`;
+
+    const response = await fetch(functionsUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.data.session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: lastMessage.content,
+        history,
+        isVoiceMode: true,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[walts-agent-client] Stream error:', errorText);
+      throw new Error(`Stream failed: ${response.status}`);
+    }
+
+    // React Native doesn't support ReadableStream.getReader()
+    // Read the entire SSE response as text and process it
+    const sseText = await response.text();
+
+    console.log('[walts-agent-client] Received SSE response');
+
+    // Process SSE messages
+    const messages_sse = sseText.split('\n\n');
+    let fullResponse = '';
+    let sessionId = '';
+
+    for (const message of messages_sse) {
+      if (message.startsWith('data: ')) {
+        const data = message.slice(6);
+        try {
+          const parsed = JSON.parse(data);
+
+          if (parsed.error) {
+            throw new Error(parsed.error);
+          }
+
+          if (parsed.chunk && !parsed.done) {
+            fullResponse += parsed.chunk;
+            callbacks.onChunk(parsed.chunk);
+          }
+
+          if (parsed.done) {
+            fullResponse = parsed.response || fullResponse;
+            sessionId = parsed.conversationId || '';
+          }
+        } catch {
+          // Ignore parse errors for incomplete chunks
+        }
+      }
+    }
+
+    if (fullResponse) {
+      console.log('[walts-agent-client] Stream complete');
+      callbacks.onComplete(fullResponse, sessionId);
+    } else {
+      throw new Error('No response received from stream');
+    }
+  } catch (error) {
+    console.error('[walts-agent-client] Stream error:', error);
+    callbacks.onError(
+      error instanceof Error
+        ? error
+        : new Error('Erro ao comunicar com o assistente')
     );
   }
 }

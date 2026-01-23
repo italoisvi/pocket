@@ -39,7 +39,84 @@ const CORS_HEADERS = {
     'authorization, x-client-info, apikey, content-type',
 };
 
+const CORS_HEADERS_STREAM = {
+  'Content-Type': 'text/event-stream',
+  'Cache-Control': 'no-cache',
+  Connection: 'keep-alive',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
+};
+
 const MAX_ITERATIONS = 3;
+
+// ============================================================================
+// Streaming Response for Voice Mode (no tools, direct response)
+// ============================================================================
+
+async function streamVoiceResponse(
+  messages: OpenAIMessage[],
+  onChunk: (text: string) => void
+): Promise<string> {
+  const body = {
+    model: 'gpt-4o-mini', // Use faster model for voice
+    messages,
+    temperature: 0.7,
+    max_tokens: 500, // Shorter responses for voice
+    stream: true,
+  };
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[walts-agent] OpenAI streaming error:', errorText);
+    throw new Error('Erro ao comunicar com o assistente');
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Failed to get response reader');
+  }
+
+  const decoder = new TextDecoder();
+  let fullText = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    const lines = chunk.split('\n');
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) {
+            fullText += content;
+            onChunk(content);
+          }
+        } catch {
+          // Ignore parse errors for incomplete chunks
+        }
+      }
+    }
+  }
+
+  return fullText;
+}
 
 // ============================================================================
 // OpenAI API Call
@@ -453,7 +530,8 @@ serve(async (req) => {
       imageUrls,
       audioUrls,
       isVoiceMode = false,
-    } = (await req.json()) as WaltsAgentRequest;
+      stream = false,
+    } = (await req.json()) as WaltsAgentRequest & { stream?: boolean };
 
     // Check OpenAI key first (needed for transcription)
     if (!OPENAI_API_KEY) {
@@ -508,7 +586,67 @@ serve(async (req) => {
     // Step 2: Generate dynamic system prompt
     const systemPrompt = generateSystemPrompt(userContext, isVoiceMode);
 
-    console.log('[walts-agent] Voice mode:', isVoiceMode);
+    console.log('[walts-agent] Voice mode:', isVoiceMode, 'Stream:', stream);
+
+    // ========================================================================
+    // STREAMING MODE: For voice, return faster response without tools
+    // ========================================================================
+    if (isVoiceMode && stream) {
+      console.log('[walts-agent] Using streaming mode for voice');
+
+      // Build messages for streaming (no tools, direct response)
+      const historyMessages: OpenAIMessage[] = history.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+      const streamMessages: OpenAIMessage[] = [
+        { role: 'system', content: systemPrompt },
+        ...historyMessages,
+        { role: 'user', content: finalMessage },
+      ];
+
+      // Create a streaming response
+      const encoder = new TextEncoder();
+      const streamBody = new ReadableStream({
+        async start(controller) {
+          try {
+            const fullResponse = await streamVoiceResponse(
+              streamMessages,
+              (chunk) => {
+                // Send each chunk as SSE
+                const data = JSON.stringify({ chunk, done: false });
+                controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+              }
+            );
+
+            // Send final message with complete response
+            const finalData = JSON.stringify({
+              chunk: '',
+              done: true,
+              response: fullResponse,
+              conversationId: sessionId,
+            });
+            controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
+            controller.close();
+          } catch (error) {
+            console.error('[walts-agent] Streaming error:', error);
+            const errorData = JSON.stringify({
+              error:
+                error instanceof Error ? error.message : 'Streaming failed',
+            });
+            controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(streamBody, { headers: CORS_HEADERS_STREAM });
+    }
+
+    // ========================================================================
+    // NON-STREAMING MODE: Full ReAct loop with tools
+    // ========================================================================
 
     // Create Langfuse trace (if configured)
     const trace = langfuse?.trace({

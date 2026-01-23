@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { CapturaDeFotoIcon } from '@/components/CapturaDeFotoIcon';
 import { CarregarIcon } from '@/components/CarregarIcon';
 import { ImagePreviewModal } from '@/components/ImagePreviewModal';
+import { CameraInstructionsModal } from '@/components/CameraInstructionsModal';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { extractReceiptAmount } from '@/lib/ocr';
 import DocumentScanner from 'react-native-document-scanner-plugin';
+
+const DIVIDIR_CONTA_INSTRUCTIONS_KEY =
+  'dividir_conta_camera_instructions_shown';
 
 export default function DividirContaScreen() {
   const { theme, isDark } = useTheme();
@@ -31,6 +36,22 @@ export default function DividirContaScreen() {
   const [processing, setProcessing] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [showInstructionsModal, setShowInstructionsModal] = useState(false);
+  const [instructionsShown, setInstructionsShown] = useState(false);
+
+  useEffect(() => {
+    checkInstructionsShown();
+  }, []);
+
+  const checkInstructionsShown = async () => {
+    const shown = await AsyncStorage.getItem(DIVIDIR_CONTA_INSTRUCTIONS_KEY);
+    setInstructionsShown(shown === 'true');
+  };
+
+  const markInstructionsAsShown = async () => {
+    await AsyncStorage.setItem(DIVIDIR_CONTA_INSTRUCTIONS_KEY, 'true');
+    setInstructionsShown(true);
+  };
 
   const formatCurrencyInput = (value: string) => {
     // Remove tudo exceto números
@@ -53,7 +74,7 @@ export default function DividirContaScreen() {
     setTotalValue(formatted);
   };
 
-  const handleTakePhoto = async () => {
+  const openDocumentScanner = async () => {
     try {
       setProcessing(true);
 
@@ -107,6 +128,23 @@ export default function DividirContaScreen() {
         Alert.alert('Erro', 'Não foi possível escanear o documento.');
       }
     }
+  };
+
+  const handleTakePhoto = async () => {
+    // Mostrar instruções na primeira vez
+    if (!instructionsShown) {
+      setShowInstructionsModal(true);
+      return;
+    }
+
+    await openDocumentScanner();
+  };
+
+  const handleCloseInstructions = async () => {
+    setShowInstructionsModal(false);
+    await markInstructionsAsShown();
+    // Abrir a câmera diretamente após fechar instruções
+    await openDocumentScanner();
   };
 
   const handlePickImage = async () => {
@@ -432,6 +470,11 @@ export default function DividirContaScreen() {
         loading={processing}
         confirmText="Processar"
         cancelText="Cancelar"
+      />
+
+      <CameraInstructionsModal
+        visible={showInstructionsModal}
+        onClose={handleCloseInstructions}
       />
     </KeyboardAvoidingView>
   );

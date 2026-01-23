@@ -49,11 +49,15 @@ try {
 }
 
 function VoiceComponents() {
-  const { openOverlay } = useVoice();
+  const { openOverlay, endConversation, state } = useVoice();
 
   return (
     <>
-      <FloatingVoiceButton onPress={openOverlay} />
+      <FloatingVoiceButton
+        onPress={openOverlay}
+        isMinimized={state.isMinimized}
+        onEndConversation={endConversation}
+      />
       <VoiceOverlay />
     </>
   );
