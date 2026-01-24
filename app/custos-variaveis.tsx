@@ -15,6 +15,7 @@ import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
+import { syncEvents } from '@/lib/syncEvents';
 
 type SubcategoryExpense = {
   category: ExpenseCategory;
@@ -44,6 +45,14 @@ export default function CustosVariaveisScreen() {
 
   useEffect(() => {
     loadVariableExpenses();
+
+    // Escutar eventos de sincronização
+    const unsubscribe = syncEvents.subscribe(() => {
+      console.log('[CustosVariaveis] Sync event received, reloading...');
+      loadVariableExpenses();
+    });
+
+    return () => unsubscribe();
   }, [selectedYear, selectedMonth]);
 
   const loadVariableExpenses = async () => {

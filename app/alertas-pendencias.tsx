@@ -17,6 +17,7 @@ import { CardBrandIcon } from '@/lib/cardBrand';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { checkAndNotifyAlerts } from '@/lib/notifications';
+import { syncEvents } from '@/lib/syncEvents';
 
 type AlertPriority = 'urgent' | 'attention';
 
@@ -43,6 +44,14 @@ export default function AlertasPendenciasScreen() {
 
   useEffect(() => {
     loadAlerts();
+
+    // Escutar eventos de sincronização
+    const unsubscribe = syncEvents.subscribe(() => {
+      console.log('[AlertasPendencias] Sync event received, reloading...');
+      loadAlerts();
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadAlerts = async () => {

@@ -82,8 +82,33 @@ export default function LoginScreen() {
           return;
         }
 
-        // Verificar premium imediatamente após login
+        // Verificar se o usuário já tem perfil (já se cadastrou antes)
         if (data?.user?.id) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .eq('id', data.user.id)
+            .maybeSingle();
+
+          // Se não tem perfil ou nome, é um usuário novo que deveria ter se cadastrado primeiro
+          if (!profileData || !profileData.name) {
+            // Fazer logout
+            await supabase.auth.signOut();
+            Alert.alert(
+              'Conta nao encontrada',
+              'Voce precisa se cadastrar primeiro. Use a opcao "Cadastre-se" para criar sua conta.',
+              [
+                {
+                  text: 'Cadastrar',
+                  onPress: () => router.push('/(auth)/signup'),
+                },
+                { text: 'OK', style: 'cancel' },
+              ]
+            );
+            return;
+          }
+
+          // Usuário já cadastrado, prosseguir com login
           try {
             await loginRevenueCat(data.user.id);
             const hasPremium = await checkPremiumEntitlement();
@@ -95,9 +120,9 @@ export default function LoginScreen() {
           } catch (err) {
             console.error('[Login] Error checking premium:', err);
           }
-        }
 
-        router.replace('/(tabs)/home');
+          router.replace('/(tabs)/home');
+        }
       }
     } catch (e: any) {
       if (e.code === 'ERR_CANCELED') {

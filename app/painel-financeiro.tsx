@@ -26,6 +26,7 @@ import { EyeOffIcon } from '@/components/EyeOffIcon';
 import { LapisIcon } from '@/components/LapisIcon';
 import { MaisIcon } from '@/components/MaisIcon';
 import { TrashIcon } from '@/components/TrashIcon';
+import { syncEvents } from '@/lib/syncEvents';
 
 const INCOME_SOURCES = [
   { value: 'clt', label: 'CLT (Carteira Assinada)' },
@@ -78,6 +79,14 @@ export default function PainelFinanceiroScreen() {
 
   useEffect(() => {
     loadFinancialData();
+
+    // Escutar eventos de sincronização
+    const unsubscribe = syncEvents.subscribe(() => {
+      console.log('[PainelFinanceiro] Sync event received, reloading...');
+      loadFinancialData();
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadFinancialData = async () => {

@@ -23,6 +23,7 @@ import { LixoIcon } from '@/components/LixoIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
+import { syncEvents } from '@/lib/syncEvents';
 
 type Budget = {
   id: string;
@@ -53,6 +54,14 @@ export default function OrcamentosScreen() {
 
   useEffect(() => {
     loadBudgets();
+
+    // Escutar eventos de sincronização
+    const unsubscribe = syncEvents.subscribe(() => {
+      console.log('[Orcamentos] Sync event received, reloading...');
+      loadBudgets();
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadBudgets = async () => {

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { useTheme } from '@/lib/theme';
 import { CardBrandIcon } from '@/lib/cardBrand';
+import { syncEvents } from '@/lib/syncEvents';
 
 type CreditCardBank = {
   accountId: string;
@@ -37,6 +38,16 @@ export default function CartoesScreen() {
       loadBanks();
     }, [])
   );
+
+  useEffect(() => {
+    // Escutar eventos de sincronização
+    const unsubscribe = syncEvents.subscribe(() => {
+      console.log('[Cartoes] Sync event received, reloading...');
+      loadBanks();
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const loadBanks = async () => {
     try {

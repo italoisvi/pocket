@@ -21,6 +21,7 @@ import { GraficoBarrasIcon } from '@/components/GraficoBarrasIcon';
 import { ComparacaoSetaIcon } from '@/components/ComparacaoSetaIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
+import { syncEvents } from '@/lib/syncEvents';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -152,6 +153,14 @@ export default function GraficosTabelasScreen() {
 
   useEffect(() => {
     loadExpenses();
+
+    // Escutar eventos de sincronização
+    const unsubscribe = syncEvents.subscribe(() => {
+      console.log('[GraficosTabelas] Sync event received, reloading...');
+      loadExpenses();
+    });
+
+    return () => unsubscribe();
   }, [periodFilter, selectedMonth]);
 
   const loadExpenses = async () => {

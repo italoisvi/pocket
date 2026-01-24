@@ -22,6 +22,8 @@ import {
 } from '@/lib/pluggy';
 import { supabase } from '@/lib/supabase';
 import { CardBrandIcon } from '@/lib/cardBrand';
+import { syncEvents } from '@/lib/syncEvents';
+import { notifySyncCompleted } from '@/lib/notifications';
 
 type PluggyAccount = {
   id: string;
@@ -235,6 +237,12 @@ export default function AccountsScreen() {
           }
         }
       }
+
+      // Emitir evento de sincronização para atualizar outras telas
+      syncEvents.emit();
+
+      // Enviar notificação de sincronização
+      await notifySyncCompleted(bankName, totalTransactionsSaved);
 
       // Mostrar resultado
       if (result.accountsCount > 0) {

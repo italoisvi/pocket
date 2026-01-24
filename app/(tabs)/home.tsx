@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import { SettingsIcon } from '@/components/SettingsIcon';
 import { UsuarioIcon } from '@/components/UsuarioIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
@@ -20,6 +19,11 @@ import { EyeOffIcon } from '@/components/EyeOffIcon';
 import { ExpenseCard } from '@/components/ExpenseCard';
 import { SalarySetupModal } from '@/components/SalarySetupModal';
 import { PaywallModal } from '@/components/PaywallModal';
+import {
+  HomeTutorial,
+  shouldShowHomeTutorial,
+  markHomeTutorialShown,
+} from '@/components/HomeTutorial';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,6 +34,8 @@ import {
   type BalanceSource,
 } from '@/lib/calculateBalance';
 import { usePremium } from '@/lib/usePremium';
+import { initializePeriodicNotifications } from '@/lib/notifications';
+import { syncEvents } from '@/lib/syncEvents';
 
 type Expense = {
   id: string;
@@ -74,18 +80,80 @@ export default function HomeScreen() {
   const [calculatedBalance, setCalculatedBalance] = useState<number>(0);
   const [balanceSource, setBalanceSource] = useState<BalanceSource>('manual');
   const [incomeCards, setIncomeCards] = useState<IncomeCard[]>([]);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialChecked, setTutorialChecked] = useState(false);
 
   useEffect(() => {
     loadProfile();
+    initializeNotificationsAndTutorial();
+
+    // Escutar eventos de sincronização para recarregar dados
+    const unsubscribe = syncEvents.subscribe(() => {
+      console.log('[Home] Sync event received, reloading data...');
+      loadExpenses();
+      loadProfile();
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
+
+  const initializeNotificationsAndTutorial = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      // Inicializar notificações periódicas (motivacionais a cada 6h, sync a cada 3h)
+      await initializePeriodicNotifications();
+
+      // Verificar se deve mostrar tutorial
+      const shouldShow = await shouldShowHomeTutorial(user.id);
+      if (shouldShow && !tutorialChecked) {
+        setShowTutorial(true);
+      }
+      setTutorialChecked(true);
+    } catch (error) {
+      console.error('[Home] Erro ao inicializar:', error);
+    }
+  };
+
+  const handleTutorialComplete = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        await markHomeTutorialShown(user.id);
+      }
+      setShowTutorial(false);
+    } catch (error) {
+      console.error('[Home] Erro ao finalizar tutorial:', error);
+      setShowTutorial(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
       console.log('[Home] ========================================');
       console.log('[Home] Screen focused, reloading data...');
       console.log('[Home] Timestamp:', new Date().toISOString());
-      loadExpenses();
-      loadProfile();
+
+      // Forçar recarregamento completo dos dados
+      const refreshData = async () => {
+        setLoading(true);
+        try {
+          await Promise.all([loadExpenses(), loadProfile()]);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      refreshData();
     }, [])
   );
 
@@ -140,12 +208,19 @@ export default function HomeScreen() {
       let lastSyncAt: string | null = null;
 
       if (linkedAccountIds.length > 0) {
-        const { data: linkedAccounts } = await supabase
+        // Forçar busca sem cache adicionando timestamp
+        const { data: linkedAccounts, error: accountsError } = await supabase
           .from('pluggy_accounts')
           .select('id, balance, last_sync_at')
           .in('id', linkedAccountIds);
 
-        if (linkedAccounts) {
+        console.log('[Home] Linked accounts query result:', {
+          linkedAccountIds,
+          linkedAccounts,
+          error: accountsError,
+        });
+
+        if (linkedAccounts && linkedAccounts.length > 0) {
           accountBalances = linkedAccounts;
           // Usar a sincronização mais recente entre todas as contas vinculadas
           const syncDates = linkedAccounts
@@ -154,6 +229,14 @@ export default function HomeScreen() {
           if (syncDates.length > 0) {
             lastSyncAt = syncDates.sort().pop() || null;
           }
+
+          console.log('[Home] Account balances loaded:', {
+            balances: linkedAccounts.map((a: any) => ({
+              id: a.id,
+              balance: a.balance,
+            })),
+            lastSyncAt,
+          });
         }
       }
 
@@ -604,6 +687,12 @@ export default function HomeScreen() {
         }}
         title="Raio-X Financeiro Premium"
         subtitle="Análises detalhadas e insights sobre suas finanças"
+      />
+
+      {/* Tutorial para novos usuários */}
+      <HomeTutorial
+        visible={showTutorial}
+        onComplete={handleTutorialComplete}
       />
     </View>
   );

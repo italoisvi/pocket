@@ -33,6 +33,11 @@ const HIDDEN_ROUTES = [
   '/profile',
   '/perfil',
   '/editar-perfil',
+  '/subscription',
+  '/sobre-nos',
+  '/politica-privacidade',
+  '/termos-uso',
+  '/sobre-pluggy',
 ];
 
 // Routes within (tabs) that show the tab bar (excluding settings which hides it)

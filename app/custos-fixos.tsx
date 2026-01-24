@@ -15,6 +15,7 @@ import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { CATEGORIES, type ExpenseCategory } from '@/lib/categories';
 import { useTheme } from '@/lib/theme';
+import { syncEvents } from '@/lib/syncEvents';
 
 type SubcategoryExpense = {
   category: ExpenseCategory;
@@ -43,6 +44,14 @@ export default function CustosFixosScreen() {
 
   useEffect(() => {
     loadFixedExpenses();
+
+    // Escutar eventos de sincronização
+    const unsubscribe = syncEvents.subscribe(() => {
+      console.log('[CustosFixos] Sync event received, reloading...');
+      loadFixedExpenses();
+    });
+
+    return () => unsubscribe();
   }, [selectedYear, selectedMonth]);
 
   const loadFixedExpenses = async () => {

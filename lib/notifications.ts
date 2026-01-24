@@ -371,6 +371,182 @@ export async function checkLeakAfterExpense(
   }
 }
 
+// ============ NOTIFICAÇÕES DE SINCRONIZAÇÃO ============
+
+export async function notifySyncCompleted(
+  accountName: string,
+  newTransactionsCount: number
+): Promise<void> {
+  const hasPermission = await requestNotificationPermissions();
+  if (!hasPermission) return;
+
+  let title = 'Conta sincronizada';
+  let body =
+    newTransactionsCount > 0
+      ? `${accountName}: ${newTransactionsCount} nova(s) transação(ões) encontrada(s)`
+      : `${accountName}: Saldo atualizado com sucesso`;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data: { type: 'sync', accountName, newTransactionsCount },
+    },
+    trigger: null,
+  });
+}
+
+// ============ NOTIFICAÇÕES MOTIVACIONAIS (A CADA 6H) ============
+
+const MOTIVATIONAL_MESSAGES = [
+  {
+    title: 'Controle seus gastos',
+    body: 'Já registrou seus gastos de hoje? Pequenos gastos somam grandes valores!',
+  },
+  {
+    title: 'Dica de economia',
+    body: 'Que tal revisar seus gastos do mês? Identificar padrões ajuda a economizar.',
+  },
+  {
+    title: 'Momento de organização',
+    body: 'Reserve 5 minutos para organizar suas finanças. Seu futuro agradece!',
+  },
+  {
+    title: 'Fique no controle',
+    body: 'Verifique se está dentro do orçamento. Prevenir é melhor que remediar!',
+  },
+  {
+    title: 'Hora do check-in',
+    body: 'Como estão suas finanças hoje? Abra o app e confira seu saldo.',
+  },
+  {
+    title: 'Cuide do seu dinheiro',
+    body: 'Gastos pequenos passam despercebidos. Registre tudo para ter controle total!',
+  },
+  {
+    title: 'Meta do dia',
+    body: 'Tente não fazer gastos desnecessários hoje. Cada economia conta!',
+  },
+  {
+    title: 'Lembrete financeiro',
+    body: 'Confira se todas as suas contas estão em dia. Evite juros e multas!',
+  },
+];
+
+const LAST_MOTIVATIONAL_KEY = '@pocket_last_motivational';
+const SCHEDULED_NOTIFICATIONS_KEY = '@pocket_scheduled_notifications';
+
+export async function scheduleMotivationalNotifications(): Promise<void> {
+  const hasPermission = await requestNotificationPermissions();
+  if (!hasPermission) return;
+
+  try {
+    // Cancelar notificações motivacionais antigas
+    const existingScheduled = await AsyncStorage.getItem(
+      SCHEDULED_NOTIFICATIONS_KEY
+    );
+    if (existingScheduled) {
+      const ids = JSON.parse(existingScheduled) as string[];
+      for (const id of ids) {
+        await Notifications.cancelScheduledNotificationAsync(id);
+      }
+    }
+
+    const scheduledIds: string[] = [];
+
+    // Agendar notificações para as próximas 24 horas (4 notificações de 6 em 6 horas)
+    for (let i = 1; i <= 4; i++) {
+      const message =
+        MOTIVATIONAL_MESSAGES[
+          Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)
+        ];
+
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: message.title,
+          body: message.body,
+          data: { type: 'motivational' },
+        },
+        trigger: {
+          seconds: i * 6 * 60 * 60, // 6, 12, 18, 24 horas
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        },
+      });
+
+      scheduledIds.push(id);
+    }
+
+    await AsyncStorage.setItem(
+      SCHEDULED_NOTIFICATIONS_KEY,
+      JSON.stringify(scheduledIds)
+    );
+
+    console.log(
+      '[notifications] Scheduled',
+      scheduledIds.length,
+      'motivational notifications'
+    );
+  } catch (error) {
+    console.error('[notifications] Error scheduling motivational:', error);
+  }
+}
+
+// ============ NOTIFICAÇÕES DE SINCRONIZAÇÃO AUTOMÁTICA (A CADA 3H) ============
+
+const SYNC_REMINDER_KEY = '@pocket_sync_reminder_scheduled';
+
+export async function scheduleSyncReminderNotifications(): Promise<void> {
+  const hasPermission = await requestNotificationPermissions();
+  if (!hasPermission) return;
+
+  try {
+    // Cancelar notificações de sync antigas
+    const existingScheduled = await AsyncStorage.getItem(SYNC_REMINDER_KEY);
+    if (existingScheduled) {
+      const ids = JSON.parse(existingScheduled) as string[];
+      for (const id of ids) {
+        await Notifications.cancelScheduledNotificationAsync(id);
+      }
+    }
+
+    const scheduledIds: string[] = [];
+
+    // Agendar notificações para as próximas 24 horas (8 notificações de 3 em 3 horas)
+    for (let i = 1; i <= 8; i++) {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Sincronização automática',
+          body: 'Suas contas foram sincronizadas com os dados do banco.',
+          data: { type: 'sync_reminder' },
+        },
+        trigger: {
+          seconds: i * 3 * 60 * 60, // 3, 6, 9, 12, 15, 18, 21, 24 horas
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        },
+      });
+
+      scheduledIds.push(id);
+    }
+
+    await AsyncStorage.setItem(SYNC_REMINDER_KEY, JSON.stringify(scheduledIds));
+
+    console.log(
+      '[notifications] Scheduled',
+      scheduledIds.length,
+      'sync reminder notifications'
+    );
+  } catch (error) {
+    console.error('[notifications] Error scheduling sync reminders:', error);
+  }
+}
+
+// ============ INICIALIZAR NOTIFICAÇÕES PERIÓDICAS ============
+
+export async function initializePeriodicNotifications(): Promise<void> {
+  await scheduleMotivationalNotifications();
+  await scheduleSyncReminderNotifications();
+}
+
 // ============ VERIFICAR E NOTIFICAR TODOS OS ALERTAS ============
 
 export async function checkAndNotifyAlerts(
