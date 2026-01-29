@@ -32,4 +32,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.walts-agent]
-verify_jwt = true
+verify_jwt = false
+
+[functions.telegram-webhook]
+verify_jwt = false
+
+[functions.connect-bank]
+verify_jwt = false

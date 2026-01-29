@@ -9,6 +9,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const PLUGGY_CLIENT_ID = Deno.env.get('PLUGGY_CLIENT_ID');
 const PLUGGY_CLIENT_SECRET = Deno.env.get('PLUGGY_CLIENT_SECRET');
+const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN');
 
 // Tipos para o payload do webhook da Pluggy (baseado na documentação oficial)
 type PluggyWebhookPayload = {
@@ -39,6 +40,66 @@ async function getPluggyApiKey(): Promise<string> {
 
   const { apiKey } = await response.json();
   return apiKey;
+}
+
+// Envia notificação para o usuário via Telegram
+async function sendTelegramNotification(
+  supabase: any,
+  userId: string,
+  message: string
+): Promise<void> {
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.log(
+      '[pluggy-webhook] Telegram bot token not configured, skipping notification'
+    );
+    return;
+  }
+
+  try {
+    // Buscar conta do Telegram vinculada ao usuário
+    const { data: telegramAccount } = await supabase
+      .from('telegram_accounts')
+      .select('telegram_user_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!telegramAccount) {
+      console.log(
+        '[pluggy-webhook] No Telegram account linked for user:',
+        userId
+      );
+      return;
+    }
+
+    // Enviar mensagem via API do Telegram
+    const response = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: telegramAccount.telegram_user_id,
+          text: message,
+          parse_mode: 'HTML',
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        '[pluggy-webhook] Failed to send Telegram notification:',
+        errorText
+      );
+    } else {
+      console.log('[pluggy-webhook] Telegram notification sent successfully');
+    }
+  } catch (error) {
+    console.error(
+      '[pluggy-webhook] Error sending Telegram notification:',
+      error
+    );
+  }
 }
 
 // Busca informações completas do Item na API da Pluggy
@@ -266,6 +327,23 @@ async function handleItemUpdated(supabase: any, itemId: string) {
 
       // Sincronizar transações de todas as contas do item
       await syncItemTransactions(supabase, itemId, apiKey);
+
+      // Buscar user_id do item para notificação
+      const { data: itemData } = await supabase
+        .from('pluggy_items')
+        .select('user_id')
+        .eq('pluggy_item_id', itemId)
+        .single();
+
+      if (itemData?.user_id) {
+        // Enviar notificação de sucesso via Telegram
+        const connectorName = item.connector?.name || 'Banco';
+        await sendTelegramNotification(
+          supabase,
+          itemData.user_id,
+          `✅ <b>Conta conectada com sucesso!</b>\n\n🏦 ${connectorName}\n\nSuas transações estão sendo importadas automaticamente. Use /saldo para ver seu saldo atualizado.`
+        );
+      }
     } else {
       console.log(
         '[pluggy-webhook] Item not ready for sync, status:',
@@ -319,6 +397,23 @@ async function handleItemError(supabase: any, itemId: string) {
       })
       .eq('pluggy_item_id', itemId);
 
+    // Buscar user_id para notificação
+    const { data: itemData } = await supabase
+      .from('pluggy_items')
+      .select('user_id')
+      .eq('pluggy_item_id', itemId)
+      .single();
+
+    if (itemData?.user_id) {
+      const connectorName = item.connector?.name || 'Banco';
+      const errorMessage = item.error?.message || 'Erro desconhecido';
+      await sendTelegramNotification(
+        supabase,
+        itemData.user_id,
+        `❌ <b>Erro na conexão bancária</b>\n\n🏦 ${connectorName}\n\n${errorMessage}\n\nUse /conectar para tentar novamente.`
+      );
+    }
+
     console.log('[pluggy-webhook] Item error processed');
   } catch (error) {
     console.error('[pluggy-webhook] Error handling item error:', error);
@@ -353,6 +448,22 @@ async function handleItemWaitingUserInput(supabase: any, itemId: string) {
       error
     );
   } else {
+    // Buscar user_id para notificação
+    const { data: itemData } = await supabase
+      .from('pluggy_items')
+      .select('user_id, connector_name')
+      .eq('pluggy_item_id', itemId)
+      .single();
+
+    if (itemData?.user_id) {
+      const connectorName = itemData.connector_name || 'Banco';
+      await sendTelegramNotification(
+        supabase,
+        itemData.user_id,
+        `⚠️ <b>Ação necessária</b>\n\n🏦 ${connectorName}\n\nSeu banco está solicitando confirmação adicional (token, SMS ou aprovação no app).\n\nUse /conectar para completar a conexão.`
+      );
+    }
+
     console.log('[pluggy-webhook] Item waiting user input processed');
   }
 }

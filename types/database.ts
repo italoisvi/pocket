@@ -137,6 +137,93 @@ export type Database = {
           updated_at?: string;
         };
       };
+      telegram_accounts: {
+        Row: {
+          id: string;
+          telegram_user_id: number;
+          telegram_username: string | null;
+          telegram_first_name: string | null;
+          user_id: string;
+          is_primary_channel: boolean;
+          onboarding_completed: boolean;
+          onboarding_step: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          telegram_user_id: number;
+          telegram_username?: string | null;
+          telegram_first_name?: string | null;
+          user_id: string;
+          is_primary_channel?: boolean;
+          onboarding_completed?: boolean;
+          onboarding_step?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          telegram_user_id?: number;
+          telegram_username?: string | null;
+          telegram_first_name?: string | null;
+          user_id?: string;
+          is_primary_channel?: boolean;
+          onboarding_completed?: boolean;
+          onboarding_step?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      telegram_conversations: {
+        Row: {
+          id: string;
+          telegram_account_id: string;
+          messages: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          telegram_account_id: string;
+          messages?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          telegram_account_id?: string;
+          messages?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      link_codes: {
+        Row: {
+          id: string;
+          code: string;
+          user_id: string;
+          expires_at: string;
+          used_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          user_id: string;
+          expires_at: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          code?: string;
+          user_id?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+      };
     };
   };
 };

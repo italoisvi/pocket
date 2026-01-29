@@ -78,7 +78,10 @@ export default function OAuthCallback() {
           }
           console.log('[OAuth Callback] Destino do redirect:', redirectTo);
         } catch (storageError) {
-          console.error('[OAuth Callback] Erro ao ler redirect do storage:', storageError);
+          console.error(
+            '[OAuth Callback] Erro ao ler redirect do storage:',
+            storageError
+          );
         }
 
         // 🔄 POLLING: Aguardar até que o item esteja UPDATED e tenha contas
@@ -87,16 +90,23 @@ export default function OAuthCallback() {
         let syncResult = null;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          console.log(`[OAuth Callback] Polling tentativa ${attempt}/${maxAttempts}...`);
+          console.log(
+            `[OAuth Callback] Polling tentativa ${attempt}/${maxAttempts}...`
+          );
           setStatusText(`Sincronizando dados... (${attempt}/${maxAttempts})`);
 
           try {
             syncResult = await syncItem(itemId as string);
             console.log(`[OAuth Callback] Status: ${syncResult.item.status}`);
-            console.log(`[OAuth Callback] Contas encontradas: ${syncResult.accountsCount}`);
+            console.log(
+              `[OAuth Callback] Contas encontradas: ${syncResult.accountsCount}`
+            );
 
             // Se já tem contas e status é UPDATED, podemos prosseguir
-            if (syncResult.accountsCount > 0 && syncResult.item.status === 'UPDATED') {
+            if (
+              syncResult.accountsCount > 0 &&
+              syncResult.item.status === 'UPDATED'
+            ) {
               console.log('[OAuth Callback] ✅ Contas sincronizadas!');
               setStatusText('Contas sincronizadas!');
               break;
@@ -109,8 +119,13 @@ export default function OAuthCallback() {
             }
 
             // Se já está UPDATED mas sem contas, pode ser um problema
-            if (syncResult.item.status === 'UPDATED' && syncResult.accountsCount === 0) {
-              console.warn('[OAuth Callback] ⚠️ UPDATED mas sem contas, aguardando...');
+            if (
+              syncResult.item.status === 'UPDATED' &&
+              syncResult.accountsCount === 0
+            ) {
+              console.warn(
+                '[OAuth Callback] ⚠️ UPDATED mas sem contas, aguardando...'
+              );
             }
           } catch (pollError) {
             console.error(`[OAuth Callback] Erro no polling:`, pollError);

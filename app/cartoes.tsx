@@ -303,7 +303,9 @@ export default function CartoesScreen() {
                     }
                   >
                     <LixoIcon size={16} color="#f87171" />
-                    <Text style={[styles.actionButtonText, { color: '#f87171' }]}>
+                    <Text
+                      style={[styles.actionButtonText, { color: '#f87171' }]}
+                    >
                       Excluir
                     </Text>
                   </TouchableOpacity>

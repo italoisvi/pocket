@@ -482,6 +482,8 @@ async function reactLoop(
 // Main Handler
 // ============================================================================
 
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS });
@@ -491,6 +493,7 @@ serve(async (req) => {
     console.log('[walts-agent] Request received');
 
     const authHeader = req.headers.get('Authorization');
+    const internalUserId = req.headers.get('X-User-Id');
 
     if (!authHeader) {
       console.error('[walts-agent] Missing authorization header');
@@ -503,24 +506,43 @@ serve(async (req) => {
       );
     }
 
-    // Authenticate via JWT
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    let userId: string;
+    let supabase: ReturnType<typeof createClient>;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Check if this is an internal service call (from telegram-webhook)
+    const isServiceRole =
+      authHeader === `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` && internalUserId;
 
-    if (authError || !user) {
-      console.error('[walts-agent] Auth error:', authError?.message);
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: CORS_HEADERS,
+    if (isServiceRole) {
+      // Internal call: use service role client with provided user ID
+      console.log(
+        '[walts-agent] Internal service call for user:',
+        internalUserId
+      );
+      userId = internalUserId;
+      supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+        auth: { persistSession: false },
       });
+    } else {
+      // External call: authenticate via JWT
+      supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        console.error('[walts-agent] Auth error:', authError?.message);
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: CORS_HEADERS,
+        });
+      }
+      userId = user.id;
     }
-    const userId = user.id;
 
     // Parse request
     const {

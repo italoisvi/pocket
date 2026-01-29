@@ -111,14 +111,19 @@ export default function CredentialsScreen() {
   const handleInputChange = (fieldName: string, value: string) => {
     // Se o campo for CPF ou CNPJ, aplicar formatação
     const field = credentials.find((f) => f.name === fieldName);
-    const fieldLower = (field?.label + ' ' + field?.name + ' ' + (field?.placeholder || '')).toLowerCase();
+    const fieldLower = (
+      field?.label +
+      ' ' +
+      field?.name +
+      ' ' +
+      (field?.placeholder || '')
+    ).toLowerCase();
 
     const isCNPJField = fieldLower.includes('cnpj');
     const isCPFField =
-      !isCNPJField && (
-        fieldLower.includes('cpf') ||
-        field?.name.toLowerCase().includes('document')
-      );
+      !isCNPJField &&
+      (fieldLower.includes('cpf') ||
+        field?.name.toLowerCase().includes('document'));
 
     let formattedValue = value;
     if (isCNPJField) {

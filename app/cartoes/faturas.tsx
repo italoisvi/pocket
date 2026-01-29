@@ -258,9 +258,17 @@ export default function FaturasScreen() {
           disabled={syncing}
         >
           {syncing ? (
-            <ActivityIndicator size="small" color={isDark ? theme.text : '#fff'} />
+            <ActivityIndicator
+              size="small"
+              color={isDark ? theme.text : '#fff'}
+            />
           ) : (
-            <Text style={[styles.syncButtonText, { color: isDark ? theme.text : '#fff' }]}>
+            <Text
+              style={[
+                styles.syncButtonText,
+                { color: isDark ? theme.text : '#fff' },
+              ]}
+            >
               Sincronizar
             </Text>
           )}
