@@ -221,7 +221,8 @@ export default function OpenFinanceScreen() {
 
   const loadConnectedBanks = async () => {
     try {
-      const data = await getConnectedItems();
+      // Buscar apenas items que têm contas do tipo BANK (não cartões de crédito)
+      const data = await getConnectedItems('BANK');
 
       // Buscar informações dos connectors (logos)
       const apiKey = await getApiKey();

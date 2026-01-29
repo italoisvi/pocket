@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -14,13 +16,14 @@ import { formatCurrency } from '@/lib/formatCurrency';
 import { getCardShadowStyle } from '@/lib/cardStyles';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { useTheme } from '@/lib/theme';
+import { syncTransactions } from '@/lib/pluggy';
 
-type CreditCardInvoice = {
-  accountId: string;
-  accountName: string;
-  month: string; // YYYY-MM
-  total: number; // Soma das compras do mês
-  transactionCount: number;
+type Transaction = {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  type: 'DEBIT' | 'CREDIT';
 };
 
 export default function FaturasScreen() {
@@ -29,17 +32,16 @@ export default function FaturasScreen() {
   const accountId = params.accountId as string;
   const accountName = params.accountName as string;
 
-  const [invoices, setInvoices] = useState<CreditCardInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [availableMonths, setAvailableMonths] = useState<Date[]>([]);
   const monthScrollRef = useRef<ScrollView>(null);
-  const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [currentBalance, setCurrentBalance] = useState<number>(0); // Saldo devedor atual
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [currentBalance, setCurrentBalance] = useState<number>(0);
 
   useEffect(() => {
-    // Gerar meses disponíveis baseado na data de criação do usuário
     const generateMonths = async () => {
       try {
         const {
@@ -48,7 +50,6 @@ export default function FaturasScreen() {
 
         if (!user) return;
 
-        // Buscar data de criação do perfil
         const { data: profile } = await supabase
           .from('profiles')
           .select('created_at')
@@ -88,10 +89,8 @@ export default function FaturasScreen() {
     generateMonths();
   }, []);
 
-  // Resetar para o mês atual e fazer scroll quando a tela ganhar foco
   useFocusEffect(
     useCallback(() => {
-      // Resetar selectedMonth para o mês atual
       setSelectedMonth(new Date());
 
       if (availableMonths.length > 0) {
@@ -113,19 +112,19 @@ export default function FaturasScreen() {
   );
 
   useEffect(() => {
-    loadCardExpenses();
-    loadTransactions();
+    loadCardData();
   }, [selectedMonth, accountId]);
 
-  const loadCardExpenses = async () => {
+  const loadCardData = async () => {
     try {
+      setLoading(true);
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!user) return;
 
-      // Buscar apenas o cartão específico
+      // Buscar dados do cartão
       const { data: creditAccount } = await supabase
         .from('pluggy_accounts')
         .select('id, name, type, credit_limit, available_credit_limit')
@@ -135,13 +134,13 @@ export default function FaturasScreen() {
         .single();
 
       if (!creditAccount) {
-        setInvoices([]);
         setCurrentBalance(0);
+        setTransactions([]);
         setLoading(false);
         return;
       }
 
-      // Calcular e salvar o saldo devedor ATUAL do cartão (para exibir separadamente)
+      // Calcular saldo devedor atual
       const usedCredit =
         (creditAccount.credit_limit || 0) -
         (creditAccount.available_credit_limit || 0);
@@ -162,105 +161,74 @@ export default function FaturasScreen() {
         59
       );
 
-      const selectedMonthKey = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
-
-      // Buscar TODAS as transações do mês selecionado
-      // No Pluggy, transações de cartão de crédito:
-      // - type='DEBIT' = compras (aumenta a dívida, valor negativo)
-      // - type='CREDIT' = pagamentos (diminui a dívida, valor positivo)
-      const { data: monthTransactions } = await supabase
-        .from('pluggy_transactions')
-        .select('id, amount, date, type')
-        .eq('account_id', creditAccount.id)
-        .gte('date', startOfMonth.toISOString().split('T')[0])
-        .lte('date', endOfMonth.toISOString().split('T')[0])
-        .order('date', { ascending: false });
-
-      // Separar compras e pagamentos (DEBIT = compras, CREDIT = pagamentos)
-      const purchases =
-        monthTransactions?.filter((tx) => tx.type === 'DEBIT') || [];
-      const payments =
-        monthTransactions?.filter((tx) => tx.type === 'CREDIT') || [];
-
-      // Calcular totais
-      const totalPurchases = purchases.reduce(
-        (sum, tx) => sum + Math.abs(tx.amount || 0),
-        0
-      );
-      const totalPayments = payments.reduce(
-        (sum, tx) => sum + Math.abs(tx.amount || 0),
-        0
-      );
-
-      // Saldo do mês = compras - pagamentos
-      const monthlyBalance = totalPurchases - totalPayments;
-
-      const allInvoices: CreditCardInvoice[] = [];
-
-      // Criar fatura do mês se houver transações (compras ou pagamentos)
-      if (monthTransactions && monthTransactions.length > 0) {
-        allInvoices.push({
-          accountId: creditAccount.id,
-          accountName: creditAccount.name,
-          month: selectedMonthKey,
-          total: monthlyBalance, // Compras - pagamentos do mês
-          transactionCount: purchases.length, // Apenas número de compras
-        });
-      }
-
-      setInvoices(allInvoices);
-    } catch (error) {
-      console.error('Erro ao carregar faturas de cartões:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadTransactions = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      // Calcular range do mês selecionado
-      const startOfMonth = new Date(
-        selectedMonth.getFullYear(),
-        selectedMonth.getMonth(),
-        1
-      );
-      const endOfMonth = new Date(
-        selectedMonth.getFullYear(),
-        selectedMonth.getMonth() + 1,
-        0,
-        23,
-        59,
-        59
-      );
-
-      // Buscar transações do mês selecionado
+      // Buscar transações do mês
       const { data: txData } = await supabase
         .from('pluggy_transactions')
-        .select('*')
+        .select('id, description, amount, date, type')
         .eq('account_id', accountId)
         .gte('date', startOfMonth.toISOString().split('T')[0])
         .lte('date', endOfMonth.toISOString().split('T')[0])
         .order('date', { ascending: false });
 
-      setTransactions(txData || []);
+      setTransactions((txData as Transaction[]) || []);
     } catch (error) {
-      console.error('Erro ao carregar transações:', error);
+      console.error('Erro ao carregar dados do cartão:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const formatMonthYear = (monthKey: string) => {
-    const [year, month] = monthKey.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
-    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadCardData();
   };
 
-  const totalCards = invoices.reduce((sum, item) => sum + item.total, 0);
+  const handleSyncTransactions = async () => {
+    if (syncing) return;
+
+    setSyncing(true);
+    try {
+      // Sincronizar transações do mês corrente
+      const now = new Date();
+      const to = now.toISOString().split('T')[0];
+      const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+      console.log('[faturas] Syncing transactions for account:', accountId);
+      console.log('[faturas] Date range:', { from, to });
+
+      const result = await syncTransactions(accountId, { from, to });
+      console.log('[faturas] Sync result:', result);
+
+      if (result.saved > 0) {
+        Alert.alert(
+          'Sucesso',
+          `${result.saved} transação(ões) sincronizada(s)!`
+        );
+      } else if (result.total > 0 && result.skipped === result.total) {
+        Alert.alert(
+          'Atualizado',
+          'Todas as transações já estavam sincronizadas.'
+        );
+      } else {
+        Alert.alert(
+          'Sem Transações',
+          'Nenhuma transação encontrada para este período.'
+        );
+      }
+
+      // Recarregar dados
+      loadCardData();
+    } catch (error) {
+      console.error('[faturas] Error syncing transactions:', error);
+      Alert.alert(
+        'Erro',
+        'Não foi possível sincronizar as transações. Tente novamente.'
+      );
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -277,10 +245,38 @@ export default function FaturasScreen() {
         <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
           {accountName}
         </Text>
-        <View style={styles.placeholder} />
+        <TouchableOpacity
+          style={[
+            styles.syncButton,
+            {
+              backgroundColor: isDark ? theme.card : theme.primary,
+              borderColor: isDark ? theme.cardBorder : theme.primary,
+            },
+            syncing && styles.syncButtonDisabled,
+          ]}
+          onPress={handleSyncTransactions}
+          disabled={syncing}
+        >
+          {syncing ? (
+            <ActivityIndicator size="small" color={isDark ? theme.text : '#fff'} />
+          ) : (
+            <Text style={[styles.syncButtonText, { color: isDark ? theme.text : '#fff' }]}>
+              Sincronizar
+            </Text>
+          )}
+        </TouchableOpacity>
       </SafeAreaView>
 
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+          />
+        }
+      >
         {/* Seletor de Mês */}
         <ScrollView
           ref={monthScrollRef}
@@ -332,40 +328,45 @@ export default function FaturasScreen() {
             <ActivityIndicator size="large" />
           </View>
         ) : (
-          <View style={styles.invoicesContainer}>
+          <View style={styles.mainContainer}>
             {/* Card Saldo Devedor Atual */}
-            {currentBalance > 0 && (
-              <View
+            <View
+              style={[
+                styles.balanceCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+                getCardShadowStyle(isDark),
+              ]}
+            >
+              <Text
+                style={[styles.balanceLabel, { color: theme.textSecondary }]}
+              >
+                Saldo Devedor Atual
+              </Text>
+              <Text
                 style={[
-                  styles.balanceCard,
-                  {
-                    backgroundColor: theme.card,
-                    borderColor: theme.cardBorder,
-                  },
-                  getCardShadowStyle(isDark),
+                  styles.balanceValue,
+                  { color: currentBalance > 0 ? '#ef4444' : '#10b981' },
                 ]}
               >
-                <Text
-                  style={[styles.balanceLabel, { color: theme.textSecondary }]}
-                >
-                  Saldo Devedor Atual
-                </Text>
-                <Text style={[styles.balanceValue, { color: '#ef4444' }]}>
-                  {formatCurrency(currentBalance)}
-                </Text>
-                <Text
-                  style={[styles.balanceHint, { color: theme.textSecondary }]}
-                >
-                  Valor total a pagar no cartao
-                </Text>
-              </View>
-            )}
+                {formatCurrency(currentBalance)}
+              </Text>
+              <Text
+                style={[styles.balanceHint, { color: theme.textSecondary }]}
+              >
+                {currentBalance > 0
+                  ? 'Valor total a pagar no cartao'
+                  : 'Nenhuma divida no cartao'}
+              </Text>
+            </View>
 
-            {/* Card Total de Compras do Mês */}
-            {invoices.length > 0 ? (
+            {/* Lista de Transações do Mês */}
+            {transactions.length > 0 ? (
               <View
                 style={[
-                  styles.totalCard,
+                  styles.transactionsCard,
                   {
                     backgroundColor: theme.card,
                     borderColor: theme.cardBorder,
@@ -374,150 +375,56 @@ export default function FaturasScreen() {
                 ]}
               >
                 <Text
-                  style={[styles.totalLabel, { color: theme.textSecondary }]}
+                  style={[
+                    styles.transactionsTitle,
+                    { color: theme.textSecondary },
+                  ]}
                 >
-                  Compras do Mes
+                  Transacoes do Mes
                 </Text>
-                <Text style={[styles.totalValue, { color: theme.text }]}>
-                  {formatCurrency(totalCards)}
-                </Text>
-                <Text
-                  style={[styles.totalHint, { color: theme.textSecondary }]}
-                >
-                  {invoices[0]?.transactionCount || 0}{' '}
-                  {(invoices[0]?.transactionCount || 0) === 1
-                    ? 'transacao'
-                    : 'transacoes'}
-                </Text>
+                {transactions.map((tx) => (
+                  <View key={tx.id} style={styles.transactionRow}>
+                    <View style={styles.transactionLeft}>
+                      <Text
+                        style={[
+                          styles.transactionDescription,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {tx.description}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.transactionDate,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {new Date(tx.date).toLocaleDateString('pt-BR')}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.transactionAmount,
+                        {
+                          color: tx.type === 'CREDIT' ? '#10b981' : theme.text,
+                        },
+                      ]}
+                    >
+                      {tx.type === 'CREDIT' ? '+' : '-'}
+                      {formatCurrency(Math.abs(tx.amount))}
+                    </Text>
+                  </View>
+                ))}
               </View>
             ) : (
-              <View style={styles.emptyMonthContainer}>
+              <View style={styles.emptyContainer}>
                 <Text
                   style={[styles.emptyText, { color: theme.textSecondary }]}
                 >
-                  Nenhuma compra neste mes
-                </Text>
-                <Text
-                  style={[styles.emptySubtext, { color: theme.textSecondary }]}
-                >
-                  Nao foram encontradas transacoes para este periodo
+                  Nenhuma transacao neste mes
                 </Text>
               </View>
             )}
-
-            {/* Faturas */}
-            {invoices.map((invoice, index) => {
-              const invoiceKey = `${invoice.accountId}-${invoice.month}`;
-              const isExpanded = expandedInvoice === invoiceKey;
-
-              return (
-                <TouchableOpacity
-                  key={`${invoice.accountId}-${invoice.month}-${index}`}
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: theme.card,
-                      borderColor: theme.cardBorder,
-                    },
-                    getCardShadowStyle(isDark),
-                  ]}
-                  onPress={() =>
-                    setExpandedInvoice(isExpanded ? null : invoiceKey)
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.cardContent}>
-                    <View style={styles.cardLeft}>
-                      <View
-                        style={[
-                          styles.bankIndicator,
-                          { backgroundColor: '#f59e0b' },
-                        ]}
-                      />
-                      <View>
-                        <Text style={[styles.bankName, { color: theme.text }]}>
-                          {invoice.accountName}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monthText,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          {formatMonthYear(invoice.month)} •{' '}
-                          {invoice.transactionCount}{' '}
-                          {invoice.transactionCount === 1
-                            ? 'transação'
-                            : 'transações'}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.cardValue, { color: theme.text }]}>
-                      {formatCurrency(invoice.total)}
-                    </Text>
-                  </View>
-
-                  {/* Detalhes expandidos */}
-                  {isExpanded && (
-                    <View style={styles.expandedContent}>
-                      <View
-                        style={[
-                          styles.divider,
-                          { backgroundColor: theme.cardBorder },
-                        ]}
-                      />
-                      {transactions.length > 0 ? (
-                        transactions.map((tx) => (
-                          <View key={tx.id} style={styles.transactionRow}>
-                            <View style={styles.transactionLeft}>
-                              <Text
-                                style={[
-                                  styles.transactionDescription,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {tx.description}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.transactionDate,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                {new Date(tx.date).toLocaleDateString('pt-BR')}
-                              </Text>
-                            </View>
-                            <Text
-                              style={[
-                                styles.transactionAmount,
-                                {
-                                  color:
-                                    tx.type === 'CREDIT'
-                                      ? '#10b981'
-                                      : theme.text,
-                                },
-                              ]}
-                            >
-                              {tx.type === 'CREDIT' ? '+' : '-'}
-                              {formatCurrency(Math.abs(tx.amount))}
-                            </Text>
-                          </View>
-                        ))
-                      ) : (
-                        <Text
-                          style={[
-                            styles.noTransactions,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          Nenhuma transação encontrada neste mês
-                        </Text>
-                      )}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
           </View>
         )}
       </ScrollView>
@@ -580,80 +487,38 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
   },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  invoicesContainer: {
+  mainContainer: {
     padding: 24,
   },
-  emptyText: {
-    fontSize: 16,
-    fontFamily: 'DMSans-Regular',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    fontFamily: 'DMSans-Regular',
-    textAlign: 'center',
-  },
-  totalCard: {
+  balanceCard: {
     borderRadius: 12,
     padding: 20,
-    marginBottom: 24,
+    marginBottom: 16,
     borderWidth: 2,
     alignItems: 'center',
   },
-  totalLabel: {
-    fontSize: 16,
+  balanceLabel: {
+    fontSize: 14,
     fontFamily: 'DMSans-Regular',
     marginBottom: 8,
   },
-  totalValue: {
-    fontSize: 20,
+  balanceValue: {
+    fontSize: 28,
     fontFamily: 'DMSans-Bold',
   },
-  card: {
+  balanceHint: {
+    fontSize: 12,
+    fontFamily: 'DMSans-Regular',
+    marginTop: 8,
+  },
+  transactionsCard: {
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
     borderWidth: 2,
   },
-  cardContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  bankIndicator: {
-    width: 4,
-    height: 24,
-    borderRadius: 2,
-  },
-  bankName: {
-    fontSize: 20,
-    fontFamily: 'DMSans-SemiBold',
-    marginBottom: 4,
-  },
-  monthText: {
+  transactionsTitle: {
     fontSize: 14,
-    fontFamily: 'DMSans-Regular',
-  },
-  cardValue: {
-    fontSize: 20,
     fontFamily: 'DMSans-SemiBold',
-  },
-  expandedContent: {
-    marginTop: 16,
-  },
-  divider: {
-    height: 1,
     marginBottom: 16,
   },
   transactionRow: {
@@ -681,40 +546,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'DMSans-SemiBold',
   },
-  noTransactions: {
-    fontSize: 14,
-    fontFamily: 'DMSans-Regular',
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-  balanceCard: {
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 2,
-    alignItems: 'center',
-  },
-  balanceLabel: {
-    fontSize: 14,
-    fontFamily: 'DMSans-Regular',
-    marginBottom: 8,
-  },
-  balanceValue: {
-    fontSize: 22,
-    fontFamily: 'DMSans-Bold',
-  },
-  balanceHint: {
-    fontSize: 12,
-    fontFamily: 'DMSans-Regular',
-    marginTop: 8,
-  },
-  totalHint: {
-    fontSize: 12,
-    fontFamily: 'DMSans-Regular',
-    marginTop: 8,
-  },
-  emptyMonthContainer: {
+  emptyContainer: {
     padding: 40,
     alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: 'DMSans-Regular',
+    textAlign: 'center',
+  },
+  syncButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  syncButtonDisabled: {
+    opacity: 0.6,
+  },
+  syncButtonText: {
+    fontSize: 14,
+    fontFamily: 'DMSans-SemiBold',
   },
 });

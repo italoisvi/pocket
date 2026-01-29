@@ -8,6 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -259,13 +261,15 @@ export default function ChatScreen() {
       </SafeAreaView>
 
       {messages.length === 0 && !loading ? (
-        <View style={[styles.messagesContainer, styles.emptyMessagesContent]}>
-          <View style={styles.welcomeContainer}>
-            <Text style={[styles.welcomeText, { color: theme.text }]}>
-              Olá{userName ? `, ${userName}` : ''}! Em que posso te ajudar?
-            </Text>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={[styles.messagesContainer, styles.emptyMessagesContent]}>
+            <View style={styles.welcomeContainer}>
+              <Text style={[styles.welcomeText, { color: theme.text }]}>
+                Olá{userName ? `, ${userName}` : ''}! Em que posso te ajudar?
+              </Text>
+            </View>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       ) : (
         <FlatList
           ref={flatListRef}
@@ -275,6 +279,8 @@ export default function ChatScreen() {
           keyExtractor={(item) => item.id}
           inverted
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          onScrollBeginDrag={Keyboard.dismiss}
           ListHeaderComponent={
             loading ? (
               <View style={styles.loadingContainer}>

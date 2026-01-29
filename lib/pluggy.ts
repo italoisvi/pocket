@@ -162,15 +162,17 @@ export async function syncTransactions(
 /**
  * Busca todos os Items (bancos) conectados do usuário
  * Inclui a última sincronização das contas associadas
+ * @param accountType - Filtra items que têm pelo menos uma conta do tipo especificado ('BANK' ou 'CREDIT')
  */
-export async function getConnectedItems() {
+export async function getConnectedItems(accountType?: 'BANK' | 'CREDIT') {
   const { data, error } = await supabase
     .from('pluggy_items')
     .select(
       `
       *,
       pluggy_accounts (
-        last_sync_at
+        last_sync_at,
+        type
       )
     `
     )
@@ -182,7 +184,7 @@ export async function getConnectedItems() {
   }
 
   // Processar para pegar a última sincronização mais recente de cada item
-  const itemsWithLastSync = (data || []).map((item: any) => {
+  let itemsWithLastSync = (data || []).map((item: any) => {
     const accounts = item.pluggy_accounts || [];
     const lastSyncDates = accounts
       .map((acc: any) => acc.last_sync_at)
@@ -196,15 +198,30 @@ export async function getConnectedItems() {
           )[0]
         : null;
 
+    // Guardar tipos de conta para filtro
+    const accountTypes = accounts.map((acc: any) => acc.type);
+
     // Remover o array de contas e adicionar apenas o last_sync_at
     const { pluggy_accounts, ...rest } = item;
     return {
       ...rest,
       last_sync_at: lastSyncAt,
+      _accountTypes: accountTypes, // Temporário para filtro
     };
   });
 
-  return itemsWithLastSync;
+  // Filtrar por tipo de conta se especificado
+  if (accountType) {
+    itemsWithLastSync = itemsWithLastSync.filter((item: any) =>
+      item._accountTypes.includes(accountType)
+    );
+  }
+
+  // Remover campo temporário
+  return itemsWithLastSync.map((item: any) => {
+    const { _accountTypes, ...rest } = item;
+    return rest;
+  });
 }
 
 /**

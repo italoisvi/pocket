@@ -945,26 +945,24 @@ IMPORTANTE: Responda APENAS em formato JSON válido (sem markdown ou texto adici
             </TouchableOpacity>
 
             {/* Card Cartões de Crédito */}
-            {creditCardAccounts.length > 0 && (
-              <TouchableOpacity
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: theme.card,
-                    borderColor: theme.cardBorder,
-                  },
-                  getCardShadowStyle(theme.background === '#000'),
-                ]}
-                onPress={() => router.push('/cartoes')}
-              >
-                <View style={styles.cardHeader}>
-                  <Text style={[styles.cardTitle, { color: theme.text }]}>
-                    Cartões de Crédito
-                  </Text>
-                  <ChevronRightIcon size={20} color={theme.text} />
-                </View>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                },
+                getCardShadowStyle(theme.background === '#000'),
+              ]}
+              onPress={() => router.push('/cartoes')}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  Cartões de Crédito
+                </Text>
+                <ChevronRightIcon size={20} color={theme.text} />
+              </View>
+            </TouchableOpacity>
 
             {/* Card Custos Fixos */}
             <TouchableOpacity

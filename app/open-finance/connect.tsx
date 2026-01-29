@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { getApiKey, getConnectToken } from '@/lib/pluggy';
@@ -181,6 +181,19 @@ type Connector = {
 
 export default function ConnectBankScreen() {
   const { theme } = useTheme();
+  const params = useLocalSearchParams();
+
+  // Parâmetros opcionais para customizar o fluxo
+  // products: JSON array de produtos (default: ['ACCOUNTS', 'TRANSACTIONS'])
+  // title: título da tela (default: 'Conectar Banco')
+  const productsParam = params.products as string | undefined;
+  const titleParam = params.title as string | undefined;
+
+  const products = productsParam
+    ? JSON.parse(productsParam)
+    : ['ACCOUNTS', 'TRANSACTIONS'];
+  const screenTitle = titleParam || 'Conectar Banco';
+
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [filteredConnectors, setFilteredConnectors] = useState<Connector[]>([]);
   const [search, setSearch] = useState('');
@@ -255,6 +268,8 @@ export default function ConnectBankScreen() {
         imageUrl: connector.imageUrl,
         apiKey: connectToken || '', // ← Passa Connect Token (não API Key)!
         credentials: JSON.stringify(connector.credentials),
+        // Passa os produtos recebidos ou o padrão (conta corrente)
+        products: JSON.stringify(products),
       },
     });
   };
@@ -269,9 +284,7 @@ export default function ConnectBankScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <ChevronLeftIcon size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.text }]}>
-          Conectar Banco
-        </Text>
+        <Text style={[styles.title, { color: theme.text }]}>{screenTitle}</Text>
         <View style={styles.placeholder} />
       </View>
 

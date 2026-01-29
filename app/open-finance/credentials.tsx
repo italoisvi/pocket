@@ -10,15 +10,20 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { syncItem, syncTransactions } from '@/lib/pluggy';
 import { supabase } from '@/lib/supabase';
+import { syncEvents } from '@/lib/syncEvents';
 import { MFAModal } from '@/components/MFAModal';
 import { OAuthModal } from '@/components/OAuthModal';
 import * as Sentry from '@sentry/react-native';
+
+// Chave para armazenar o destino do redirect após OAuth
+const OAUTH_REDIRECT_KEY = '@pocket/oauth_redirect_to';
 
 type CredentialField = {
   name: string;
@@ -41,10 +46,19 @@ export default function CredentialsScreen() {
   // Connect Tokens têm oauthRedirectUrl configurado, necessário para OAuth funcionar
   const connectToken = params.apiKey as string;
   const credentialsJson = params.credentials as string;
+  // Produtos a sincronizar (ACCOUNTS, CREDIT_CARDS, TRANSACTIONS, etc.)
+  const productsJson = params.products as string | undefined;
 
   const credentials: CredentialField[] = credentialsJson
     ? JSON.parse(credentialsJson)
     : [];
+  const products: string[] | undefined = productsJson
+    ? JSON.parse(productsJson)
+    : undefined;
+
+  // Determinar destino do redirect baseado no tipo de produto
+  const isCreditCard = products?.includes('CREDIT_CARDS') ?? false;
+  const redirectTo = isCreditCard ? '/cartoes' : '/(tabs)/open-finance';
 
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -73,15 +87,46 @@ export default function CredentialsScreen() {
     }
   };
 
-  const handleInputChange = (fieldName: string, value: string) => {
-    // Se o campo for CPF ou documento, aplicar formatação
-    const field = credentials.find((f) => f.name === fieldName);
-    const isCPFField =
-      field?.label.toLowerCase().includes('cpf') ||
-      field?.name.toLowerCase().includes('cpf') ||
-      field?.name.toLowerCase().includes('document');
+  const formatCNPJ = (value: string): string => {
+    // Remove tudo que não é dígito
+    const numbers = value.replace(/\D/g, '');
 
-    const formattedValue = isCPFField ? formatCPF(value) : value;
+    // Limita a 14 dígitos
+    const limited = numbers.slice(0, 14);
+
+    // Aplica a máscara: 00.000.000/0000-00
+    if (limited.length <= 2) {
+      return limited;
+    } else if (limited.length <= 5) {
+      return `${limited.slice(0, 2)}.${limited.slice(2)}`;
+    } else if (limited.length <= 8) {
+      return `${limited.slice(0, 2)}.${limited.slice(2, 5)}.${limited.slice(5)}`;
+    } else if (limited.length <= 12) {
+      return `${limited.slice(0, 2)}.${limited.slice(2, 5)}.${limited.slice(5, 8)}/${limited.slice(8)}`;
+    } else {
+      return `${limited.slice(0, 2)}.${limited.slice(2, 5)}.${limited.slice(5, 8)}/${limited.slice(8, 12)}-${limited.slice(12)}`;
+    }
+  };
+
+  const handleInputChange = (fieldName: string, value: string) => {
+    // Se o campo for CPF ou CNPJ, aplicar formatação
+    const field = credentials.find((f) => f.name === fieldName);
+    const fieldLower = (field?.label + ' ' + field?.name + ' ' + (field?.placeholder || '')).toLowerCase();
+
+    const isCNPJField = fieldLower.includes('cnpj');
+    const isCPFField =
+      !isCNPJField && (
+        fieldLower.includes('cpf') ||
+        field?.name.toLowerCase().includes('document')
+      );
+
+    let formattedValue = value;
+    if (isCNPJField) {
+      formattedValue = formatCNPJ(value);
+    } else if (isCPFField) {
+      formattedValue = formatCPF(value);
+    }
+
     setFormData((prev) => ({ ...prev, [fieldName]: formattedValue }));
   };
 
@@ -140,13 +185,20 @@ export default function CredentialsScreen() {
       console.log('[credentials] Connector ID:', connectorId);
       console.log('[credentials] Parameters:', cleanedFormData);
 
-      const requestBody = {
+      const requestBody: Record<string, unknown> = {
         connectorId: parseInt(connectorId),
         parameters: cleanedFormData,
         // Testando AMBOS! Documentação é inconsistente sobre qual usar
         oauthRedirectUri: 'pocket://oauth-callback', // OAuth Support Guide
         oauthRedirectUrl: 'pocket://oauth-callback', // Authentication Guide
       };
+
+      // Adicionar filtro de produtos se especificado
+      // ACCOUNTS + TRANSACTIONS = Conta Corrente
+      // CREDIT_CARDS = Cartões de Crédito
+      if (products && products.length > 0) {
+        requestBody.products = products;
+      }
 
       console.log(
         '[credentials] Request body:',
@@ -215,8 +267,8 @@ export default function CredentialsScreen() {
         );
         shouldCheckForOAuth = true;
 
-        // 🔄 POLLING: Aguardar até parameter aparecer (máximo 30 segundos)
-        const maxAttempts = 15; // 15 tentativas x 2 segundos = 30 segundos
+        // 🔄 POLLING: Aguardar até parameter aparecer (máximo 60 segundos)
+        const maxAttempts = 30; // 30 tentativas x 2 segundos = 60 segundos
         let attempts = 0;
 
         while (attempts < maxAttempts) {
@@ -264,8 +316,31 @@ export default function CredentialsScreen() {
 
         if (attempts >= maxAttempts && !fullItem.parameter) {
           console.warn(
-            '[credentials] ⚠️ Timeout: Parameter não apareceu após 30 segundos'
+            '[credentials] ⚠️ Timeout: Parameter não apareceu após 60 segundos'
           );
+
+          // Se ainda está UPDATING sem parameter, pode ser um problema com OAuth
+          if (fullItem.status === 'UPDATING') {
+            console.warn(
+              '[credentials] ⚠️ Status ainda UPDATING sem parameter - possível problema com OAuth'
+            );
+
+            // Sincronizar para salvar no banco
+            await syncItem(itemData.id);
+
+            Alert.alert(
+              'Processando...',
+              'O banco está processando sua conexão. Isso pode levar alguns minutos.\n\nSe o banco solicitar autenticação adicional (como abrir o app do banco), aguarde a notificação ou tente sincronizar novamente mais tarde.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => router.dismissTo(redirectTo),
+                },
+              ]
+            );
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -312,6 +387,10 @@ export default function CredentialsScreen() {
               '[credentials] 🌐 Abrindo navegador para autenticação OAuth...'
             );
 
+            // Salvar destino do redirect para o oauth-callback usar
+            await AsyncStorage.setItem(OAUTH_REDIRECT_KEY, redirectTo);
+            console.log('[credentials] Destino do redirect salvo:', redirectTo);
+
             // Verificar se pode abrir a URL
             const canOpen = await Linking.canOpenURL(authUrl);
 
@@ -351,8 +430,8 @@ export default function CredentialsScreen() {
 
             setLoading(false);
 
-            // Volta para lista de bancos (usuário vai voltar via deep link)
-            router.back();
+            // Volta para a lista (cartões ou bancos, dependendo do produto)
+            router.dismissTo(redirectTo);
             return; // ← IMPORTANTE: Não continuar o fluxo normal
           } else {
             console.error(
@@ -399,7 +478,7 @@ export default function CredentialsScreen() {
           [
             {
               text: 'OK',
-              onPress: () => router.back(),
+              onPress: () => router.dismissTo(redirectTo),
             },
           ]
         );
@@ -458,7 +537,7 @@ export default function CredentialsScreen() {
           Alert.alert('Parcialmente Sincronizado', message, [
             {
               text: 'OK',
-              onPress: () => router.back(),
+              onPress: () => router.dismissTo(redirectTo),
             },
           ]);
         } else if (syncResult.accountsCount > 0) {
@@ -510,6 +589,9 @@ export default function CredentialsScreen() {
             );
           }
 
+          // Emitir evento de sincronização para atualizar outras telas
+          syncEvents.emit();
+
           // Mostrar resultado com info de transações
           let message = `Banco conectado! ${syncResult.accountsCount} conta(s) sincronizada(s).`;
           if (transactionsSaved > 0) {
@@ -519,7 +601,7 @@ export default function CredentialsScreen() {
           Alert.alert('Sucesso', message, [
             {
               text: 'OK',
-              onPress: () => router.back(),
+              onPress: () => router.dismissTo(redirectTo),
             },
           ]);
         } else {
@@ -531,7 +613,7 @@ export default function CredentialsScreen() {
             [
               {
                 text: 'OK',
-                onPress: () => router.back(),
+                onPress: () => router.dismissTo(redirectTo),
               },
             ]
           );
@@ -557,7 +639,7 @@ export default function CredentialsScreen() {
           [
             {
               text: 'OK',
-              onPress: () => router.back(),
+              onPress: () => router.dismissTo(redirectTo),
             },
           ]
         );
@@ -588,10 +670,10 @@ export default function CredentialsScreen() {
   };
 
   const handleMFASuccess = async () => {
-    // Após enviar o MFA, aguardar um pouco e voltar para a tela anterior
+    // Após enviar o MFA, aguardar um pouco e redirecionar
     // O usuário poderá sincronizar novamente para verificar o status
     setTimeout(() => {
-      router.back();
+      router.dismissTo(redirectTo);
     }, 1000);
   };
 
@@ -616,7 +698,9 @@ export default function CredentialsScreen() {
 
       <ScrollView style={styles.content}>
         <Text style={[styles.description, { color: theme.textSecondary }]}>
-          Digite suas credenciais para conectar sua conta bancária
+          {isCreditCard
+            ? 'Digite suas credenciais para conectar seu cartão de crédito'
+            : 'Digite suas credenciais para conectar sua conta bancária'}
         </Text>
 
         {credentials.map((field) => (
