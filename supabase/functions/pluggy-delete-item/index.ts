@@ -117,6 +117,56 @@ serve(async (req) => {
 
     console.log('[pluggy-delete-item] Item deleted from Pluggy');
 
+    // Buscar contas associadas a este item
+    const { data: accounts } = await supabase
+      .from('pluggy_accounts')
+      .select('id')
+      .eq('item_id', itemId);
+
+    const accountIds = accounts?.map((a: { id: string }) => a.id) || [];
+    console.log(
+      `[pluggy-delete-item] Found ${accountIds.length} accounts:`,
+      accountIds
+    );
+
+    // Buscar o perfil do usuário para verificar a conta salário
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('salary_bank_account_id')
+      .eq('id', user.id)
+      .single();
+
+    console.log(
+      '[pluggy-delete-item] Current salary_bank_account_id:',
+      profile?.salary_bank_account_id
+    );
+
+    // Se a conta salário do usuário está entre as contas sendo deletadas, limpar a referência
+    if (
+      profile?.salary_bank_account_id &&
+      accountIds.includes(profile.salary_bank_account_id)
+    ) {
+      console.log(
+        '[pluggy-delete-item] Salary account is being deleted, clearing reference'
+      );
+      const { error: clearSalaryError } = await supabase
+        .from('profiles')
+        .update({ salary_bank_account_id: null })
+        .eq('id', user.id);
+
+      if (clearSalaryError) {
+        console.error(
+          '[pluggy-delete-item] Failed to clear salary account reference:',
+          clearSalaryError
+        );
+        return new Response(
+          JSON.stringify({ error: 'Failed to clear salary account reference' }),
+          { status: 500, headers }
+        );
+      }
+      console.log('[pluggy-delete-item] Salary account reference cleared');
+    }
+
     // Deletar do banco de dados (CASCADE vai deletar accounts e transactions)
     const { error: deleteError } = await supabase
       .from('pluggy_items')

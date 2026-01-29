@@ -98,7 +98,7 @@ serve(async (req) => {
           webhookUrl:
             'https://yiwkuqihujjrxejeybeg.supabase.co/functions/v1/pluggy-webhook',
           oauthRedirectUri: 'pocket://oauth-callback', // Connect Token usa "Uri"
-          avoidDuplicates: true,
+          avoidDuplicates: false, // Permite conectar conta corrente E cartão de crédito do mesmo banco
         }),
       }
     );
