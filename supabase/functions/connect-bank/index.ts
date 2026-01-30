@@ -5,7 +5,8 @@ const PLUGGY_CLIENT_ID = Deno.env.get('PLUGGY_CLIENT_ID');
 const PLUGGY_CLIENT_SECRET = Deno.env.get('PLUGGY_CLIENT_SECRET');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const TELEGRAM_BOT_USERNAME = Deno.env.get('TELEGRAM_BOT_USERNAME') || 'pocketWalts';
+const TELEGRAM_BOT_USERNAME =
+  Deno.env.get('TELEGRAM_BOT_USERNAME') || 'pocketWalts';
 
 function getServiceClient() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {

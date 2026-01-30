@@ -62,7 +62,9 @@ serve(async (req) => {
     // Buscar dados da conta
     const { data: accountData, error: accountError } = await supabase
       .from('pluggy_accounts')
-      .select('id, pluggy_account_id, item_id, user_id, pluggy_items(pluggy_item_id)')
+      .select(
+        'id, pluggy_account_id, item_id, user_id, pluggy_items(pluggy_item_id)'
+      )
       .eq('pluggy_account_id', accountId)
       .single();
 
@@ -110,10 +112,14 @@ serve(async (req) => {
 
       // Se rate limited, não é erro crítico
       if (updateResponse.status === 429) {
-        console.log('[pluggy-sync-cron] Rate limited, proceeding with existing data');
+        console.log(
+          '[pluggy-sync-cron] Rate limited, proceeding with existing data'
+        );
       } else {
         // Continuar mesmo assim para buscar dados existentes
-        console.log('[pluggy-sync-cron] Update failed, proceeding with existing data');
+        console.log(
+          '[pluggy-sync-cron] Update failed, proceeding with existing data'
+        );
       }
     } else {
       console.log(`[pluggy-sync-cron] Item update triggered successfully`);
@@ -127,7 +133,9 @@ serve(async (req) => {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 4000));
 
-      console.log(`[pluggy-sync-cron] Polling attempt ${attempt}/${maxAttempts}...`);
+      console.log(
+        `[pluggy-sync-cron] Polling attempt ${attempt}/${maxAttempts}...`
+      );
 
       const itemResponse = await fetch(
         `https://api.pluggy.ai/items/${pluggyItemId}`,
@@ -139,7 +147,11 @@ serve(async (req) => {
         itemStatus = itemData.status;
         console.log(`[pluggy-sync-cron] Item status: ${itemStatus}`);
 
-        if (itemStatus === 'UPDATED' || itemStatus === 'LOGIN_ERROR' || itemStatus === 'OUTDATED') {
+        if (
+          itemStatus === 'UPDATED' ||
+          itemStatus === 'LOGIN_ERROR' ||
+          itemStatus === 'OUTDATED'
+        ) {
           break;
         }
       }
@@ -287,25 +299,26 @@ serve(async (req) => {
       const isDuplicate = duplicateExpense !== null;
 
       // Inserir transação
-      const { data: insertedTransaction, error: transactionError } = await supabase
-        .from('pluggy_transactions')
-        .insert({
-          pluggy_transaction_id: transaction.id,
-          user_id: accountData.user_id,
-          account_id: accountData.id,
-          description: transaction.description,
-          description_raw: transaction.descriptionRaw,
-          amount: transaction.amount,
-          date: transaction.date.split('T')[0],
-          status: transaction.status,
-          type: transaction.type,
-          category: transaction.category || null,
-          provider_code: transaction.providerCode || null,
-          synced: isDuplicate,
-          expense_id: isDuplicate ? duplicateExpense?.id : null,
-        })
-        .select('id')
-        .single();
+      const { data: insertedTransaction, error: transactionError } =
+        await supabase
+          .from('pluggy_transactions')
+          .insert({
+            pluggy_transaction_id: transaction.id,
+            user_id: accountData.user_id,
+            account_id: accountData.id,
+            description: transaction.description,
+            description_raw: transaction.descriptionRaw,
+            amount: transaction.amount,
+            date: transaction.date.split('T')[0],
+            status: transaction.status,
+            type: transaction.type,
+            category: transaction.category || null,
+            provider_code: transaction.providerCode || null,
+            synced: isDuplicate,
+            expense_id: isDuplicate ? duplicateExpense?.id : null,
+          })
+          .select('id')
+          .single();
 
       if (transactionError) {
         console.error(
@@ -318,7 +331,11 @@ serve(async (req) => {
       savedCount++;
 
       // Se não é duplicata e é débito, guardar para categorização
-      if (!isDuplicate && insertedTransaction?.id && transaction.type === 'DEBIT') {
+      if (
+        !isDuplicate &&
+        insertedTransaction?.id &&
+        transaction.type === 'DEBIT'
+      ) {
         insertedTransactions.push({
           dbId: insertedTransaction.id,
           pluggyId: transaction.id,
@@ -412,7 +429,10 @@ serve(async (req) => {
               expensesToCreate.map((e, index) =>
                 supabase
                   .from('pluggy_transactions')
-                  .update({ expense_id: createdExpenses[index].id, synced: true })
+                  .update({
+                    expense_id: createdExpenses[index].id,
+                    synced: true,
+                  })
                   .eq('id', e.tx.dbId)
               )
             );

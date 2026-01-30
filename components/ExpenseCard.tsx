@@ -18,13 +18,14 @@ type ExpenseCardProps = {
 export function ExpenseCard({
   establishmentName,
   amount,
+  date,
   category,
   subcategory,
   isCash,
   onPress,
 }: ExpenseCardProps) {
   const { theme } = useTheme();
-  const currentDate = new Date().toLocaleDateString('pt-BR');
+  const formattedDate = new Date(date).toLocaleDateString('pt-BR');
   const categoryInfo = CATEGORIES[category as ExpenseCategory];
 
   return (
@@ -90,7 +91,7 @@ export function ExpenseCard({
       </View>
       <View style={styles.bottomSection}>
         <Text style={[styles.date, { color: theme.textSecondary }]}>
-          {currentDate}
+          {formattedDate}
         </Text>
         <Text style={[styles.amount, { color: theme.text }]}>
           {formatCurrency(amount)}
