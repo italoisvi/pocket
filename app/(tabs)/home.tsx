@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,22 +8,15 @@ import {
   Text,
   Image,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { UsuarioIcon } from '@/components/UsuarioIcon';
-import { ChevronRightIcon } from '@/components/ChevronRightIcon';
-import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { EyeIcon } from '@/components/EyeIcon';
 import { EyeOffIcon } from '@/components/EyeOffIcon';
-import { ExpenseCard } from '@/components/ExpenseCard';
 import { SalarySetupModal } from '@/components/SalarySetupModal';
 import { PaywallModal } from '@/components/PaywallModal';
-import {
-  HomeTutorial,
-  shouldShowHomeTutorial,
-  markHomeTutorialShown,
-} from '@/components/HomeTutorial';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatCurrency';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,19 +27,17 @@ import {
   type BalanceSource,
 } from '@/lib/calculateBalance';
 import { usePremium } from '@/lib/usePremium';
-import { initializePeriodicNotifications } from '@/lib/notifications';
-import { syncEvents } from '@/lib/syncEvents';
+import { useFeed } from '@/hooks/useFeed';
+import type { FeedItem } from '@/types/feed';
 
-type Expense = {
-  id: string;
-  establishment_name: string;
-  amount: number;
-  date: string;
-  created_at: string;
-  category: string;
-  subcategory?: string;
-  is_cash?: boolean;
-};
+// Importar todos os cards do feed
+import { StockQuoteCard } from '@/components/feed/StockQuoteCard';
+import { IndexCard } from '@/components/feed/IndexCard';
+import { CryptoCard } from '@/components/feed/CryptoCard';
+import { NewsCard } from '@/components/feed/NewsCard';
+import { IndicatorCard } from '@/components/feed/IndicatorCard';
+import { InsightCard } from '@/components/feed/InsightCard';
+import { CurrencyCard } from '@/components/feed/CurrencyCard';
 
 type IncomeCard = {
   id: string;
@@ -64,96 +55,51 @@ export default function HomeScreen() {
     loading: premiumLoading,
     refresh: refreshPremium,
   } = usePremium();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Feed state
+  const {
+    items: feedItems,
+    loading: feedLoading,
+    refreshing: feedRefreshing,
+    error: feedError,
+    refresh: refreshFeed,
+  } = useFeed();
+
+  // Header state (mantido da home antiga)
   const [showSalarySetup, setShowSalarySetup] = useState(false);
   const [monthlySalary, setMonthlySalary] = useState<number | null>(null);
   const [salaryVisible, setSalaryVisible] = useState(false);
   const [savingSalary, setSavingSalary] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => {
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    return new Set([currentMonthKey]);
-  });
   const [calculatedBalance, setCalculatedBalance] = useState<number>(0);
   const [balanceSource, setBalanceSource] = useState<BalanceSource>('manual');
   const [incomeCards, setIncomeCards] = useState<IncomeCard[]>([]);
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [tutorialChecked, setTutorialChecked] = useState(false);
+
+  // Ref para o FlatList
+  const flatListRef = useRef<FlatList>(null);
+  const previousItemsLength = useRef(0);
 
   useEffect(() => {
     loadProfile();
-    initializeNotificationsAndTutorial();
-
-    // Escutar eventos de sincronização para recarregar dados
-    const unsubscribe = syncEvents.subscribe(() => {
-      console.log('[Home] Sync event received, reloading data...');
-      loadExpenses();
-      loadProfile();
-    });
-
-    return () => {
-      unsubscribe();
-    };
   }, []);
 
-  const initializeNotificationsAndTutorial = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      // Inicializar notificações periódicas (motivacionais a cada 6h, sync a cada 3h)
-      await initializePeriodicNotifications(supabase, user.id);
-
-      // Verificar se deve mostrar tutorial
-      const shouldShow = await shouldShowHomeTutorial(user.id);
-      if (shouldShow && !tutorialChecked) {
-        setShowTutorial(true);
-      }
-      setTutorialChecked(true);
-    } catch (error) {
-      console.error('[Home] Erro ao inicializar:', error);
+  // Rolar para o topo quando novos itens chegarem
+  useEffect(() => {
+    if (
+      feedItems.length > 0 &&
+      feedItems.length !== previousItemsLength.current &&
+      !feedLoading
+    ) {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      previousItemsLength.current = feedItems.length;
     }
-  };
-
-  const handleTutorialComplete = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        await markHomeTutorialShown(user.id);
-      }
-      setShowTutorial(false);
-    } catch (error) {
-      console.error('[Home] Erro ao finalizar tutorial:', error);
-      setShowTutorial(false);
-    }
-  };
+  }, [feedItems, feedLoading]);
 
   useFocusEffect(
     useCallback(() => {
-      console.log('[Home] ========================================');
-      console.log('[Home] Screen focused, reloading data...');
-      console.log('[Home] Timestamp:', new Date().toISOString());
-
-      // Forçar recarregamento completo dos dados
-      const refreshData = async () => {
-        setLoading(true);
-        try {
-          await Promise.all([loadExpenses(), loadProfile()]);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      refreshData();
+      console.log('[Home] Screen focused, reloading profile...');
+      loadProfile();
     }, [])
   );
 
@@ -180,7 +126,6 @@ export default function HomeScreen() {
       let totalIncome = 0;
       let cards: IncomeCard[] = [];
 
-      // Verificar se há income_cards (novo sistema)
       if (data?.income_cards && Array.isArray(data.income_cards)) {
         cards = data.income_cards as IncomeCard[];
         setIncomeCards(cards);
@@ -192,14 +137,12 @@ export default function HomeScreen() {
           return sum + (isNaN(salary) ? 0 : salary);
         }, 0);
       } else if (data?.monthly_salary) {
-        // Só usar monthly_salary se income_cards não existir (sistema antigo)
         totalIncome = data.monthly_salary;
       }
 
-      // Sempre definir a renda (mesmo que seja 0)
       setMonthlySalary(totalIncome);
 
-      // Buscar saldos das contas vinculadas (para cálculo inteligente)
+      // Buscar saldos das contas vinculadas
       const linkedAccountIds = cards
         .filter((card) => card.linkedAccountId)
         .map((card) => card.linkedAccountId as string);
@@ -208,42 +151,25 @@ export default function HomeScreen() {
       let lastSyncAt: string | null = null;
 
       if (linkedAccountIds.length > 0) {
-        // Forçar busca sem cache adicionando timestamp
         const { data: linkedAccounts, error: accountsError } = await supabase
           .from('pluggy_accounts')
           .select('id, balance, last_sync_at')
           .in('id', linkedAccountIds);
 
-        console.log('[Home] Linked accounts query result:', {
-          linkedAccountIds,
-          linkedAccounts,
-          error: accountsError,
-        });
-
         if (linkedAccounts && linkedAccounts.length > 0) {
           accountBalances = linkedAccounts;
-          // Usar a sincronização mais recente entre todas as contas vinculadas
           const syncDates = linkedAccounts
             .map((acc: any) => acc.last_sync_at)
             .filter(Boolean);
           if (syncDates.length > 0) {
             lastSyncAt = syncDates.sort().pop() || null;
           }
-
-          console.log('[Home] Account balances loaded:', {
-            balances: linkedAccounts.map((a: any) => ({
-              id: a.id,
-              balance: a.balance,
-            })),
-            lastSyncAt,
-          });
         }
       }
 
-      // Buscar total de gastos do MÊS ATUAL para cálculo do saldo
-      // Usar timezone do Brasil (UTC-3) para evitar problemas de fuso horário
+      // Buscar gastos do mês atual
       const now = new Date();
-      const brazilOffset = -3 * 60; // -180 minutos
+      const brazilOffset = -3 * 60;
       const brazilNow = new Date(now.getTime() + brazilOffset * 60 * 1000);
 
       const year = brazilNow.getFullYear();
@@ -252,7 +178,6 @@ export default function HomeScreen() {
       const lastDay = new Date(year, month + 1, 0).getDate();
       const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-      // Buscar TODOS os gastos do mês (para exibição)
       const { data: allExpensesData, error: expError } = await supabase
         .from('expenses')
         .select('amount, created_at, source, is_cash')
@@ -260,24 +185,10 @@ export default function HomeScreen() {
         .gte('date', startDateStr)
         .lte('date', endDateStr);
 
-      // Filtrar apenas gastos MANUAIS (foto/upload) para cálculo do saldo
-      // Gastos importados do extrato (source = 'import') já estão refletidos no saldo do banco
-      // Gastos do Walts (source = 'walts') NÃO debitam pois geralmente são baseados no extrato
-      // Apenas gastos via câmera/upload (source = null ou 'manual') debitam
       const manualExpenses = (allExpensesData || []).filter(
         (exp) => !exp.source || exp.source === 'manual'
       );
 
-      console.log('[Home] Expenses query:', {
-        startDateStr,
-        endDateStr,
-        allExpensesCount: allExpensesData?.length,
-        manualExpensesCount: manualExpenses.length,
-        lastSyncAt,
-        error: expError,
-      });
-
-      // Total de gastos MANUAIS (para cálculo do saldo)
       const totalExpenses = manualExpenses.reduce(
         (sum, exp) =>
           sum +
@@ -287,21 +198,15 @@ export default function HomeScreen() {
         0
       );
 
-      // Calcular gastos RECENTES MANUAIS (criados DEPOIS da última sincronização)
-      // Apenas esses gastos ainda não estão refletidos no saldo do banco
-      // EXCEÇÃO: Gastos em DINHEIRO sempre são considerados (nunca aparecem no extrato)
       let recentExpenses = 0;
       if (manualExpenses.length > 0) {
-        // Se tiver data de sincronização, usa ela; senão, considera gastos das últimas 24h como recentes
         const cutoffDate = lastSyncAt
           ? new Date(lastSyncAt)
-          : new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 horas atrás
+          : new Date(Date.now() - 24 * 60 * 60 * 1000);
 
         recentExpenses = manualExpenses
           .filter((exp) => {
-            // Gastos em dinheiro SEMPRE são considerados (não aparecem no extrato)
             if (exp.is_cash) return true;
-            // Outros gastos só se forem recentes (após última sincronização)
             return new Date(exp.created_at) > cutoffDate;
           })
           .reduce(
@@ -314,16 +219,6 @@ export default function HomeScreen() {
           );
       }
 
-      console.log('[Home] Balance calculation:', {
-        totalIncome,
-        totalExpenses,
-        recentExpenses,
-        lastSyncAt,
-        cardsCount: cards.length,
-        accountBalancesCount: accountBalances.length,
-      });
-
-      // Calcular saldo usando lógica inteligente
       const balanceResult = calculateTotalBalance(
         cards,
         accountBalances,
@@ -331,58 +226,27 @@ export default function HomeScreen() {
         recentExpenses
       );
 
-      console.log('[Home] Balance result:', balanceResult);
-
       setCalculatedBalance(balanceResult.remainingBalance);
       setBalanceSource(balanceResult.source);
 
-      // Carregar avatar
-      console.log('[Home] Avatar URL from database:', data?.avatar_url);
       if (data?.avatar_url) {
-        console.log('[Home] Setting profile image:', data.avatar_url);
         setProfileImage(data.avatar_url);
-      } else {
-        console.log('[Home] No avatar_url found');
       }
 
-      // Mostrar modal de setup se não tem nenhuma renda configurada
+      // Mostrar modal de setup se necessário
       if (
         totalIncome === 0 &&
         (!data?.income_cards || data.income_cards.length === 0)
       ) {
-        // Verificar se já mostrou o modal antes
         const hasShownSetup = await AsyncStorage.getItem(
           `salary_setup_shown_${user.id}`
         );
-        // Só mostrar modal se ainda não mostrou antes
         if (!hasShownSetup) {
           setShowSalarySetup(true);
         }
       }
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
-    }
-  };
-
-  const loadExpenses = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('expenses')
-        .select(
-          'id, establishment_name, amount, date, created_at, category, subcategory, is_cash'
-        )
-        .order('created_at', { ascending: false });
-
-      console.log('[Home] All expenses:', data);
-      console.log('[Home] Expenses count:', data?.length);
-
-      if (error) throw error;
-
-      setExpenses(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar gastos:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -395,7 +259,6 @@ export default function HomeScreen() {
 
       if (!user) throw new Error('Usuário não autenticado');
 
-      // Criar primeiro income card
       const firstIncomeCard = {
         id: Date.now().toString(),
         salary: salary.toLocaleString('pt-BR', {
@@ -418,7 +281,6 @@ export default function HomeScreen() {
 
       if (error) throw error;
 
-      // Marcar como já configurado
       await AsyncStorage.setItem(`salary_setup_shown_${user.id}`, 'true');
 
       setMonthlySalary(salary);
@@ -438,7 +300,6 @@ export default function HomeScreen() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        // Marcar como já mostrado para não aparecer novamente
         await AsyncStorage.setItem(`salary_setup_shown_${user.id}`, 'true');
       }
 
@@ -452,7 +313,6 @@ export default function HomeScreen() {
   const renderSalaryValue = () => {
     const formatted = formatCurrency(calculatedBalance);
     const currencySymbol = 'R$ ';
-    // formatCurrency retorna "R$\u00A0" (espaço não-quebrável), precisamos remover isso
     const numberPart = formatted.replace(/^R\$\s*/u, '');
     const barColor = isDark ? '#fff' : '#000';
 
@@ -489,184 +349,134 @@ export default function HomeScreen() {
     );
   };
 
-  const handleExpensePress = (id: string) => {
-    router.push(`/expense/${id}`);
-  };
+  const renderFeedItem = useCallback(({ item }: { item: FeedItem }) => {
+    switch (item.type) {
+      case 'stock_quote':
+        return <StockQuoteCard quote={item.data as any} />;
+      case 'index_quote':
+        return <IndexCard index={item.data as any} />;
+      case 'crypto_quote':
+        return <CryptoCard crypto={item.data as any} />;
+      case 'news':
+        return <NewsCard news={item.data as any} />;
+      case 'economic_indicator':
+        return <IndicatorCard indicator={item.data as any} />;
+      case 'insight':
+        return <InsightCard insight={item.data as any} />;
+      case 'currency':
+        return <CurrencyCard currency={item.data as any} />;
+      default:
+        return null;
+    }
+  }, []);
 
-  const handleSettingsPress = () => {
-    router.push('/(tabs)/settings');
-  };
-
-  const toggleMonth = (monthKey: string) => {
-    setExpandedMonths((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(monthKey)) {
-        newSet.delete(monthKey);
-      } else {
-        newSet.add(monthKey);
-      }
-      return newSet;
-    });
-  };
-
-  const groupExpensesByMonth = () => {
-    const grouped: { [key: string]: Expense[] } = {};
-
-    expenses.forEach((expense) => {
-      // Extrair ano e mês diretamente da string da data (formato YYYY-MM-DD)
-      // Isso evita problemas de timezone que ocorriam ao usar new Date()
-      const dateParts = expense.date.split('-');
-      const monthKey = `${dateParts[0]}-${dateParts[1]}`;
-      if (!grouped[monthKey]) {
-        grouped[monthKey] = [];
-      }
-      grouped[monthKey].push(expense);
-    });
-
-    return Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a));
-  };
-
-  const getMonthName = (monthKey: string) => {
-    const [year, month] = monthKey.split('-');
-    const monthNames = [
-      'janeiro',
-      'fevereiro',
-      'março',
-      'abril',
-      'maio',
-      'junho',
-      'julho',
-      'agosto',
-      'setembro',
-      'outubro',
-      'novembro',
-      'dezembro',
-    ];
-    const monthIndex = parseInt(month) - 1;
-    return `${monthNames[monthIndex]} de ${year}`;
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Header */}
       <SafeAreaView
         edges={['top']}
         style={[styles.topBar, { backgroundColor: theme.background }]}
       >
-        <View style={styles.salaryContainer}>
+        <View style={styles.headerContent}>
+          <View style={styles.salaryContainer}>
+            <TouchableOpacity
+              style={styles.salaryTouchable}
+              onPress={() => {
+                if (premiumLoading || isPremium) {
+                  router.push('/financial-overview');
+                } else {
+                  setShowPaywall(true);
+                }
+              }}
+            >
+              {renderSalaryValue()}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setSalaryVisible(!salaryVisible)}
+            >
+              {salaryVisible ? (
+                <EyeIcon size={20} color={theme.textSecondary} />
+              ) : (
+                <EyeOffIcon size={20} color={theme.textSecondary} />
+              )}
+            </TouchableOpacity>
+          </View>
+          <View style={styles.spacer} />
           <TouchableOpacity
-            style={styles.salaryTouchable}
-            onPress={() => {
-              // Se ainda está verificando premium, vai direto (será verificado na tela)
-              // Se já verificou e é premium, vai direto
-              // Se já verificou e não é premium, mostra paywall
-              if (premiumLoading || isPremium) {
-                router.push('/financial-overview');
-              } else {
-                setShowPaywall(true);
-              }
-            }}
+            style={[
+              styles.headerButton,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+              getCardShadowStyle(isDark),
+            ]}
+            onPress={() => router.push('/perfil')}
           >
-            {renderSalaryValue()}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.eyeButton}
-            onPress={() => setSalaryVisible(!salaryVisible)}
-          >
-            {salaryVisible ? (
-              <EyeIcon size={20} color={theme.textSecondary} />
+            {profileImage ? (
+              <Image
+                source={{ uri: profileImage }}
+                style={styles.profileButtonImage}
+                onError={(error) => {
+                  console.error('[Home] Image load error:', error.nativeEvent);
+                  setProfileImage(null);
+                }}
+              />
             ) : (
-              <EyeOffIcon size={20} color={theme.textSecondary} />
+              <UsuarioIcon size={24} color={theme.text} />
             )}
           </TouchableOpacity>
         </View>
-        <View style={styles.spacer} />
-        <TouchableOpacity
-          style={[
-            styles.headerButton,
-            {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
-            getCardShadowStyle(isDark),
-          ]}
-          onPress={() => router.push('/perfil')}
-        >
-          {profileImage ? (
-            <Image
-              source={{ uri: profileImage }}
-              style={styles.profileButtonImage}
-              onError={(error) => {
-                console.error('[Home] Image load error:', error.nativeEvent);
-                setProfileImage(null);
-              }}
-              onLoad={() => {
-                console.log('[Home] Image loaded successfully!');
-              }}
-            />
-          ) : (
-            <UsuarioIcon size={24} color={theme.text} />
-          )}
-        </TouchableOpacity>
       </SafeAreaView>
 
-      {loading ? (
+      {/* Feed Content */}
+      {feedLoading && !feedRefreshing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
+          <ActivityIndicator size="large" color="#f7c359" />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+            Carregando notícias...
+          </Text>
         </View>
-      ) : expenses.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.text }]}>
-            Nenhum gasto registrado ainda.
+      ) : feedError ? (
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: theme.error }]}>
+            {feedError}
           </Text>
-          <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
-            Clique no botão da câmera para começar!
-          </Text>
+          <TouchableOpacity onPress={refreshFeed} style={styles.retryButton}>
+            <Text style={[styles.retryText, { color: theme.primary }]}>
+              Tentar novamente
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={groupExpensesByMonth()}
-          keyExtractor={([monthKey]) => monthKey}
-          renderItem={({ item: [monthKey, monthExpenses] }) => {
-            const isExpanded = expandedMonths.has(monthKey);
-            const monthName = getMonthName(monthKey);
-            const capitalizedMonth =
-              monthName.charAt(0).toUpperCase() + monthName.slice(1);
-
-            return (
-              <View key={monthKey}>
-                <TouchableOpacity
-                  style={styles.monthHeader}
-                  onPress={() => toggleMonth(monthKey)}
-                >
-                  <Text style={[styles.monthTitle, { color: theme.text }]}>
-                    {capitalizedMonth}
-                  </Text>
-                  {isExpanded ? (
-                    <ChevronDownIcon size={20} color={theme.textSecondary} />
-                  ) : (
-                    <ChevronRightIcon size={20} color={theme.textSecondary} />
-                  )}
-                </TouchableOpacity>
-
-                {isExpanded &&
-                  monthExpenses.map((expense) => (
-                    <View key={expense.id} style={styles.cardWrapper}>
-                      <ExpenseCard
-                        id={expense.id}
-                        establishmentName={expense.establishment_name}
-                        amount={expense.amount}
-                        date={expense.date}
-                        category={expense.category}
-                        subcategory={expense.subcategory}
-                        isCash={expense.is_cash}
-                        onPress={() => handleExpensePress(expense.id)}
-                      />
-                    </View>
-                  ))}
-              </View>
-            );
-          }}
-          contentContainerStyle={styles.listContent}
+          ref={flatListRef}
+          data={feedItems}
+          keyExtractor={(item) => item.id}
+          renderItem={renderFeedItem}
+          contentContainerStyle={styles.feedContent}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                Nenhuma notícia disponível
+              </Text>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={feedRefreshing}
+              onRefresh={refreshFeed}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={8}
         />
       )}
 
@@ -677,7 +487,6 @@ export default function HomeScreen() {
         loading={savingSalary}
       />
 
-      {/* Paywall Modal */}
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
@@ -685,14 +494,8 @@ export default function HomeScreen() {
           await refreshPremium();
           router.push('/financial-overview');
         }}
-        title="Raio-X Financeiro Premium"
-        subtitle="Análises detalhadas e insights sobre suas finanças"
-      />
-
-      {/* Tutorial para novos usuários */}
-      <HomeTutorial
-        visible={showTutorial}
-        onComplete={handleTutorialComplete}
+        title="Feed Premium"
+        subtitle="Acesse insights personalizados e alertas de mercado"
       />
     </View>
   );
@@ -708,11 +511,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
   },
   salaryContainer: {
     flexDirection: 'row',
@@ -749,47 +554,51 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 24,
   },
+  feedContent: {
+    paddingTop: 120,
+    paddingBottom: 100,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontFamily: 'DMSans-Regular',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 16,
+    fontFamily: 'DMSans-Medium',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  retryText: {
+    fontSize: 14,
+    fontFamily: 'DMSans-SemiBold',
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 48,
+    paddingTop: 100,
   },
   emptyText: {
-    fontSize: 20,
-    fontFamily: 'DMSans-SemiBold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptySubtext: {
     fontSize: 16,
     fontFamily: 'DMSans-Regular',
-    textAlign: 'center',
-  },
-  listContent: {
-    padding: 16,
-    paddingTop: 130,
-    paddingBottom: 100,
-  },
-  monthHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    marginBottom: 8,
-  },
-  monthTitle: {
-    fontSize: 20,
-    fontFamily: 'DMSans-SemiBold',
-    flex: 1,
-  },
-  cardWrapper: {
-    marginBottom: 8,
   },
 });

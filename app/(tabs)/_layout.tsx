@@ -1,8 +1,8 @@
 import { Tabs, router, usePathname } from 'expo-router';
 import { CasaIcon } from '@/components/CasaIcon';
 import { CasaIconFilled } from '@/components/CasaIconFilled';
-import { DividirContaIcon } from '@/components/DividirContaIcon';
-import { DividirContaIconFilled } from '@/components/DividirContaIconFilled';
+import { DocumentoIcon } from '@/components/DocumentoIcon';
+import { DocumentoIconFilled } from '@/components/DocumentoIconFilled';
 import { OpenFinanceIcon } from '@/components/OpenFinanceIcon';
 import { OpenFinanceIconFilled } from '@/components/OpenFinanceIconFilled';
 import { CameraIcon } from '@/components/CameraIcon';
@@ -69,6 +69,21 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="comprovantes"
+        options={{
+          title: 'Comprovantes',
+          tabBarIcon: ({ color, focused }) =>
+            focused ? (
+              <DocumentoIconFilled size={28} color={color} />
+            ) : (
+              <DocumentoIcon size={28} color={color} />
+            ),
+        }}
+        listeners={{
+          tabPress: handleTabPress('comprovantes'),
+        }}
+      />
+      <Tabs.Screen
         name="camera"
         options={{
           title: 'Adicionar',
@@ -116,16 +131,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="dividir-conta"
         options={{
-          title: 'Dividir Conta',
-          tabBarIcon: ({ color, focused }) =>
-            focused ? (
-              <DividirContaIconFilled size={28} color={color} />
-            ) : (
-              <DividirContaIcon size={28} color={color} />
-            ),
-        }}
-        listeners={{
-          tabPress: handleTabPress('dividir-conta'),
+          href: null,
         }}
       />
       <Tabs.Screen
