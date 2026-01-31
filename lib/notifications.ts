@@ -433,7 +433,6 @@ const MOTIVATIONAL_MESSAGES = [
   },
 ];
 
-const LAST_MOTIVATIONAL_KEY = '@pocket_last_motivational';
 const SCHEDULED_NOTIFICATIONS_KEY = '@pocket_scheduled_notifications';
 
 export async function scheduleMotivationalNotifications(): Promise<void> {
@@ -495,11 +494,35 @@ export async function scheduleMotivationalNotifications(): Promise<void> {
 
 const SYNC_REMINDER_KEY = '@pocket_sync_reminder_scheduled';
 
-export async function scheduleSyncReminderNotifications(): Promise<void> {
+export async function scheduleSyncReminderNotifications(
+  supabase: { from: (table: string) => unknown },
+  userId: string
+): Promise<void> {
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return;
 
   try {
+    // Verificar se o usuário tem contas bancárias conectadas
+    const { data: accounts, error } = await (
+      supabase.from('pluggy_accounts') as {
+        select: (cols: string) => {
+          eq: (
+            col: string,
+            val: string
+          ) => Promise<{ data: unknown[] | null; error: unknown }>;
+        };
+      }
+    )
+      .select('id')
+      .eq('user_id', userId);
+
+    if (error || !accounts || accounts.length === 0) {
+      console.log(
+        '[notifications] No bank accounts connected, skipping sync reminder notifications'
+      );
+      return;
+    }
+
     // Cancelar notificações de sync antigas
     const existingScheduled = await AsyncStorage.getItem(SYNC_REMINDER_KEY);
     if (existingScheduled) {
@@ -533,7 +556,7 @@ export async function scheduleSyncReminderNotifications(): Promise<void> {
     console.log(
       '[notifications] Scheduled',
       scheduledIds.length,
-      'sync reminder notifications'
+      'sync reminder notifications for user with bank accounts'
     );
   } catch (error) {
     console.error('[notifications] Error scheduling sync reminders:', error);
@@ -542,9 +565,12 @@ export async function scheduleSyncReminderNotifications(): Promise<void> {
 
 // ============ INICIALIZAR NOTIFICAÇÕES PERIÓDICAS ============
 
-export async function initializePeriodicNotifications(): Promise<void> {
+export async function initializePeriodicNotifications(
+  supabase: { from: (table: string) => unknown },
+  userId: string
+): Promise<void> {
   await scheduleMotivationalNotifications();
-  await scheduleSyncReminderNotifications();
+  await scheduleSyncReminderNotifications(supabase, userId);
 }
 
 // ============ VERIFICAR E NOTIFICAR TODOS OS ALERTAS ============

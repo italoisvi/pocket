@@ -108,7 +108,7 @@ export default function HomeScreen() {
       if (!user) return;
 
       // Inicializar notificações periódicas (motivacionais a cada 6h, sync a cada 3h)
-      await initializePeriodicNotifications();
+      await initializePeriodicNotifications(supabase, user.id);
 
       // Verificar se deve mostrar tutorial
       const shouldShow = await shouldShowHomeTutorial(user.id);
