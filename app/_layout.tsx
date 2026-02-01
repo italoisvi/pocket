@@ -50,14 +50,18 @@ try {
 
 function VoiceComponents() {
   const { openOverlay, endConversation, state } = useVoice();
+  const segments = useSegments() as string[];
+  const isHome = segments[0] === '(tabs)' && segments[1] === 'home';
 
   return (
     <>
-      <FloatingVoiceButton
-        onPress={openOverlay}
-        isMinimized={state.isMinimized}
-        onEndConversation={endConversation}
-      />
+      {!isHome && (
+        <FloatingVoiceButton
+          onPress={openOverlay}
+          isMinimized={state.isMinimized}
+          onEndConversation={endConversation}
+        />
+      )}
       <VoiceOverlay />
     </>
   );
@@ -208,6 +212,55 @@ function ThemedStack() {
           options={{
             gestureEnabled: false,
             animation: 'fade',
+          }}
+        />
+
+        {/*
+         * Explicitly register the article screen. Although Expo Router will
+         * automatically infer routes from files under the `app` directory,
+         * adding a `Stack.Screen` here ensures the `/article` path is
+         * recognized and uses consistent navigation options. Without this,
+         * navigating to `/article` can sometimes trigger the fallback
+         * “Unmatched Route” screen if the dev server hasn’t fully picked up
+         * new files or if the route is outside of tab groups. Adding the
+         * screen resolves that and enables a slide transition when opening
+         * articles.
+         */}
+        {/*
+         * Explicitly register the article screen again. With `react-native-webview`
+         * installed and a development build, the `/article` page uses a WebView
+         * to display news articles inside the app. Registering it here
+         * ensures the route is recognized and uses a consistent transition.
+         */}
+        {/*
+         * Register the article screen as a modal bottom sheet.  Using the
+         * `formSheet` presentation will cause the page to slide up from the
+         * bottom on iOS and Android, while keeping the previous screen
+         * slightly visible behind it.  This mimics the behaviour seen in
+         * Twitter/X when opening links.  We also set allowed detents to
+         * half and full screen, and default to full screen.  When the user
+         * drags down, the sheet will shrink to half height, revealing
+         * underlying content.  Gesture navigation is enabled so the user
+         * can dismiss the sheet with a swipe.
+         */}
+        <Stack.Screen
+          name="article"
+          options={{
+            presentation: 'formSheet',
+            // Use multiple detents to allow the sheet to shrink and grow
+            // between 25%, 50%, 75%, and full height.  The article opens at
+            // 75% height (index 2).  Users can drag down to reduce the
+            // height or pull up to expand, similar to the modal behaviour in
+            // Twitter/X.
+            sheetAllowedDetents: [0.25, 0.5, 0.75, 1],
+            sheetInitialDetentIndex: 2,
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 24,
+            // Enable expanding the sheet when scrolled to the edge (iOS only).
+            sheetExpandsWhenScrolledToEdge: true,
+            gestureEnabled: true,
+            // Remove header from the modal since the article page sets its own title
+            headerShown: false,
           }}
         />
       </Stack>

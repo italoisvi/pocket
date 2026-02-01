@@ -1,7 +1,23 @@
-import { View, Text, StyleSheet, ImageBackground, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ImageBackground,
+  TouchableOpacity,
+  Image,
+} from 'react-native';
 import { useTheme } from '@/lib/theme';
+import { getTimeAgo } from '@/lib/news-service';
+import { getSourceLogo, cleanSourceName } from '@/lib/news-sources';
 import type { NewsItem } from '@/types/feed';
+
+//
+// NewsCard
+//
+// A redesigned news card that matches the updated look and feel of the Pocket feed.
+// The card shows an optional image at the top with a gradient overlay, a category badge,
+// the headline with optional keyword highlighting, an optional summary, and a footer
+// displaying the news source and the relative publication time.
 
 type NewsCardProps = {
   news: NewsItem;
@@ -9,24 +25,20 @@ type NewsCardProps = {
 };
 
 export function NewsCard({ news, onPress }: NewsCardProps) {
-  const { isDark } = useTheme();
+  const { theme, isDark } = useTheme();
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  // Detectar palavras-chave para highlight
-  const highlightKeywords = ['digital', 'innovation', 'fund', 'aplicações', 'economia'];
+  // Detect keywords to highlight inside the title. Keep existing keywords for emphasis.
+  const highlightKeywords = [
+    'digital',
+    'innovation',
+    'fund',
+    'aplicações',
+    'economia',
+  ];
   const titleUpper = news.title.toUpperCase();
 
   const renderTitle = () => {
-    // Procurar por palavras-chave no título
-    let highlightedText = null;
+    let highlightedText: React.ReactNode = null;
     for (const keyword of highlightKeywords) {
       const keywordUpper = keyword.toUpperCase();
       if (titleUpper.includes(keywordUpper)) {
@@ -43,133 +55,184 @@ export function NewsCard({ news, onPress }: NewsCardProps) {
         }
       }
     }
-
     return (
-      <Text style={styles.title}>
-        {highlightedText || titleUpper}
+      <Text
+        style={[styles.title, { color: theme.text }]}
+        numberOfLines={3}
+        ellipsizeMode="tail"
+      >
+        {highlightedText || news.title}
       </Text>
     );
   };
 
   const Container = onPress ? TouchableOpacity : View;
 
+  // Calculate relative time (e.g., "há 2h") for the news timestamp.
+  const timeAgo = getTimeAgo(news.publishedAt);
+
+  // Get source logo if available
+  const sourceLogo = getSourceLogo(news.source);
+
   return (
     <Container
       style={[
-        styles.container,
+        styles.card,
         {
+          backgroundColor: theme.card,
+          borderColor: theme.cardBorder,
           shadowColor: isDark ? '#fff' : '#000',
         },
       ]}
       onPress={onPress}
-      activeOpacity={onPress ? 0.8 : 1}
+      activeOpacity={onPress ? 0.7 : 1}
     >
-      <ImageBackground
-        source={
-          news.imageUrl
-            ? { uri: news.imageUrl }
-            : undefined
-        }
-        style={[
-          styles.imageBackground,
-          !news.imageUrl && { backgroundColor: '#1F2937' },
-        ]}
-        imageStyle={styles.image}
-      >
-        {/* Overlay gradiente para legibilidade */}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.85)']}
-          style={styles.overlay}
-        />
-
-        {/* Conteúdo */}
-        <View style={styles.content}>
-          {/* Badge de categoria */}
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>NEWS UPDATE</Text>
-          </View>
-
-          {/* Título com highlight */}
-          {renderTitle()}
-
-          {/* Footer com linha e data */}
-          <View style={styles.footer}>
-            <View style={styles.sourceLine} />
-            <Text style={styles.date}>{formatDate(news.publishedAt)}</Text>
+      {/* Header com logo da fonte (estilo Instagram) */}
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          {sourceLogo ? (
+            <Image source={sourceLogo} style={styles.sourceLogo} />
+          ) : (
+            <View
+              style={[
+                styles.sourceLogoPlaceholder,
+                { backgroundColor: theme.primary },
+              ]}
+            >
+              <Text style={styles.sourceLogoText}>
+                {news.source.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={styles.headerTextContainer}>
+            <Text
+              style={[styles.headerSourceName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {cleanSourceName(news.source)}
+            </Text>
+            <Text style={[styles.headerTime, { color: theme.textSecondary }]}>
+              {timeAgo}
+            </Text>
           </View>
         </View>
-      </ImageBackground>
+      </View>
+
+      {/* Top image section */}
+      {news.imageUrl ? (
+        <ImageBackground
+          source={{ uri: news.imageUrl }}
+          style={styles.imageContainer}
+          imageStyle={styles.imageStyle}
+        />
+      ) : (
+        // Placeholder when there is no image
+        <View
+          style={[
+            styles.imageContainer,
+            { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' },
+          ]}
+        />
+      )}
+      {/* Main content */}
+      <View style={styles.contentWrapper}>
+        {renderTitle()}
+        {news.summary ? (
+          <Text
+            style={[styles.summary, { color: theme.textSecondary }]}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {news.summary}
+          </Text>
+        ) : null}
+      </View>
     </Container>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
+  card: {
+    borderRadius: 0,
     overflow: 'hidden',
-    height: 420,
-    // Sombra profunda
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1,
+    marginHorizontal: 0,
+    marginBottom: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  imageBackground: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  image: {
-    // Edge to edge - sem border radius
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  content: {
-    padding: 24,
-    paddingBottom: 28,
-  },
-  categoryBadge: {
-    alignSelf: 'center',
-    backgroundColor: '#FFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginBottom: 20,
-  },
-  categoryText: {
-    fontSize: 12,
-    fontFamily: 'DMSans-Bold',
-    color: '#1F2937',
-    letterSpacing: 1.2,
-  },
-  title: {
-    fontSize: 20,
-    fontFamily: 'DMSans-Bold',
-    color: '#FFF',
-    lineHeight: 28,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  titleHighlight: {
-    color: '#3B82F6',
-    backgroundColor: 'rgba(59, 130, 246, 0.25)',
-    paddingHorizontal: 4,
-  },
-  footer: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  sourceLine: {
-    width: 50,
-    height: 3,
-    backgroundColor: '#FFF',
-    borderRadius: 2,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
-  date: {
-    fontSize: 13,
+  sourceLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    resizeMode: 'cover',
+  },
+  sourceLogoPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sourceLogoText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'DMSans-Bold',
+  },
+  headerTextContainer: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  headerSourceName: {
+    fontSize: 14,
     fontFamily: 'DMSans-SemiBold',
-    color: '#FFF',
-    fontStyle: 'italic',
+  },
+  headerTime: {
+    fontSize: 12,
+    fontFamily: 'DMSans-Regular',
+  },
+  imageContainer: {
+    height: 300,
+    justifyContent: 'flex-end',
+  },
+  imageStyle: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+  },
+  contentWrapper: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: 'DMSans-Bold',
+    marginBottom: 8,
+  },
+  titleHighlight: {
+    color: '#3B82F6',
+    backgroundColor: 'rgba(59,130,246,0.15)',
+    paddingHorizontal: 4,
+  },
+  summary: {
+    fontSize: 14,
+    fontFamily: 'DMSans-Regular',
+    lineHeight: 20,
   },
 });

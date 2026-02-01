@@ -6,16 +6,12 @@ import {
   Alert,
   FlatList,
   Text,
-  Image,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import { UsuarioIcon } from '@/components/UsuarioIcon';
 import { ChevronRightIcon } from '@/components/ChevronRightIcon';
 import { ChevronDownIcon } from '@/components/ChevronDownIcon';
-import { EyeIcon } from '@/components/EyeIcon';
-import { EyeOffIcon } from '@/components/EyeOffIcon';
 import { ExpenseCard } from '@/components/ExpenseCard';
 import { SalarySetupModal } from '@/components/SalarySetupModal';
 import { PaywallModal } from '@/components/PaywallModal';
@@ -25,10 +21,8 @@ import {
   markHomeTutorialShown,
 } from '@/components/HomeTutorial';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/formatCurrency';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/lib/theme';
-import { getCardShadowStyle } from '@/lib/cardStyles';
 import {
   calculateTotalBalance,
   type BalanceSource,
@@ -550,66 +544,11 @@ export default function ComprovantesScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView
         edges={['top']}
-        style={[styles.topBar, { backgroundColor: theme.background }]}
+        style={{ backgroundColor: theme.background }}
       >
-        <View style={styles.salaryContainer}>
-          <TouchableOpacity
-            style={styles.salaryTouchable}
-            onPress={() => {
-              // Se ainda está verificando premium, vai direto (será verificado na tela)
-              // Se já verificou e é premium, vai direto
-              // Se já verificou e não é premium, mostra paywall
-              if (premiumLoading || isPremium) {
-                router.push('/financial-overview');
-              } else {
-                setShowPaywall(true);
-              }
-            }}
-          >
-            {renderSalaryValue()}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.eyeButton}
-            onPress={() => setSalaryVisible(!salaryVisible)}
-          >
-            {salaryVisible ? (
-              <EyeIcon size={20} color={theme.textSecondary} />
-            ) : (
-              <EyeOffIcon size={20} color={theme.textSecondary} />
-            )}
-          </TouchableOpacity>
-        </View>
-        <View style={styles.spacer} />
-        <TouchableOpacity
-          style={[
-            styles.headerButton,
-            {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
-            getCardShadowStyle(isDark),
-          ]}
-          onPress={() => router.push('/perfil')}
-        >
-          {profileImage ? (
-            <Image
-              source={{ uri: profileImage }}
-              style={styles.profileButtonImage}
-              onError={(error) => {
-                console.error(
-                  '[Comprovantes] Image load error:',
-                  error.nativeEvent
-                );
-                setProfileImage(null);
-              }}
-              onLoad={() => {
-                console.log('[Comprovantes] Image loaded successfully!');
-              }}
-            />
-          ) : (
-            <UsuarioIcon size={24} color={theme.text} />
-          )}
-        </TouchableOpacity>
+        <Text style={[styles.pageTitle, { color: theme.text }]}>
+          Comprovantes
+        </Text>
       </SafeAreaView>
 
       {loading ? (
@@ -705,52 +644,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  salaryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  salaryTouchable: {
-    paddingVertical: 4,
-  },
-  salaryText: {
-    fontSize: 30,
-    fontFamily: 'DMSans-Regular',
-  },
-  eyeButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  spacer: {
-    flex: 1,
-  },
-  headerButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  profileButtonImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 24,
+  pageTitle: {
+    fontSize: 20,
+    fontFamily: 'DMSans-SemiBold',
+    textAlign: 'center',
+    paddingVertical: 12,
   },
   loadingContainer: {
     flex: 1,
@@ -776,7 +674,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingTop: 130,
     paddingBottom: 100,
   },
   monthHeader: {

@@ -82,7 +82,8 @@
       "Bash(find:*)",
       "Bash(while read f)",
       "Bash(do grep -l \"try\\\\|catch\" \"$f\")",
-      "Bash(done)"
+      "Bash(done)",
+      "WebFetch(domain:finnhub.io)"
     ]
   }
 }

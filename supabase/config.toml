@@ -39,3 +39,6 @@ verify_jwt = false
 
 [functions.connect-bank]
 verify_jwt = false
+
+[functions.get-market-data]
+verify_jwt = false

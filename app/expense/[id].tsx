@@ -107,8 +107,8 @@ export default function ExpenseDetailScreen() {
 
       if (error) throw error;
 
-      // Navigate back to home
-      router.replace('/(tabs)/home');
+      // Navigate back to comprovantes
+      router.replace('/(tabs)/comprovantes');
     } catch (error) {
       console.error('Erro ao deletar gasto:', error);
       Alert.alert('Erro', 'Não foi possível deletar o gasto. Tente novamente.');
@@ -155,7 +155,7 @@ export default function ExpenseDetailScreen() {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.replace('/(tabs)/home')}
+            onPress={() => router.back()}
           >
             <ChevronLeftIcon size={20} color={theme.text} />
           </TouchableOpacity>

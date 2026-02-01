@@ -31,9 +31,9 @@ export function FeedCard({ children, onPress }: FeedCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 16,
-    marginHorizontal: 16,
+    marginHorizontal: 0,
     marginBottom: 12,
     borderWidth: 1,
     shadowOffset: { width: 0, height: 2 },
