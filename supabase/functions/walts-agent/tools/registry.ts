@@ -1649,6 +1649,84 @@ USE ESTA FERRAMENTA QUANDO:
       },
     },
   },
+  // ============================================================================
+  // NEWS AND MARKET CONTEXT TOOLS
+  // ============================================================================
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_financial_news',
+      description: `Busca noticias financeiras recentes que podem impactar as financas do usuario.
+
+USE ESTA FERRAMENTA QUANDO:
+- Usuario perguntar sobre noticias ou mercado financeiro
+- Usuario perguntar "o que esta acontecendo na economia?"
+- Usuario quiser saber se algo pode afetar suas financas
+- Voce precisar contextualizar uma resposta sobre investimentos ou economia
+- Usuario perguntar sobre Selic, inflacao, dolar, bolsa, combustiveis
+- Ao dar conselhos financeiros, para embasar com contexto atual
+
+RETORNA:
+- Lista de noticias financeiras recentes (ultimos 3 dias)
+- Cada noticia categorizada por tipo (taxas, inflacao, investimentos, custos_vida)
+- Nivel de impacto potencial nas financas pessoais
+- Fonte e data da publicacao
+
+DICA: Use as noticias para personalizar seus conselhos financeiros baseado no cenario economico atual.`,
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: {
+            type: 'number',
+            description:
+              'Quantidade de noticias a buscar (padrao 10, maximo 20)',
+          },
+          focus: {
+            type: 'string',
+            description: 'Foco especifico de busca (opcional)',
+            enum: [
+              'selic',
+              'inflacao',
+              'dolar',
+              'bolsa',
+              'combustiveis',
+              'investimentos',
+            ],
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_market_indicators',
+      description: `Busca indicadores de mercado em tempo real (bolsas, acoes, crypto).
+
+USE ESTA FERRAMENTA QUANDO:
+- Usuario perguntar sobre bolsa de valores, acoes, ou indices
+- Usuario perguntar "como esta o mercado hoje?"
+- Usuario perguntar sobre Bitcoin, Ethereum, ou criptomoedas
+- Usuario mencionar S&P 500, Nasdaq, Dow Jones, Ibovespa
+- Usuario perguntar sobre acoes especificas (Apple, Tesla, etc)
+- Voce precisar contextualizar sobre investimentos em renda variavel
+
+RETORNA:
+- Indices principais (S&P 500, Nasdaq, Dow Jones, Brasil/EWZ)
+- Acoes populares (Apple, Microsoft, Google, Amazon, Tesla, Nvidia)
+- Criptomoedas (Bitcoin, Ethereum)
+- Preco atual, variacao do dia, e tendencia
+- Resumo geral do mercado
+
+DICA: Use junto com get_financial_news para dar contexto completo sobre o cenario economico.`,
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ] as const;
 
 export type ToolName = (typeof TOOL_DEFINITIONS)[number]['function']['name'];

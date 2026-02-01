@@ -15,11 +15,6 @@ import { ChevronDownIcon } from '@/components/ChevronDownIcon';
 import { ExpenseCard } from '@/components/ExpenseCard';
 import { SalarySetupModal } from '@/components/SalarySetupModal';
 import { PaywallModal } from '@/components/PaywallModal';
-import {
-  HomeTutorial,
-  shouldShowHomeTutorial,
-  markHomeTutorialShown,
-} from '@/components/HomeTutorial';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/lib/theme';
@@ -74,12 +69,10 @@ export default function ComprovantesScreen() {
   const [calculatedBalance, setCalculatedBalance] = useState<number>(0);
   const [balanceSource, setBalanceSource] = useState<BalanceSource>('manual');
   const [incomeCards, setIncomeCards] = useState<IncomeCard[]>([]);
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [tutorialChecked, setTutorialChecked] = useState(false);
 
   useEffect(() => {
     loadProfile();
-    initializeNotificationsAndTutorial();
+    initializeNotifications();
 
     // Escutar eventos de sincronização para recarregar dados
     const unsubscribe = syncEvents.subscribe(() => {
@@ -93,7 +86,7 @@ export default function ComprovantesScreen() {
     };
   }, []);
 
-  const initializeNotificationsAndTutorial = async () => {
+  const initializeNotifications = async () => {
     try {
       const {
         data: { user },
@@ -103,31 +96,8 @@ export default function ComprovantesScreen() {
 
       // Inicializar notificações periódicas (motivacionais a cada 6h, sync a cada 3h)
       await initializePeriodicNotifications(supabase, user.id);
-
-      // Verificar se deve mostrar tutorial
-      const shouldShow = await shouldShowHomeTutorial(user.id);
-      if (shouldShow && !tutorialChecked) {
-        setShowTutorial(true);
-      }
-      setTutorialChecked(true);
     } catch (error) {
       console.error('[Comprovantes] Erro ao inicializar:', error);
-    }
-  };
-
-  const handleTutorialComplete = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        await markHomeTutorialShown(user.id);
-      }
-      setShowTutorial(false);
-    } catch (error) {
-      console.error('[Comprovantes] Erro ao finalizar tutorial:', error);
-      setShowTutorial(false);
     }
   };
 
@@ -443,52 +413,8 @@ export default function ComprovantesScreen() {
     }
   };
 
-  const renderSalaryValue = () => {
-    const formatted = formatCurrency(calculatedBalance);
-    const currencySymbol = 'R$ ';
-    // formatCurrency retorna "R$\u00A0" (espaço não-quebrável), precisamos remover isso
-    const numberPart = formatted.replace(/^R\$\s*/u, '');
-    const barColor = isDark ? '#fff' : '#000';
-
-    return (
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={[styles.salaryText, { color: theme.text }]}>
-          {currencySymbol}
-        </Text>
-        {salaryVisible ? (
-          <Text style={[styles.salaryText, { color: theme.text }]}>
-            {numberPart}
-          </Text>
-        ) : (
-          <View
-            style={{
-              backgroundColor: barColor,
-              height: 24,
-              borderRadius: 4,
-              justifyContent: 'center',
-              overflow: 'hidden',
-            }}
-          >
-            <Text
-              style={[
-                styles.salaryText,
-                { color: 'transparent', includeFontPadding: false },
-              ]}
-            >
-              {numberPart}
-            </Text>
-          </View>
-        )}
-      </View>
-    );
-  };
-
   const handleExpensePress = (id: string) => {
     router.push(`/expense/${id}`);
-  };
-
-  const handleSettingsPress = () => {
-    router.push('/(tabs)/settings');
   };
 
   const toggleMonth = (monthKey: string) => {
@@ -631,11 +557,6 @@ export default function ComprovantesScreen() {
         subtitle="Análises detalhadas e insights sobre suas finanças"
       />
 
-      {/* Tutorial para novos usuários */}
-      <HomeTutorial
-        visible={showTutorial}
-        onComplete={handleTutorialComplete}
-      />
     </View>
   );
 }

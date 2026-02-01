@@ -70,6 +70,10 @@ import {
   suggestCategoriesToCut,
   getCashflowPrediction,
 } from './implementations/suggestions.ts';
+import {
+  getFinancialNews,
+  getMarketIndicators,
+} from './implementations/news.ts';
 
 // ============================================================================
 // Types
@@ -178,6 +182,8 @@ const SUGGESTIONS_TOOLS = new Set([
   'get_cashflow_prediction',
 ]);
 
+const NEWS_TOOLS = new Set(['get_financial_news', 'get_market_indicators']);
+
 function isFinancialTool(name: string): boolean {
   return FINANCIAL_TOOLS.has(name);
 }
@@ -228,6 +234,10 @@ function isReportsTool(name: string): boolean {
 
 function isSuggestionsTool(name: string): boolean {
   return SUGGESTIONS_TOOLS.has(name);
+}
+
+function isNewsTool(name: string): boolean {
+  return NEWS_TOOLS.has(name);
 }
 
 // ============================================================================
@@ -302,6 +312,8 @@ export async function executeTool(
       result = await executeReportsTool(toolName, params, toolContext);
     } else if (isSuggestionsTool(toolName)) {
       result = await executeSuggestionsTool(toolName, params, toolContext);
+    } else if (isNewsTool(toolName)) {
+      result = await executeNewsTool(toolName, params, toolContext);
     } else {
       result = {
         success: false,
@@ -855,6 +867,29 @@ async function executeSuggestionsTool(
       return {
         success: false,
         error: `Ferramenta de sugestoes desconhecida: ${toolName}`,
+      };
+  }
+}
+
+async function executeNewsTool(
+  toolName: string,
+  params: Record<string, unknown>,
+  context: { userId: UserId; supabase: SupabaseClient }
+): Promise<Omit<ToolResult, 'executionTimeMs'>> {
+  switch (toolName) {
+    case 'get_financial_news':
+      return await getFinancialNews(
+        params as { limit?: number; focus?: string },
+        context
+      );
+
+    case 'get_market_indicators':
+      return await getMarketIndicators(params, context);
+
+    default:
+      return {
+        success: false,
+        error: `Ferramenta de noticias desconhecida: ${toolName}`,
       };
   }
 }
