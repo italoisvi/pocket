@@ -107,7 +107,11 @@ async function fetchMarketDataGlobal() {
       throw fnError;
     }
 
-    if (response?.data && Array.isArray(response.data) && response.data.length > 0) {
+    if (
+      response?.data &&
+      Array.isArray(response.data) &&
+      response.data.length > 0
+    ) {
       globalCache.data = response.data;
       globalCache.failCount = 0;
       globalCache.lastFetch = Date.now();

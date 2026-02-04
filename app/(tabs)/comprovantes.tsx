@@ -556,7 +556,6 @@ export default function ComprovantesScreen() {
         title="Raio-X Financeiro Premium"
         subtitle="Análises detalhadas e insights sobre suas finanças"
       />
-
     </View>
   );
 }

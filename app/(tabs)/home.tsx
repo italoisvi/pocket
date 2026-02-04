@@ -85,7 +85,7 @@ export default function HomeScreen() {
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   // Animação do ticker - para na safe area
   const tickerTranslateY = useRef(new Animated.Value(0)).current;
-  
+
   const lastScrollY = useRef(0);
   const headerVisible = useRef(true);
 
@@ -113,7 +113,7 @@ export default function HomeScreen() {
       if (diff > 0 && headerVisible.current && currentScrollY > 50) {
         // Scrollando pra baixo - esconde header
         headerVisible.current = false;
-        
+
         // Header (saldo + foto) some completamente
         Animated.spring(headerTranslateY, {
           toValue: -(insets.top + HEADER_CONTENT_HEIGHT),
@@ -121,7 +121,7 @@ export default function HomeScreen() {
           damping: 20,
           stiffness: 200,
         }).start();
-        
+
         // Ticker sobe, mas para logo abaixo da safe area
         Animated.spring(tickerTranslateY, {
           toValue: -HEADER_CONTENT_HEIGHT,
@@ -132,14 +132,14 @@ export default function HomeScreen() {
       } else if (diff < 0 && !headerVisible.current) {
         // Scrollando pra cima - mostra tudo
         headerVisible.current = true;
-        
+
         Animated.spring(headerTranslateY, {
           toValue: 0,
           useNativeDriver: true,
           damping: 20,
           stiffness: 200,
         }).start();
-        
+
         Animated.spring(tickerTranslateY, {
           toValue: 0,
           useNativeDriver: true,
@@ -457,21 +457,21 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Fundo fixo da safe area - sempre visível com cor do tema */}
-      <View 
+      <View
         style={[
-          styles.safeAreaBackground, 
-          { 
-            height: insets.top, 
-            backgroundColor: theme.background 
-          }
-        ]} 
+          styles.safeAreaBackground,
+          {
+            height: insets.top,
+            backgroundColor: theme.background,
+          },
+        ]}
       />
 
       {/* Header (saldo + foto) - animação independente, some completamente */}
       <Animated.View
         style={[
           styles.topBar,
-          { 
+          {
             backgroundColor: theme.background,
             paddingTop: insets.top,
           },

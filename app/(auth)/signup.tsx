@@ -74,7 +74,6 @@ export default function SignupScreen() {
       return;
     }
 
-    // Salvar nome no perfil (upsert para garantir que funcione mesmo se o trigger falhar)
     if (data.user) {
       const { error: profileError } = await supabase
         .from('profiles')
@@ -82,6 +81,23 @@ export default function SignupScreen() {
 
       if (profileError) {
         console.error('Error upserting profile:', profileError);
+      }
+
+      const { data: kiwifyPurchase } = await supabase
+        .from('kiwify_purchases')
+        .select('access_until')
+        .eq('email', email.toLowerCase().trim())
+        .eq('status', 'approved')
+        .gt('access_until', new Date().toISOString())
+        .order('access_until', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (kiwifyPurchase) {
+        await supabase
+          .from('profiles')
+          .update({ kiwify_access_until: kiwifyPurchase.access_until })
+          .eq('id', data.user.id);
       }
     }
 
@@ -130,13 +146,32 @@ export default function SignupScreen() {
               formattedName = formatName(emailName.replace(/[._-]/g, ' '));
             }
 
-            // Sempre salvar o nome
             await supabase
               .from('profiles')
               .upsert(
                 { id: data.user.id, name: formattedName },
                 { onConflict: 'id' }
               );
+
+            const userEmail = data.user.email?.toLowerCase().trim();
+            if (userEmail) {
+              const { data: kiwifyPurchase } = await supabase
+                .from('kiwify_purchases')
+                .select('access_until')
+                .eq('email', userEmail)
+                .eq('status', 'approved')
+                .gt('access_until', new Date().toISOString())
+                .order('access_until', { ascending: false })
+                .limit(1)
+                .single();
+
+              if (kiwifyPurchase) {
+                await supabase
+                  .from('profiles')
+                  .update({ kiwify_access_until: kiwifyPurchase.access_until })
+                  .eq('id', data.user.id);
+              }
+            }
           }
 
           router.replace('/(tabs)/home');

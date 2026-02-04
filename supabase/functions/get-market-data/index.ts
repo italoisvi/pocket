@@ -12,8 +12,18 @@ const CACHE_TTL_SECONDS = 60;
 // Free tier funciona bem com: ações US, ETFs, alguns índices
 const MARKET_INDICATORS = [
   // ETFs que rastreiam índices (funcionam no free tier)
-  { symbol: 'SPY', displaySymbol: 'S&P 500', name: 'S&P 500 ETF', type: 'quote' },
-  { symbol: 'QQQ', displaySymbol: 'NASDAQ', name: 'Nasdaq 100 ETF', type: 'quote' },
+  {
+    symbol: 'SPY',
+    displaySymbol: 'S&P 500',
+    name: 'S&P 500 ETF',
+    type: 'quote',
+  },
+  {
+    symbol: 'QQQ',
+    displaySymbol: 'NASDAQ',
+    name: 'Nasdaq 100 ETF',
+    type: 'quote',
+  },
   { symbol: 'DIA', displaySymbol: 'DOW', name: 'Dow Jones ETF', type: 'quote' },
   { symbol: 'EWZ', displaySymbol: 'IBOV', name: 'Brazil ETF', type: 'quote' }, // ETF Brasil
   // Ações populares
@@ -24,8 +34,18 @@ const MARKET_INDICATORS = [
   { symbol: 'TSLA', displaySymbol: 'TSLA', name: 'Tesla', type: 'quote' },
   { symbol: 'NVDA', displaySymbol: 'NVDA', name: 'Nvidia', type: 'quote' },
   // Crypto via Coinbase (disponível no free tier)
-  { symbol: 'COINBASE:BTC-USD', displaySymbol: 'BTC', name: 'Bitcoin', type: 'crypto' },
-  { symbol: 'COINBASE:ETH-USD', displaySymbol: 'ETH', name: 'Ethereum', type: 'crypto' },
+  {
+    symbol: 'COINBASE:BTC-USD',
+    displaySymbol: 'BTC',
+    name: 'Bitcoin',
+    type: 'crypto',
+  },
+  {
+    symbol: 'COINBASE:ETH-USD',
+    displaySymbol: 'ETH',
+    name: 'Ethereum',
+    type: 'crypto',
+  },
 ];
 
 type MarketData = {
@@ -171,7 +191,9 @@ async function fetchAllMarketData(): Promise<MarketData[]> {
     }
   }
 
-  console.log(`[get-market-data] Successfully fetched ${results.length} indicators`);
+  console.log(
+    `[get-market-data] Successfully fetched ${results.length} indicators`
+  );
   return results;
 }
 
@@ -186,7 +208,9 @@ async function fetchIndicator(
 
     const response = await fetch(url);
     if (!response.ok) {
-      console.error(`[get-market-data] Quote API error for ${indicator.symbol}: ${response.status}`);
+      console.error(
+        `[get-market-data] Quote API error for ${indicator.symbol}: ${response.status}`
+      );
       return null;
     }
 
@@ -215,7 +239,9 @@ async function fetchIndicator(
 
     const response = await fetch(url);
     if (!response.ok) {
-      console.error(`[get-market-data] Crypto API error for ${indicator.symbol}: ${response.status}`);
+      console.error(
+        `[get-market-data] Crypto API error for ${indicator.symbol}: ${response.status}`
+      );
       return null;
     }
 

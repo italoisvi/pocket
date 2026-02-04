@@ -15,18 +15,56 @@ export type Database = {
           created_at: string;
           name: string | null;
           avatar_url: string | null;
+          kiwify_access_until: string | null;
         };
         Insert: {
           id: string;
           created_at?: string;
           name?: string | null;
           avatar_url?: string | null;
+          kiwify_access_until?: string | null;
         };
         Update: {
           id?: string;
           created_at?: string;
           name?: string | null;
           avatar_url?: string | null;
+          kiwify_access_until?: string | null;
+        };
+      };
+      kiwify_purchases: {
+        Row: {
+          id: string;
+          transaction_id: string;
+          email: string;
+          product_name: string;
+          status: string;
+          purchased_at: string;
+          access_until: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          transaction_id: string;
+          email: string;
+          product_name: string;
+          status: string;
+          purchased_at: string;
+          access_until: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          transaction_id?: string;
+          email?: string;
+          product_name?: string;
+          status?: string;
+          purchased_at?: string;
+          access_until?: string;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       conversations: {
