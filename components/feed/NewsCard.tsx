@@ -9,6 +9,7 @@ import {
 import { useTheme } from '@/lib/theme';
 import { getTimeAgo } from '@/lib/news-service';
 import { getSourceLogo, cleanSourceName } from '@/lib/news-sources';
+import { trackNewsClick } from '@/lib/news-tracking';
 import type { NewsItem } from '@/types/feed';
 
 //
@@ -26,6 +27,16 @@ type NewsCardProps = {
 
 export function NewsCard({ news, onPress }: NewsCardProps) {
   const { theme, isDark } = useTheme();
+
+  // Handle press with tracking
+  const handlePress = () => {
+    // Track the click (fire and forget)
+    if (news.url) {
+      trackNewsClick(news.url, news.title, news.source);
+    }
+    // Call the original onPress
+    onPress?.();
+  };
 
   // Detect keywords to highlight inside the title. Keep existing keywords for emphasis.
   const highlightKeywords = [
@@ -67,6 +78,7 @@ export function NewsCard({ news, onPress }: NewsCardProps) {
   };
 
   const Container = onPress ? TouchableOpacity : View;
+  const containerOnPress = onPress ? handlePress : undefined;
 
   // Calculate relative time (e.g., "há 2h") for the news timestamp.
   const timeAgo = getTimeAgo(news.publishedAt);
@@ -84,7 +96,7 @@ export function NewsCard({ news, onPress }: NewsCardProps) {
           shadowColor: isDark ? '#fff' : '#000',
         },
       ]}
-      onPress={onPress}
+      onPress={containerOnPress}
       activeOpacity={onPress ? 0.7 : 1}
     >
       {/* Header com logo da fonte (estilo Instagram) */}

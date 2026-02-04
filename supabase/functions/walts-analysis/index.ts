@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
@@ -63,28 +63,28 @@ serve(async (req) => {
     console.log('[walts-analysis] Prompt length:', prompt.length);
 
     // Verificar se API key está configurada
-    if (!DEEPSEEK_API_KEY) {
-      console.error('[walts-analysis] DEEPSEEK_API_KEY not configured');
+    if (!OPENAI_API_KEY) {
+      console.error('[walts-analysis] OPENAI_API_KEY not configured');
       return new Response(
         JSON.stringify({
           error:
-            'DeepSeek API key not configured. Please set DEEPSEEK_API_KEY environment variable.',
+            'OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.',
         }),
         { status: 500, headers }
       );
     }
 
-    // Chamar DeepSeek para análise
+    // Chamar OpenAI para análise
     const response = await fetch(
-      'https://api.deepseek.com/v1/chat/completions',
+      'https://api.openai.com/v1/chat/completions',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'system',
@@ -116,7 +116,7 @@ Responda SEMPRE em português do Brasil.`,
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[walts-analysis] DeepSeek API error:', errorText);
+      console.error('[walts-analysis] OpenAI API error:', errorText);
       throw new Error('Failed to generate analysis');
     }
 

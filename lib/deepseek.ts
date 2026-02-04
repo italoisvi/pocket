@@ -1,5 +1,14 @@
-const DEEPSEEK_API_KEY = 'sk-59bfb3091a144736aa266745ac79f595';
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
+import Constants from 'expo-constants';
+
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+
+function getOpenAIApiKey(): string {
+  const apiKey = Constants.expoConfig?.extra?.openaiApiKey;
+  if (!apiKey) {
+    throw new Error('OpenAI API key not configured. Please set EXPO_PUBLIC_OPENAI_API_KEY.');
+  }
+  return apiKey;
+}
 
 export type MessageAttachment = {
   id: string;
@@ -313,14 +322,14 @@ export async function sendMessageToDeepSeek(
       })),
     ];
 
-    const response = await fetch(DEEPSEEK_API_URL, {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+        Authorization: `Bearer ${getOpenAIApiKey()}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: 'gpt-4o-mini',
         messages: apiMessages,
         temperature: 0.7,
         max_tokens: 1000,
@@ -329,14 +338,14 @@ export async function sendMessageToDeepSeek(
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('DeepSeek API Error:', error);
+      console.error('OpenAI API Error:', error);
       throw new Error('Erro ao comunicar com Walts');
     }
 
     const data = await response.json();
     return data.choices[0].message.content;
   } catch (error) {
-    console.error('Error sending message to DeepSeek:', error);
+    console.error('Error sending message to OpenAI:', error);
     throw new Error('Não foi possível enviar a mensagem. Tente novamente.');
   }
 }

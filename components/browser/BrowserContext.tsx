@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import { Animated, Dimensions, PanResponder } from 'react-native';
 import type { PanResponderInstance } from 'react-native';
+import { trackNewsReadComplete } from '@/lib/news-tracking';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -43,6 +44,10 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({
   const [showToolbar, setShowToolbar] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Tracking de tempo de leitura
+  const openTimeRef = useRef<number>(0);
+  const currentUrlRef = useRef<string | null>(null);
+
   // App move para BAIXO (valor positivo = desce)
   const appTranslateY = useRef(new Animated.Value(0)).current;
   // Browser começa escondido abaixo da tela
@@ -66,6 +71,25 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({
   const closeBrowser = useCallback(() => {
     isBrowserOpen.current = false;
     setShowToolbar(false);
+
+    // Track reading time when closing browser
+    if (currentUrlRef.current && openTimeRef.current > 0) {
+      const timeSpentSeconds = Math.round(
+        (Date.now() - openTimeRef.current) / 1000
+      );
+      // Only track if user spent more than 5 seconds (actually reading)
+      if (timeSpentSeconds > 5) {
+        trackNewsReadComplete(
+          currentUrlRef.current,
+          undefined, // title not available here
+          undefined, // source not available here
+          timeSpentSeconds,
+          100 // Assume full scroll
+        );
+      }
+      openTimeRef.current = 0;
+      currentUrlRef.current = null;
+    }
 
     Animated.parallel([
       Animated.spring(appTranslateY, {
@@ -94,6 +118,10 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({
       setShowToolbar(true);
       isBrowserOpen.current = true;
       setIsExpanded(false);
+
+      // Track start time for reading duration
+      openTimeRef.current = Date.now();
+      currentUrlRef.current = url;
 
       Animated.parallel([
         Animated.spring(appTranslateY, {

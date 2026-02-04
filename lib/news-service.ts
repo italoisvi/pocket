@@ -1,8 +1,14 @@
 import type { NewsItem } from '@/types/feed';
+import { getUserContentPreferences } from './news-tracking';
 
 // NewsAPI - requer chave gratuita (https://newsapi.org/)
 const NEWS_API_KEY = '85147733ecf54ebab10d0a3bfe86a2ff';
 const NEWS_API_BASE = 'https://newsapi.org/v2';
+
+// Cache de preferências do usuário (atualiza a cada 5 minutos)
+let cachedPreferences: Map<string, number> = new Map();
+let lastPreferencesFetch = 0;
+const PREFERENCES_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 // Buscar notícias de finanças do Brasil via NewsAPI
 // Suporta paginação via parâmetro page (página atual)
@@ -75,7 +81,11 @@ export async function getFinanceNews(page: number = 1): Promise<NewsItem[]> {
     );
 
   // Intercala notícias para evitar sequências da mesma fonte
-  return interleaveBySource(articles);
+  const interleaved = interleaveBySource(articles);
+
+  // Rankeia baseado nas preferências do usuário
+  const preferences = await loadUserPreferences();
+  return rankByPreferences(interleaved, preferences);
 }
 
 // Limpa o título removendo sufixos comuns de fonte
@@ -120,6 +130,138 @@ function cleanSummary(
   }
 
   return cleaned;
+}
+
+// Detecta o tópico de uma notícia baseado no título
+function detectTopic(title: string): string {
+  const lowerTitle = title.toLowerCase();
+
+  if (
+    lowerTitle.includes('bitcoin') ||
+    lowerTitle.includes('btc') ||
+    lowerTitle.includes('ethereum') ||
+    lowerTitle.includes('cripto') ||
+    lowerTitle.includes('blockchain')
+  ) {
+    return 'crypto';
+  }
+
+  if (
+    lowerTitle.includes('ibovespa') ||
+    lowerTitle.includes('b3') ||
+    lowerTitle.includes('ações') ||
+    lowerTitle.includes('bolsa') ||
+    lowerTitle.includes('dividendo') ||
+    lowerTitle.includes('fiis')
+  ) {
+    return 'acoes';
+  }
+
+  if (
+    lowerTitle.includes('selic') ||
+    lowerTitle.includes('inflação') ||
+    lowerTitle.includes('ipca') ||
+    lowerTitle.includes('pib') ||
+    lowerTitle.includes('juros') ||
+    lowerTitle.includes('copom') ||
+    lowerTitle.includes('banco central')
+  ) {
+    return 'economia';
+  }
+
+  if (
+    lowerTitle.includes('dólar') ||
+    lowerTitle.includes('câmbio') ||
+    lowerTitle.includes('euro') ||
+    lowerTitle.includes('moeda')
+  ) {
+    return 'cambio';
+  }
+
+  if (
+    lowerTitle.includes('investimento') ||
+    lowerTitle.includes('renda fixa') ||
+    lowerTitle.includes('tesouro direto') ||
+    lowerTitle.includes('cdb') ||
+    lowerTitle.includes('poupança')
+  ) {
+    return 'investimentos';
+  }
+
+  if (
+    lowerTitle.includes('petrobras') ||
+    lowerTitle.includes('vale') ||
+    lowerTitle.includes('itaú') ||
+    lowerTitle.includes('bradesco') ||
+    lowerTitle.includes('nubank') ||
+    lowerTitle.includes('empresa') ||
+    lowerTitle.includes('lucro')
+  ) {
+    return 'empresas';
+  }
+
+  if (
+    lowerTitle.includes('governo') ||
+    lowerTitle.includes('haddad') ||
+    lowerTitle.includes('ministro') ||
+    lowerTitle.includes('reforma') ||
+    lowerTitle.includes('fiscal')
+  ) {
+    return 'politica_economica';
+  }
+
+  return 'mercado';
+}
+
+// Carrega preferências do usuário com cache
+async function loadUserPreferences(): Promise<Map<string, number>> {
+  const now = Date.now();
+
+  // Usar cache se ainda for válido
+  if (cachedPreferences.size > 0 && now - lastPreferencesFetch < PREFERENCES_CACHE_TTL) {
+    return cachedPreferences;
+  }
+
+  try {
+    const preferences = await getUserContentPreferences();
+    cachedPreferences = new Map(preferences.map((p) => [p.topic, p.score]));
+    lastPreferencesFetch = now;
+  } catch (error) {
+    console.error('[news-service] Error loading preferences:', error);
+    // Manter cache antigo em caso de erro
+  }
+
+  return cachedPreferences;
+}
+
+// Rankeia notícias baseado nas preferências do usuário
+function rankByPreferences(
+  news: NewsItem[],
+  preferences: Map<string, number>
+): NewsItem[] {
+  if (preferences.size === 0) {
+    return news;
+  }
+
+  // Adiciona score de relevância a cada notícia
+  const scored = news.map((item) => {
+    const topic = detectTopic(item.title);
+    const preferenceScore = preferences.get(topic) || 0.5;
+    return { item, score: preferenceScore };
+  });
+
+  // Ordena por score (maior primeiro), mas mantém alguma diversidade
+  // usando um shuffle parcial para não ficar 100% determinístico
+  scored.sort((a, b) => {
+    // Se a diferença de score for significativa (>0.2), ordena por score
+    if (Math.abs(a.score - b.score) > 0.2) {
+      return b.score - a.score;
+    }
+    // Se não, mantém ordem original (cronológica) com pequena aleatoriedade
+    return Math.random() - 0.5;
+  });
+
+  return scored.map((s) => s.item);
 }
 
 // Intercala notícias de diferentes fontes para evitar sequências da mesma fonte

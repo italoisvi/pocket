@@ -416,6 +416,36 @@ serve(async (req) => {
       `[pluggy-sync-transactions] Sync completed: ${savedCount} saved, ${skippedCount} skipped, ${categorizedCount} categorized`
     );
 
+    // Trigger detect-patterns if we saved new transactions
+    if (savedCount > 0) {
+      try {
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        if (serviceKey) {
+          console.log(
+            `[pluggy-sync-transactions] Triggering detect-patterns for user ${user.id}`
+          );
+          fetch(`${SUPABASE_URL}/functions/v1/detect-patterns`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({ userId: user.id }),
+          }).catch((err) => {
+            console.error(
+              '[pluggy-sync-transactions] Failed to trigger detect-patterns:',
+              err
+            );
+          });
+        }
+      } catch (detectErr) {
+        console.error(
+          '[pluggy-sync-transactions] Error triggering detect-patterns:',
+          detectErr
+        );
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

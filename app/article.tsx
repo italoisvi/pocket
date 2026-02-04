@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { useTheme } from '@/lib/theme';
+import { trackNewsReadComplete } from '@/lib/news-tracking';
 
 // Article screen displays a news article inside the app using a WebView.
 // It expects two query parameters: `url` (encoded URL of the article) and
@@ -12,9 +13,12 @@ export default function ArticleScreen() {
   const params = useLocalSearchParams<{
     url?: string | string[];
     title?: string | string[];
+    source?: string | string[];
   }>();
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
+  const startTimeRef = useRef<number>(Date.now());
+  const hasTrackedRef = useRef<boolean>(false);
 
   /**
    * Safely decode a potentially encoded URI component.  The Expo Router may
@@ -38,6 +42,33 @@ export default function ArticleScreen() {
   // Extract and decode the URL and title from the query parameters.
   const pageURL = safeDecode(params.url);
   const pageTitle = safeDecode(params.title) || 'Notícia';
+  const pageSource = safeDecode(params.source);
+
+  // Track reading time when leaving the screen
+  useEffect(() => {
+    startTimeRef.current = Date.now();
+    hasTrackedRef.current = false;
+
+    return () => {
+      // Only track if we have a URL and haven't tracked yet
+      if (pageURL && !hasTrackedRef.current) {
+        const timeSpentSeconds = Math.round(
+          (Date.now() - startTimeRef.current) / 1000
+        );
+        // Only track if user spent more than 5 seconds (actually reading)
+        if (timeSpentSeconds > 5) {
+          hasTrackedRef.current = true;
+          trackNewsReadComplete(
+            pageURL,
+            pageTitle,
+            pageSource,
+            timeSpentSeconds,
+            100 // Assume full scroll since we can't easily track WebView scroll
+          );
+        }
+      }
+    };
+  }, [pageURL, pageTitle, pageSource]);
 
   return (
     <>
