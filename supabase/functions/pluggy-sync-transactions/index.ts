@@ -82,6 +82,132 @@ serve(async (req) => {
 
     const { apiKey } = await apiKeyResponse.json();
 
+    // Buscar dados da conta no banco (incluindo item associado)
+    const { data: accountData } = await supabase
+      .from('pluggy_accounts')
+      .select(
+        'id, item_id, type, pluggy_items(pluggy_item_id)'
+      )
+      .eq('pluggy_account_id', accountId)
+      .single();
+
+    if (!accountData) {
+      return new Response(
+        JSON.stringify({ error: 'Account not found in database' }),
+        { status: 404, headers }
+      );
+    }
+
+    // PASSO 0: Disparar refresh do item na Pluggy (igual ao fluxo da Conta Corrente)
+    const pluggyItemId = (accountData.pluggy_items as any)?.pluggy_item_id;
+
+    if (pluggyItemId) {
+      console.log(
+        `[pluggy-sync-transactions] Triggering item refresh for ${pluggyItemId}`
+      );
+
+      try {
+        const updateResponse = await fetch(
+          `https://api.pluggy.ai/items/${pluggyItemId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'X-API-KEY': apiKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+          }
+        );
+
+        if (!updateResponse.ok) {
+          const errorText = await updateResponse.text();
+          if (updateResponse.status === 429) {
+            console.log(
+              '[pluggy-sync-transactions] Rate limited, proceeding with existing data'
+            );
+          } else {
+            console.log(
+              '[pluggy-sync-transactions] Item update failed, proceeding with existing data:',
+              errorText
+            );
+          }
+        } else {
+          console.log(
+            '[pluggy-sync-transactions] Item update triggered, polling for status...'
+          );
+
+          // Polling até o status mudar para UPDATED (máximo 60 segundos)
+          const maxAttempts = 15;
+          let itemStatus = 'UPDATING';
+
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, 4000));
+
+            const itemResponse = await fetch(
+              `https://api.pluggy.ai/items/${pluggyItemId}`,
+              { headers: { 'X-API-KEY': apiKey } }
+            );
+
+            if (itemResponse.ok) {
+              const itemData = await itemResponse.json();
+              itemStatus = itemData.status;
+              console.log(
+                `[pluggy-sync-transactions] Polling attempt ${attempt}/${maxAttempts}: status = ${itemStatus}`
+              );
+
+              if (
+                itemStatus === 'UPDATED' ||
+                itemStatus === 'LOGIN_ERROR' ||
+                itemStatus === 'OUTDATED'
+              ) {
+                break;
+              }
+            }
+          }
+
+          console.log(
+            `[pluggy-sync-transactions] Item final status: ${itemStatus}`
+          );
+        }
+      } catch (updateError) {
+        console.error(
+          '[pluggy-sync-transactions] Item update error (continuing):',
+          updateError
+        );
+      }
+
+      // Atualizar dados da conta (saldo, limite de crédito) da Pluggy API
+      try {
+        const accountResponse = await fetch(
+          `https://api.pluggy.ai/accounts/${accountId}`,
+          { headers: { 'X-API-KEY': apiKey } }
+        );
+
+        if (accountResponse.ok) {
+          const accountInfo = await accountResponse.json();
+          console.log(
+            `[pluggy-sync-transactions] Updating account data: balance=${accountInfo.balance}`
+          );
+
+          await supabase
+            .from('pluggy_accounts')
+            .update({
+              balance: accountInfo.balance,
+              credit_limit: accountInfo.creditData?.creditLimit,
+              available_credit_limit:
+                accountInfo.creditData?.availableCreditLimit,
+              last_sync_at: new Date().toISOString(),
+            })
+            .eq('id', accountData.id);
+        }
+      } catch (balanceError) {
+        console.error(
+          '[pluggy-sync-transactions] Balance update error (continuing):',
+          balanceError
+        );
+      }
+    }
+
     // Construir URL com filtros opcionais
     let transactionsUrl = `https://api.pluggy.ai/transactions?accountId=${accountId}&pageSize=500`;
     if (from) transactionsUrl += `&from=${from}`;
@@ -118,24 +244,6 @@ serve(async (req) => {
     console.log(
       `[pluggy-sync-transactions] Found ${transactions.length} transactions`
     );
-    console.log(
-      `[pluggy-sync-transactions] Response data:`,
-      JSON.stringify(transactionsData, null, 2)
-    );
-
-    // Buscar o UUID da conta no banco
-    const { data: accountData } = await supabase
-      .from('pluggy_accounts')
-      .select('id')
-      .eq('pluggy_account_id', accountId)
-      .single();
-
-    if (!accountData) {
-      return new Response(
-        JSON.stringify({ error: 'Account not found in database' }),
-        { status: 404, headers }
-      );
-    }
 
     // Salvar transações e categorizar automaticamente
     let savedCount = 0;
