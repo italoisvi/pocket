@@ -40,6 +40,7 @@ export default function FaturasScreen() {
   const monthScrollRef = useRef<ScrollView>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentBalance, setCurrentBalance] = useState<number>(0);
+  const [isCurrentMonth, setIsCurrentMonth] = useState(true);
 
   useEffect(() => {
     const generateMonths = async () => {
@@ -140,12 +141,6 @@ export default function FaturasScreen() {
         return;
       }
 
-      // Calcular saldo devedor atual
-      const usedCredit =
-        (creditAccount.credit_limit || 0) -
-        (creditAccount.available_credit_limit || 0);
-      setCurrentBalance(usedCredit);
-
       // Calcular range do mês selecionado
       const startOfMonth = new Date(
         selectedMonth.getFullYear(),
@@ -170,7 +165,29 @@ export default function FaturasScreen() {
         .lte('date', endOfMonth.toISOString().split('T')[0])
         .order('date', { ascending: false });
 
-      setTransactions((txData as Transaction[]) || []);
+      const monthTransactions = (txData as Transaction[]) || [];
+      setTransactions(monthTransactions);
+
+      // Verificar se é o mês atual
+      const now = new Date();
+      const currentMonth =
+        selectedMonth.getMonth() === now.getMonth() &&
+        selectedMonth.getFullYear() === now.getFullYear();
+      setIsCurrentMonth(currentMonth);
+
+      if (currentMonth) {
+        // Mês atual: saldo devedor real do cartão
+        const usedCredit =
+          (creditAccount.credit_limit || 0) -
+          (creditAccount.available_credit_limit || 0);
+        setCurrentBalance(usedCredit);
+      } else {
+        // Meses anteriores: total da fatura (soma apenas compras/DEBITs)
+        const monthTotal = monthTransactions
+          .filter((tx) => tx.type === 'DEBIT')
+          .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        setCurrentBalance(monthTotal);
+      }
     } catch (error) {
       console.error('Erro ao carregar dados do cartão:', error);
     } finally {
@@ -351,7 +368,7 @@ export default function FaturasScreen() {
               <Text
                 style={[styles.balanceLabel, { color: theme.textSecondary }]}
               >
-                Saldo Devedor Atual
+                {isCurrentMonth ? 'Saldo Devedor Atual' : 'Total da Fatura'}
               </Text>
               <Text
                 style={[
@@ -364,9 +381,13 @@ export default function FaturasScreen() {
               <Text
                 style={[styles.balanceHint, { color: theme.textSecondary }]}
               >
-                {currentBalance > 0
-                  ? 'Valor total a pagar no cartao'
-                  : 'Nenhuma divida no cartao'}
+                {isCurrentMonth
+                  ? currentBalance > 0
+                    ? 'Valor total a pagar no cartao'
+                    : 'Nenhuma divida no cartao'
+                  : currentBalance > 0
+                    ? 'Total gasto neste mes'
+                    : 'Nenhum gasto neste mes'}
               </Text>
             </View>
 

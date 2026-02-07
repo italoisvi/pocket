@@ -718,7 +718,7 @@ serve(async (req) => {
         },
       });
       // Flush to ensure data is sent before response
-      await langfuse?.shutdownAsync();
+      await langfuse?.flushAsync();
     }
 
     console.log('[walts-agent] Response generated:', {
