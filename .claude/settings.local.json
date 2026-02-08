@@ -87,7 +87,8 @@
       "WebFetch(domain:developers.belvo.com)",
       "Bash(supabase migration:*)",
       "Bash(powershell -Command \"Invoke-RestMethod -Uri ''https://sandbox.belvo.com/api/token/'' -Method POST -Headers @{''Content-Type''=''application/json''; ''Authorization''=''Basic ZjIyZDNhMmUtY2VlYy00YTMxLTk1M2MtNGI2MTg4NDk5NTRjOlhlQXgzWlphVHFOc21NU3VVMUE0VGhDNGk2QVNDRXJRM3lta0VBN0Fad3RyaXA0cTVYNkxsUWQ1bmJqcWRoU1M=''} -Body ''{\"\"id\"\":\"\"test\"\",\"\"scopes\"\":\"\"read_institutions\"\"}''\")",
-      "Bash(powershell -Command \"$cred = ''f22d3a2e-ceec-4a31-953c-4b618849954c:XeAx3ZZaTqNsmMSuU1A4ThC4i6ASCERQ3ymkEA7AZwtrip4q5X6LlQd5nbjqdhSS''; $bytes = [System.Text.Encoding]::UTF8.GetBytes\\($cred\\); $base64 = [Convert]::ToBase64String\\($bytes\\); Write-Host $base64\")"
+      "Bash(powershell -Command \"$cred = ''f22d3a2e-ceec-4a31-953c-4b618849954c:XeAx3ZZaTqNsmMSuU1A4ThC4i6ASCERQ3ymkEA7AZwtrip4q5X6LlQd5nbjqdhSS''; $bytes = [System.Text.Encoding]::UTF8.GetBytes\\($cred\\); $base64 = [Convert]::ToBase64String\\($bytes\\); Write-Host $base64\")",
+      "Bash(powershell -Command \"[System.IO.File]::ReadAllBytes\\(''c:\\\\Users\\\\italo\\\\source\\\\repo\\\\pocket\\\\assets\\\\news-sources\\\\sputnik.png''\\)[0..7] | ForEach-Object { ''{0:X2}'' -f $_}\")"
     ]
   }
 }
