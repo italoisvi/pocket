@@ -17,8 +17,6 @@ import { supabase } from '@/lib/supabase';
 import { ChevronLeftIcon } from '@/components/ChevronLeftIcon';
 import { CheckIcon } from '@/components/CheckIcon';
 import { ModoEscuroIcon } from '@/components/ModoEscuroIcon';
-import { ModoNoturnoIconFilled } from '@/components/ModoNoturnoIconFilled';
-import { EstrelasDaLuaIcon } from '@/components/EstrelasDaLuaIcon';
 import { SolIcon } from '@/components/SolIcon';
 import { LuaIcon } from '@/components/LuaIcon';
 import { BotaoMovelIcon } from '@/components/BotaoMovelIcon';
@@ -293,8 +291,6 @@ export default function SettingsScreen() {
         return 'Modo Claro';
       case 'dark':
         return 'Modo Escuro';
-      case 'night':
-        return 'Modo Noturno';
       case 'system':
         return 'Modo do Sistema';
     }
@@ -711,31 +707,6 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               {themeMode === 'dark' && (
-                <CheckIcon size={20} color={theme.primary} />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.themeOption,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: theme.cardBorder,
-                },
-                themeMode === 'night' && {
-                  borderColor: theme.primary,
-                },
-                getCardShadowStyle(isDark),
-              ]}
-              onPress={() => handleThemeSelect('night')}
-            >
-              <View style={styles.themeOptionLeft}>
-                <EstrelasDaLuaIcon size={20} color={theme.text} />
-                <Text style={[styles.themeOptionText, { color: theme.text }]}>
-                  Modo Noturno
-                </Text>
-              </View>
-              {themeMode === 'night' && (
                 <CheckIcon size={20} color={theme.primary} />
               )}
             </TouchableOpacity>

@@ -16,9 +16,7 @@ import {
 } from '@/lib/revenuecat';
 import { BiometricLock } from '@/components/BiometricLock';
 import { registerAgentWorker } from '@/lib/agent-worker';
-import { VoiceProvider, useVoice } from '@/lib/voice-context';
-import { FloatingVoiceButton } from '@/components/FloatingVoiceButton';
-import { VoiceOverlay } from '@/components/VoiceOverlay';
+import { VoiceProvider } from '@/lib/voice-context';
 import { usePremium } from '@/lib/usePremium';
 import { PaywallModal } from '@/components/PaywallModal';
 
@@ -46,25 +44,6 @@ try {
   initializeRevenueCat();
 } catch (error) {
   console.error('[RootLayout] RevenueCat initialization failed:', error);
-}
-
-function VoiceComponents() {
-  const { openOverlay, endConversation, state } = useVoice();
-  const segments = useSegments() as string[];
-  const isHome = segments[0] === '(tabs)' && segments[1] === 'home';
-
-  return (
-    <>
-      {!isHome && (
-        <FloatingVoiceButton
-          onPress={openOverlay}
-          isMinimized={state.isMinimized}
-          onEndConversation={endConversation}
-        />
-      )}
-      <VoiceOverlay />
-    </>
-  );
 }
 
 function ThemedStack() {
@@ -264,7 +243,6 @@ function ThemedStack() {
           }}
         />
       </Stack>
-      <VoiceComponents />
       {showAnimatedSplash && (
         <AnimatedSplashScreen onComplete={() => setShowAnimatedSplash(false)} />
       )}

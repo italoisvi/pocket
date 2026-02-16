@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
-import Svg, { Rect, Line } from 'react-native-svg';
+import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
 import { supabase } from '@/lib/supabase';
 import { sendMessageToDeepSeek } from '@/lib/deepseek';
@@ -887,141 +887,169 @@ Use formatação markdown para organizar a resposta. NÃO use emojis na resposta
 
                 <View style={styles.trendChart}>
                   {trendChartType === 'bar' ? (
-                    <>
-                      <Svg
-                        width={trendChartWidth}
-                        height={trendChartHeight + 40}
-                      >
-                        {/* Linhas de grade */}
-                        {[0, 1, 2].map((i) => (
-                          <Line
-                            key={`grid-${i}`}
-                            x1={0}
-                            y1={(trendChartHeight / 2) * i + 10}
-                            x2={trendChartWidth}
-                            y2={(trendChartHeight / 2) * i + 10}
-                            stroke={
-                              theme.background === '#000'
-                                ? 'rgba(255,255,255,0.1)'
-                                : 'rgba(0,0,0,0.1)'
-                            }
-                            strokeWidth={1}
-                          />
-                        ))}
+                    <Svg
+                      width={trendChartWidth}
+                      height={trendChartHeight + 60}
+                    >
+                      {/* Linhas de grade */}
+                      {[0, 1, 2, 3].map((i) => (
+                        <Rect
+                          key={`grid-${i}`}
+                          x={0}
+                          y={(trendChartHeight / 3) * i + 10}
+                          width={trendChartWidth}
+                          height={1}
+                          fill={
+                            theme.background === '#000'
+                              ? 'rgba(255,255,255,0.15)'
+                              : 'rgba(0,0,0,0.15)'
+                          }
+                        />
+                      ))}
 
-                        {/* Barras */}
-                        {threeMonthsTrend.map((month, index) => {
-                          const barWidth = (trendChartWidth - 60) / 3;
-                          const barHeight =
-                            (month.total / maxTrendValue) *
-                            (trendChartHeight - 20);
-                          const x = 30 + index * barWidth;
-                          const y = trendChartHeight - barHeight + 10;
+                      {/* Barras */}
+                      {threeMonthsTrend.map((month, index) => {
+                        const barSpacing = 20;
+                        const barW =
+                          (trendChartWidth - barSpacing * 4) /
+                          threeMonthsTrend.length;
+                        const barHeight =
+                          maxTrendValue > 0
+                            ? (month.total / maxTrendValue) *
+                              (trendChartHeight - 20)
+                            : 0;
+                        const x = barSpacing + index * (barW + barSpacing);
+                        const y = trendChartHeight - barHeight + 10;
 
-                          const isCurrentMonth = index === 2;
-                          const color = isCurrentMonth
-                            ? theme.primary
-                            : theme.textSecondary;
+                        const isCurrentMonth =
+                          index === threeMonthsTrend.length - 1;
+                        const color = isCurrentMonth
+                          ? theme.primary
+                          : theme.textSecondary;
 
-                          return (
-                            <React.Fragment key={index}>
-                              <Rect
-                                x={x}
-                                y={y}
-                                width={barWidth - 20}
-                                height={barHeight}
-                                fill={color}
-                                rx={4}
-                              />
-                            </React.Fragment>
-                          );
-                        })}
-                      </Svg>
-
-                      {/* Labels abaixo do gráfico */}
-                      <View style={styles.trendLabels}>
-                        {threeMonthsTrend.map((month, index) => (
-                          <View key={index} style={styles.trendLabel}>
-                            <Text
-                              style={[
-                                styles.trendMonthText,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {month.month}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.trendValueText,
-                                {
-                                  color:
-                                    index === 2 ? theme.primary : theme.text,
-                                },
-                              ]}
+                        return (
+                          <React.Fragment key={index}>
+                            <Rect
+                              x={x}
+                              y={y}
+                              width={barW}
+                              height={barHeight}
+                              fill={color}
+                              rx={4}
+                              ry={4}
+                            />
+                            {/* Valor acima da barra */}
+                            <SvgText
+                              x={x + barW / 2}
+                              y={y - 8}
+                              fontSize={14}
+                              fontFamily="DMSans-SemiBold"
+                              fill={theme.text}
+                              textAnchor="middle"
                             >
                               {formatCurrency(month.total)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    </>
+                            </SvgText>
+                            {/* Label abaixo */}
+                            <SvgText
+                              x={x + barW / 2}
+                              y={trendChartHeight + 30}
+                              fontSize={13}
+                              fontFamily="DMSans-Regular"
+                              fill={theme.text}
+                              textAnchor="middle"
+                            >
+                              {month.month}
+                            </SvgText>
+                          </React.Fragment>
+                        );
+                      })}
+                    </Svg>
                   ) : (
-                    <>
+                    <View style={styles.chartWrapper}>
                       <PieChart
                         data={threeMonthsTrend.map((month, index) => ({
                           name: month.month,
                           population: month.total,
                           color:
-                            index === 2
+                            index === threeMonthsTrend.length - 1
                               ? theme.primary
-                              : index === 1
+                              : index === threeMonthsTrend.length - 2
                                 ? '#9CA3AF'
                                 : '#D1D5DB',
                           legendFontColor: theme.text,
                           legendFontSize: 0,
                         }))}
                         width={screenWidth - 88}
-                        height={180}
+                        height={220}
                         chartConfig={{
                           color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                         }}
                         accessor="population"
                         backgroundColor="transparent"
-                        paddingLeft="60"
+                        paddingLeft="75"
                         absolute
                         hasLegend={false}
                       />
-
-                      {/* Legenda do gráfico pizza */}
-                      <View style={styles.pieLegend}>
-                        {threeMonthsTrend.map((month, index) => (
-                          <View key={index} style={styles.pieLegendItem}>
-                            <View
-                              style={[
-                                styles.pieLegendColor,
-                                {
-                                  backgroundColor:
-                                    index === 2
-                                      ? theme.primary
-                                      : index === 1
-                                        ? '#9CA3AF'
-                                        : '#D1D5DB',
-                                },
-                              ]}
-                            />
-                            <Text
-                              style={[
-                                styles.pieLegendText,
-                                { color: theme.text },
-                              ]}
-                            >
-                              {month.month}: {formatCurrency(month.total)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    </>
+                    </View>
                   )}
+                </View>
+
+                {/* Divider */}
+                <View
+                  style={[
+                    styles.trendDivider,
+                    { backgroundColor: theme.border },
+                  ]}
+                />
+
+                {/* Legenda */}
+                <View style={styles.trendLegend}>
+                  {threeMonthsTrend.map((month, index) => {
+                    const isCurrentMonth =
+                      index === threeMonthsTrend.length - 1;
+                    const color = isCurrentMonth
+                      ? theme.primary
+                      : index === threeMonthsTrend.length - 2
+                        ? '#9CA3AF'
+                        : '#D1D5DB';
+                    const totalTrend = threeMonthsTrend.reduce(
+                      (sum, m) => sum + m.total,
+                      0
+                    );
+                    const percentage =
+                      totalTrend > 0
+                        ? ((month.total / totalTrend) * 100).toFixed(1)
+                        : '0.0';
+
+                    return (
+                      <View key={index} style={styles.trendLegendItem}>
+                        <View
+                          style={[
+                            styles.trendLegendColor,
+                            { backgroundColor: color },
+                          ]}
+                        />
+                        <View style={styles.trendLegendTextContainer}>
+                          <Text
+                            style={[
+                              styles.trendLegendText,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {month.month}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.trendLegendSubtext,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {formatCurrency(month.total)} ({percentage}%)
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
             )}
@@ -1482,42 +1510,40 @@ const styles = StyleSheet.create({
   trendChart: {
     alignItems: 'center',
   },
-  pieLegend: {
-    marginTop: 16,
-    gap: 8,
-  },
-  pieLegendItem: {
-    flexDirection: 'row',
+  chartWrapper: {
     alignItems: 'center',
-    gap: 8,
-  },
-  pieLegendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  pieLegendText: {
-    fontSize: 14,
-    fontFamily: 'DMSans-SemiBold',
-  },
-  trendLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     width: '100%',
-    marginTop: 8,
   },
-  trendLabel: {
+  trendDivider: {
+    height: 2,
+    width: '100%',
+    marginVertical: 16,
+  },
+  trendLegend: {
+    gap: 12,
+  },
+  trendLegendItem: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  trendLegendColor: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+  },
+  trendLegendTextContainer: {
     flex: 1,
   },
-  trendMonthText: {
-    fontSize: 14,
-    fontFamily: 'DMSans-Regular',
-  },
-  trendValueText: {
+  trendLegendText: {
     fontSize: 14,
     fontFamily: 'DMSans-SemiBold',
-    marginTop: 4,
+  },
+  trendLegendSubtext: {
+    fontSize: 12,
+    fontFamily: 'DMSans-Regular',
+    marginTop: 2,
   },
   summaryCard: {
     borderRadius: 12,

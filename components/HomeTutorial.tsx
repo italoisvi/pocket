@@ -172,7 +172,7 @@ type HomeTutorialProps = {
 };
 
 export function HomeTutorial({ visible, onComplete }: HomeTutorialProps) {
-  const { theme, isDark, themeMode } = useTheme();
+  const { theme, isDark } = useTheme();
   const [currentStep, setCurrentStep] = useState(0);
 
   // Animações
@@ -272,9 +272,6 @@ export function HomeTutorial({ visible, onComplete }: HomeTutorialProps) {
 
   // Cores baseadas no tema
   const getOverlayColor = () => {
-    if (themeMode === 'night') {
-      return 'rgba(10, 25, 41, 0.92)';
-    }
     if (isDark) {
       return 'rgba(0, 0, 0, 0.88)';
     }
@@ -282,9 +279,6 @@ export function HomeTutorial({ visible, onComplete }: HomeTutorialProps) {
   };
 
   const getCardBackground = () => {
-    if (themeMode === 'night') {
-      return '#0d2137';
-    }
     if (isDark) {
       return '#1c1c1e';
     }
@@ -292,9 +286,6 @@ export function HomeTutorial({ visible, onComplete }: HomeTutorialProps) {
   };
 
   const getBorderColor = () => {
-    if (themeMode === 'night') {
-      return '#2a5a8c';
-    }
     if (isDark) {
       return '#3c3c3e';
     }

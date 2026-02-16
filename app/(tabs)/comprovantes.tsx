@@ -88,14 +88,8 @@ export default function ComprovantesScreen() {
 
   const initializeNotifications = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      // Inicializar notificações periódicas (motivacionais a cada 6h, sync a cada 3h)
-      await initializePeriodicNotifications(supabase, user.id);
+      // Inicializar notificações periódicas (motivacionais a cada 6h)
+      await initializePeriodicNotifications();
     } catch (error) {
       console.error('[Comprovantes] Erro ao inicializar:', error);
     }

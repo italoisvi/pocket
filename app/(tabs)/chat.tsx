@@ -14,11 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/lib/theme';
-import {
-  sendMessageToWaltsAgent,
-  type Message,
-  type AgentResult,
-} from '@/lib/walts-agent';
+import { sendMessageToWaltsAgent, type Message } from '@/lib/walts-agent';
 import type { MessageAttachment } from '@/lib/chat-attachments';
 import { supabase } from '@/lib/supabase';
 import { PaywallModal } from '@/components/PaywallModal';
@@ -28,26 +24,90 @@ import { ChatMessage } from '@/components/ChatMessage';
 import { LoadingKangaroo } from '@/components/LoadingKangaroo';
 import { RelogioTresIcon } from '@/components/RelogioTresIcon';
 import { ComenteMedicalIcon } from '@/components/ComenteMedicalIcon';
+import { MicrophoneIcon } from '@/components/MicrophoneIcon';
+import { useVoice } from '@/lib/voice-context';
+import { VoiceOverlay } from '@/components/VoiceOverlay';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const FREE_MESSAGES_PER_MONTH = 3;
+
+function getFreeMessagesKey(): string {
+  const now = new Date();
+  return `walts_free_msgs_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
 
 export default function ChatScreen() {
   const { theme } = useTheme();
   const { isPremium, refresh: refreshPremium } = usePremium();
+  const voice = useVoice();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [showPaywall, setShowPaywall] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const messagesRef = useRef<Message[]>([]);
+  const conversationIdRef = useRef<string>('');
+  const [freeMessageCount, setFreeMessageCount] = useState(0);
+  const freeMessageCountRef = useRef(0);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
+  useEffect(() => {
+    freeMessageCountRef.current = freeMessageCount;
+  }, [freeMessageCount]);
 
   useEffect(() => {
     loadUserProfile();
+    loadFreeMessageCount();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       loadCurrentConversation();
+      loadFreeMessageCount();
     }, [])
   );
+
+  // Register voice turn callback
+  useEffect(() => {
+    voice.setOnTurnComplete((userMsg, assistantMsg) => {
+      const updated = [...messagesRef.current, userMsg, assistantMsg];
+      setMessages(updated);
+      saveConversationForMessages(updated, conversationIdRef.current);
+      incrementFreeMessageCount();
+    });
+
+    return () => {
+      voice.setOnTurnComplete(null);
+    };
+  }, []);
+
+  const loadFreeMessageCount = async () => {
+    const key = getFreeMessagesKey();
+    const stored = await AsyncStorage.getItem(key);
+    const count = stored ? parseInt(stored, 10) : 0;
+    setFreeMessageCount(isNaN(count) ? 0 : count);
+  };
+
+  const incrementFreeMessageCount = async () => {
+    const key = getFreeMessagesKey();
+    const newCount = freeMessageCountRef.current + 1;
+    setFreeMessageCount(newCount);
+    await AsyncStorage.setItem(key, newCount.toString());
+  };
+
+  const canSendMessage = (): boolean => {
+    if (isPremium) return true;
+    return freeMessageCount < FREE_MESSAGES_PER_MONTH;
+  };
 
   const loadUserProfile = async () => {
     try {
@@ -98,7 +158,10 @@ export default function ChatScreen() {
     }
   };
 
-  const saveConversation = async (updatedMessages: Message[]) => {
+  const saveConversationForMessages = async (
+    updatedMessages: Message[],
+    convId: string
+  ) => {
     try {
       const {
         data: { user },
@@ -115,7 +178,7 @@ export default function ChatScreen() {
       const { data: existing } = await supabase
         .from('conversations')
         .select('id')
-        .eq('id', conversationId)
+        .eq('id', convId)
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -127,21 +190,25 @@ export default function ChatScreen() {
             messages: updatedMessages,
             updated_at: now,
           })
-          .eq('id', conversationId)
+          .eq('id', convId)
           .eq('user_id', user.id);
       } else {
         await supabase.from('conversations').insert({
-          id: conversationId,
+          id: convId,
           user_id: user.id,
           title,
           messages: updatedMessages,
-          created_at: parseInt(conversationId),
+          created_at: parseInt(convId),
           updated_at: now,
         });
       }
     } catch (error) {
       console.error('[chat] Error saving conversation:', error);
     }
+  };
+
+  const saveConversation = async (updatedMessages: Message[]) => {
+    await saveConversationForMessages(updatedMessages, conversationId);
   };
 
   const handleSendMessage = async (
@@ -151,7 +218,7 @@ export default function ChatScreen() {
     if ((!text.trim() && (!attachments || attachments.length === 0)) || loading)
       return;
 
-    if (!isPremium) {
+    if (!canSendMessage()) {
       setShowPaywall(true);
       return;
     }
@@ -187,16 +254,25 @@ export default function ChatScreen() {
       const finalMessages = [...updatedMessages, assistantMessage];
       setMessages(finalMessages);
       await saveConversation(finalMessages);
+      await incrementFreeMessageCount();
     } catch (error) {
       console.error('[chat] Error:', error);
       Alert.alert(
         'Erro',
-        'Não foi possível enviar a mensagem. Tente novamente.'
+        'N\u00e3o foi poss\u00edvel enviar a mensagem. Tente novamente.'
       );
       setMessages(messages);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVoicePress = () => {
+    if (!canSendMessage()) {
+      setShowPaywall(true);
+      return;
+    }
+    voice.openOverlay();
   };
 
   const handleNewConversation = async () => {
@@ -233,6 +309,11 @@ export default function ChatScreen() {
     await refreshPremium();
   };
 
+  const remainingMessages = Math.max(
+    0,
+    FREE_MESSAGES_PER_MONTH - freeMessageCount
+  );
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -245,6 +326,12 @@ export default function ChatScreen() {
       >
         <Text style={[styles.title, { color: theme.text }]}>Walts</Text>
         <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={handleVoicePress}
+          >
+            <MicrophoneIcon size={24} color={theme.text} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerButton}
             onPress={handleNewConversation}
@@ -265,7 +352,7 @@ export default function ChatScreen() {
           <View style={[styles.messagesContainer, styles.emptyMessagesContent]}>
             <View style={styles.welcomeContainer}>
               <Text style={[styles.welcomeText, { color: theme.text }]}>
-                Olá{userName ? `, ${userName}` : ''}! Em que posso te ajudar?
+                {`Ol\u00e1${userName ? `, ${userName}` : ''}! Em que posso te ajudar?`}
               </Text>
             </View>
           </View>
@@ -308,6 +395,18 @@ export default function ChatScreen() {
         />
       )}
 
+      {!isPremium && (
+        <View style={styles.freeCounterContainer}>
+          <Text
+            style={[styles.freeCounterText, { color: theme.textSecondary }]}
+          >
+            {remainingMessages > 0
+              ? `${remainingMessages} de ${FREE_MESSAGES_PER_MONTH} mensagens restantes este m\u00eas`
+              : 'Limite de mensagens atingido'}
+          </Text>
+        </View>
+      )}
+
       <ChatInput
         onSendMessage={handleSendMessage}
         loading={loading}
@@ -315,12 +414,14 @@ export default function ChatScreen() {
         onShowPaywall={() => setShowPaywall(true)}
       />
 
+      <VoiceOverlay />
+
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
         onSuccess={handlePaywallSuccess}
         title="Walts Premium"
-        subtitle="Seu assistente financeiro com inteligência artificial"
+        subtitle="Seu assistente financeiro com intelig\u00eancia artificial"
       />
     </KeyboardAvoidingView>
   );
@@ -376,5 +477,14 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     alignSelf: 'flex-start',
+  },
+  freeCounterContainer: {
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  freeCounterText: {
+    fontSize: 12,
+    fontFamily: 'DMSans-Regular',
   },
 });

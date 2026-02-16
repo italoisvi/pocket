@@ -19,7 +19,6 @@ const NOTIFICATION_STATE_KEY = '@pocket_notification_state';
 type NotificationState = {
   budgets: { [budgetId: string]: number }; // Último percentual notificado
   bills: { [billId: string]: boolean }; // Se já foi notificado
-  creditCards: { [cardId: string]: number }; // Último percentual notificado
   leaks?: { [leakKey: string]: boolean }; // Vazamentos notificados (categoria_mês)
 };
 
@@ -32,7 +31,7 @@ async function getNotificationState(): Promise<NotificationState> {
   } catch (error) {
     console.error('Erro ao carregar estado de notificações:', error);
   }
-  return { budgets: {}, bills: {}, creditCards: {} };
+  return { budgets: {}, bills: {} };
 }
 
 async function saveNotificationState(state: NotificationState): Promise<void> {
@@ -209,61 +208,6 @@ export async function notifyUpcomingBill(
   await saveNotificationState(state);
 }
 
-// ============ NOTIFICAÇÕES DE CARTÃO DE CRÉDITO ============
-
-export async function notifyCreditCardLimit(
-  cardId: string,
-  cardName: string,
-  usedCredit: number,
-  creditLimit: number
-): Promise<void> {
-  const hasPermission = await requestNotificationPermissions();
-  if (!hasPermission) return;
-
-  const usedPercent = (usedCredit / creditLimit) * 100;
-  const state = await getNotificationState();
-  const lastNotified = state.creditCards[cardId] || 0;
-
-  let title = '';
-  let body = '';
-  let shouldNotify = false;
-
-  if (usedPercent >= 95 && lastNotified < 95) {
-    title = `Cartao ${cardName} quase no limite`;
-    body = `${usedPercent.toFixed(0)}% do limite utilizado - disponivel: R$ ${(creditLimit - usedCredit).toFixed(2)}`;
-    state.creditCards[cardId] = 95;
-    shouldNotify = true;
-  } else if (usedPercent >= 90 && lastNotified < 90) {
-    title = `90% do limite do cartao ${cardName}`;
-    body = `Utilizado: R$ ${usedCredit.toFixed(2)} de R$ ${creditLimit.toFixed(2)}`;
-    state.creditCards[cardId] = 90;
-    shouldNotify = true;
-  } else if (usedPercent >= 80 && lastNotified < 80) {
-    title = `80% do limite do cartao ${cardName}`;
-    body = `Utilizado: R$ ${usedCredit.toFixed(2)} de R$ ${creditLimit.toFixed(2)}`;
-    state.creditCards[cardId] = 80;
-    shouldNotify = true;
-  }
-
-  if (shouldNotify) {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data: {
-          type: 'credit_limit',
-          cardId,
-          cardName,
-          usedCredit,
-          creditLimit,
-        },
-      },
-      trigger: null,
-    });
-    await saveNotificationState(state);
-  }
-}
-
 // ============ NOTIFICAÇÕES DE VAZAMENTO ============
 
 export async function notifyLeakDetected(
@@ -302,9 +246,8 @@ export async function notifyLeakDetected(
 
 export async function resetMonthlyNotificationState(): Promise<void> {
   const state = await getNotificationState();
-  // Resetar orçamentos e cartões no início do mês
+  // Resetar orçamentos no início do mês
   state.budgets = {};
-  state.creditCards = {};
   // Manter bills pois são específicos por transação
   await saveNotificationState(state);
 }
@@ -490,87 +433,10 @@ export async function scheduleMotivationalNotifications(): Promise<void> {
   }
 }
 
-// ============ NOTIFICAÇÕES DE SINCRONIZAÇÃO AUTOMÁTICA (A CADA 3H) ============
-
-const SYNC_REMINDER_KEY = '@pocket_sync_reminder_scheduled';
-
-export async function scheduleSyncReminderNotifications(
-  supabase: { from: (table: string) => unknown },
-  userId: string
-): Promise<void> {
-  const hasPermission = await requestNotificationPermissions();
-  if (!hasPermission) return;
-
-  try {
-    // Verificar se o usuário tem contas bancárias conectadas
-    const { data: accounts, error } = await (
-      supabase.from('pluggy_accounts') as {
-        select: (cols: string) => {
-          eq: (
-            col: string,
-            val: string
-          ) => Promise<{ data: unknown[] | null; error: unknown }>;
-        };
-      }
-    )
-      .select('id')
-      .eq('user_id', userId);
-
-    if (error || !accounts || accounts.length === 0) {
-      console.log(
-        '[notifications] No bank accounts connected, skipping sync reminder notifications'
-      );
-      return;
-    }
-
-    // Cancelar notificações de sync antigas
-    const existingScheduled = await AsyncStorage.getItem(SYNC_REMINDER_KEY);
-    if (existingScheduled) {
-      const ids = JSON.parse(existingScheduled) as string[];
-      for (const id of ids) {
-        await Notifications.cancelScheduledNotificationAsync(id);
-      }
-    }
-
-    const scheduledIds: string[] = [];
-
-    // Agendar notificações para as próximas 24 horas (8 notificações de 3 em 3 horas)
-    for (let i = 1; i <= 8; i++) {
-      const id = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Sincronização automática',
-          body: 'Suas contas foram sincronizadas com os dados do banco.',
-          data: { type: 'sync_reminder' },
-        },
-        trigger: {
-          seconds: i * 3 * 60 * 60, // 3, 6, 9, 12, 15, 18, 21, 24 horas
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        },
-      });
-
-      scheduledIds.push(id);
-    }
-
-    await AsyncStorage.setItem(SYNC_REMINDER_KEY, JSON.stringify(scheduledIds));
-
-    console.log(
-      '[notifications] Scheduled',
-      scheduledIds.length,
-      'sync reminder notifications for user with bank accounts'
-    );
-  } catch (error) {
-    console.error('[notifications] Error scheduling sync reminders:', error);
-  }
-}
-
 // ============ INICIALIZAR NOTIFICAÇÕES PERIÓDICAS ============
 
-export async function initializePeriodicNotifications(
-  supabase: { from: (table: string) => unknown },
-  userId: string
-): Promise<void> {
+export async function initializePeriodicNotifications(): Promise<void> {
   await scheduleMotivationalNotifications();
-  await scheduleSyncReminderNotifications(supabase, userId);
 }
 
 // ============ VERIFICAR E NOTIFICAR TODOS OS ALERTAS ============
@@ -594,12 +460,6 @@ export async function checkAndNotifyAlerts(
     description: string;
     amount: number;
     daysUntilDue: number;
-  }>,
-  creditCards: Array<{
-    id: string;
-    name: string;
-    usedCredit: number;
-    creditLimit: number;
   }>
 ): Promise<void> {
   // Verificar orçamentos
@@ -633,15 +493,5 @@ export async function checkAndNotifyAlerts(
         bill.daysUntilDue
       );
     }
-  }
-
-  // Verificar cartões de crédito
-  for (const card of creditCards) {
-    await notifyCreditCardLimit(
-      card.id,
-      card.name,
-      card.usedCredit,
-      card.creditLimit
-    );
   }
 }

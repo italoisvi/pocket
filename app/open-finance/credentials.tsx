@@ -36,7 +36,7 @@ type CredentialField = {
 };
 
 export default function CredentialsScreen() {
-  const { theme, isDark, themeMode } = useTheme();
+  const { theme, isDark } = useTheme();
   const params = useLocalSearchParams();
 
   const connectorId = params.connectorId as string;
@@ -739,19 +739,9 @@ export default function CredentialsScreen() {
           style={[
             styles.connectButton,
             {
-              backgroundColor:
-                themeMode === 'night'
-                  ? '#0a1929'
-                  : isDark
-                    ? '#000'
-                    : theme.primary,
+              backgroundColor: isDark ? '#000' : theme.primary,
               borderWidth: 2,
-              borderColor:
-                themeMode === 'night'
-                  ? '#1a3a5c'
-                  : isDark
-                    ? '#2c2c2e'
-                    : theme.primary,
+              borderColor: isDark ? '#2c2c2e' : theme.primary,
             },
             loading && styles.connectButtonDisabled,
           ]}

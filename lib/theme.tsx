@@ -8,7 +8,7 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
 
-export type ThemeMode = 'light' | 'dark' | 'night' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 type Theme = {
   background: string;
@@ -55,21 +55,6 @@ export const darkTheme: Theme = {
   fabIcon: '#fff',
 };
 
-export const nightTheme: Theme = {
-  background: '#0a1929',
-  surface: '#0d2137',
-  text: '#fff',
-  textSecondary: '#8b9eb0',
-  border: '#1a3a5c',
-  primary: '#fff',
-  error: '#ff453a',
-  card: '#0d2137',
-  cardBorder: '#1a3a5c',
-  shadow: '#fff',
-  fabBackground: '#0a1929',
-  fabIcon: '#fff',
-};
-
 type ThemeContextType = {
   theme: Theme;
   themeMode: ThemeMode;
@@ -96,7 +81,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         savedMode &&
         (savedMode === 'light' ||
           savedMode === 'dark' ||
-          savedMode === 'night' ||
           savedMode === 'system')
       ) {
         setThemeModeState(savedMode as ThemeMode);
@@ -119,13 +103,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (themeMode === 'system') {
       return systemColorScheme === 'dark' ? darkTheme : lightTheme;
     }
-    if (themeMode === 'night') {
-      return nightTheme;
-    }
     return themeMode === 'dark' ? darkTheme : lightTheme;
   }, [themeMode, systemColorScheme]);
 
-  const isDark = theme === darkTheme || theme === nightTheme;
+  const isDark = theme === darkTheme;
 
   return (
     <ThemeContext.Provider value={{ theme, themeMode, setThemeMode, isDark }}>

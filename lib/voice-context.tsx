@@ -195,6 +195,11 @@ type VoiceState = {
   waveformLevels: number[];
 };
 
+type TurnCompleteCallback = (
+  userMessage: Message,
+  assistantMessage: Message
+) => void;
+
 type VoiceContextValue = {
   state: VoiceState;
   openOverlay: () => Promise<void>;
@@ -205,6 +210,7 @@ type VoiceContextValue = {
   pauseConversation: () => Promise<void>;
   resumeConversation: () => Promise<void>;
   cancelInteraction: () => Promise<void>;
+  setOnTurnComplete: (callback: TurnCompleteCallback | null) => void;
 };
 
 const initialState: VoiceState = {
@@ -240,6 +246,7 @@ export function VoiceProvider({
   const silenceCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const conversationActiveRef = useRef<boolean>(false);
   const conversationHistoryRef = useRef<Message[]>([]);
+  const onTurnCompleteRef = useRef<TurnCompleteCallback | null>(null);
 
   // Speech detection refs
   const speechDetectedRef = useRef<boolean>(false);
@@ -439,6 +446,9 @@ export function VoiceProvider({
         timestamp: Date.now(),
       };
       conversationHistoryRef.current.push(assistantMessage);
+
+      // Notify chat of completed turn
+      onTurnCompleteRef.current?.(userMessage, assistantMessage);
 
       updateState({ response });
 
@@ -721,6 +731,13 @@ export function VoiceProvider({
     await endConversation();
   }, [endConversation]);
 
+  const setOnTurnComplete = useCallback(
+    (callback: TurnCompleteCallback | null) => {
+      onTurnCompleteRef.current = callback;
+    },
+    []
+  );
+
   const value: VoiceContextValue = {
     state,
     openOverlay,
@@ -731,6 +748,7 @@ export function VoiceProvider({
     pauseConversation,
     resumeConversation,
     cancelInteraction,
+    setOnTurnComplete,
   };
 
   return (

@@ -17,8 +17,6 @@ import { CameraIcon } from '@/components/CameraIcon';
 import { CameraIconFilled } from '@/components/CameraIconFilled';
 import { ComenteMedicalIcon } from '@/components/ComenteMedicalIcon';
 import { ComenteMedicalIconFilled } from '@/components/ComenteMedicalIconFilled';
-import { DividirContaIcon } from '@/components/DividirContaIcon';
-import { DividirContaIconFilled } from '@/components/DividirContaIconFilled';
 import { useTheme } from '@/lib/theme';
 import {
   BrowserProvider,
@@ -201,16 +199,7 @@ function TabsLayoutContent() {
           <Tabs.Screen
             name="dividir-conta"
             options={{
-              title: 'Dividir',
-              tabBarIcon: ({ color, focused }) =>
-                focused ? (
-                  <DividirContaIconFilled size={28} color={color} />
-                ) : (
-                  <DividirContaIcon size={28} color={color} />
-                ),
-            }}
-            listeners={{
-              tabPress: handleTabPress('dividir-conta'),
+              href: null,
             }}
           />
           <Tabs.Screen
