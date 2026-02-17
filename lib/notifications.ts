@@ -19,6 +19,7 @@ const NOTIFICATION_STATE_KEY = '@pocket_notification_state';
 type NotificationState = {
   budgets: { [budgetId: string]: number }; // Último percentual notificado
   bills: { [billId: string]: boolean }; // Se já foi notificado
+  creditCards: { [cardId: string]: number }; // Último percentual notificado
   leaks?: { [leakKey: string]: boolean }; // Vazamentos notificados (categoria_mês)
 };
 
@@ -31,7 +32,7 @@ async function getNotificationState(): Promise<NotificationState> {
   } catch (error) {
     console.error('Erro ao carregar estado de notificações:', error);
   }
-  return { budgets: {}, bills: {} };
+  return { budgets: {}, bills: {}, creditCards: {} };
 }
 
 async function saveNotificationState(state: NotificationState): Promise<void> {
@@ -208,6 +209,61 @@ export async function notifyUpcomingBill(
   await saveNotificationState(state);
 }
 
+// ============ NOTIFICAÇÕES DE CARTÃO DE CRÉDITO ============
+
+export async function notifyCreditCardLimit(
+  cardId: string,
+  cardName: string,
+  usedCredit: number,
+  creditLimit: number
+): Promise<void> {
+  const hasPermission = await requestNotificationPermissions();
+  if (!hasPermission) return;
+
+  const usedPercent = (usedCredit / creditLimit) * 100;
+  const state = await getNotificationState();
+  const lastNotified = state.creditCards[cardId] || 0;
+
+  let title = '';
+  let body = '';
+  let shouldNotify = false;
+
+  if (usedPercent >= 95 && lastNotified < 95) {
+    title = `Cartao ${cardName} quase no limite`;
+    body = `${usedPercent.toFixed(0)}% do limite utilizado - disponivel: R$ ${(creditLimit - usedCredit).toFixed(2)}`;
+    state.creditCards[cardId] = 95;
+    shouldNotify = true;
+  } else if (usedPercent >= 90 && lastNotified < 90) {
+    title = `90% do limite do cartao ${cardName}`;
+    body = `Utilizado: R$ ${usedCredit.toFixed(2)} de R$ ${creditLimit.toFixed(2)}`;
+    state.creditCards[cardId] = 90;
+    shouldNotify = true;
+  } else if (usedPercent >= 80 && lastNotified < 80) {
+    title = `80% do limite do cartao ${cardName}`;
+    body = `Utilizado: R$ ${usedCredit.toFixed(2)} de R$ ${creditLimit.toFixed(2)}`;
+    state.creditCards[cardId] = 80;
+    shouldNotify = true;
+  }
+
+  if (shouldNotify) {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: {
+          type: 'credit_limit',
+          cardId,
+          cardName,
+          usedCredit,
+          creditLimit,
+        },
+      },
+      trigger: null,
+    });
+    await saveNotificationState(state);
+  }
+}
+
 // ============ NOTIFICAÇÕES DE VAZAMENTO ============
 
 export async function notifyLeakDetected(
@@ -246,8 +302,9 @@ export async function notifyLeakDetected(
 
 export async function resetMonthlyNotificationState(): Promise<void> {
   const state = await getNotificationState();
-  // Resetar orçamentos no início do mês
+  // Resetar orçamentos e cartões no início do mês
   state.budgets = {};
+  state.creditCards = {};
   // Manter bills pois são específicos por transação
   await saveNotificationState(state);
 }
@@ -376,25 +433,13 @@ const MOTIVATIONAL_MESSAGES = [
   },
 ];
 
-const SCHEDULED_NOTIFICATIONS_KEY = '@pocket_scheduled_notifications';
-
 export async function scheduleMotivationalNotifications(): Promise<void> {
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return;
 
   try {
-    // Cancelar notificações motivacionais antigas
-    const existingScheduled = await AsyncStorage.getItem(
-      SCHEDULED_NOTIFICATIONS_KEY
-    );
-    if (existingScheduled) {
-      const ids = JSON.parse(existingScheduled) as string[];
-      for (const id of ids) {
-        await Notifications.cancelScheduledNotificationAsync(id);
-      }
-    }
-
-    const scheduledIds: string[] = [];
+    // Cancelar todas as notificações agendadas (inclui resíduos de funções removidas)
+    await Notifications.cancelAllScheduledNotificationsAsync();
 
     // Agendar notificações para as próximas 24 horas (4 notificações de 6 em 6 horas)
     for (let i = 1; i <= 4; i++) {
@@ -403,7 +448,7 @@ export async function scheduleMotivationalNotifications(): Promise<void> {
           Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)
         ];
 
-      const id = await Notifications.scheduleNotificationAsync({
+      await Notifications.scheduleNotificationAsync({
         content: {
           title: message.title,
           body: message.body,
@@ -414,20 +459,7 @@ export async function scheduleMotivationalNotifications(): Promise<void> {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         },
       });
-
-      scheduledIds.push(id);
     }
-
-    await AsyncStorage.setItem(
-      SCHEDULED_NOTIFICATIONS_KEY,
-      JSON.stringify(scheduledIds)
-    );
-
-    console.log(
-      '[notifications] Scheduled',
-      scheduledIds.length,
-      'motivational notifications'
-    );
   } catch (error) {
     console.error('[notifications] Error scheduling motivational:', error);
   }
@@ -460,6 +492,12 @@ export async function checkAndNotifyAlerts(
     description: string;
     amount: number;
     daysUntilDue: number;
+  }>,
+  creditCards: Array<{
+    id: string;
+    name: string;
+    usedCredit: number;
+    creditLimit: number;
   }>
 ): Promise<void> {
   // Verificar orçamentos
@@ -493,5 +531,15 @@ export async function checkAndNotifyAlerts(
         bill.daysUntilDue
       );
     }
+  }
+
+  // Verificar cartões de crédito
+  for (const card of creditCards) {
+    await notifyCreditCardLimit(
+      card.id,
+      card.name,
+      card.usedCredit,
+      card.creditLimit
+    );
   }
 }

@@ -78,6 +78,12 @@ export default function AlertasPendenciasScreen() {
         amount: number;
         daysUntilDue: number;
       }> = [];
+      const notificationCreditCards: Array<{
+        id: string;
+        name: string;
+        usedCredit: number;
+        creditLimit: number;
+      }> = [];
       const notificationBudgets: Array<{
         id: string;
         name: string;
@@ -175,6 +181,16 @@ export default function AlertasPendenciasScreen() {
             const usedCredit =
               account.credit_limit - account.available_credit_limit;
             const usedPercent = (usedCredit / account.credit_limit) * 100;
+
+            // Adicionar para notificação (80%+)
+            if (usedPercent >= 80) {
+              notificationCreditCards.push({
+                id: account.id,
+                name: account.name,
+                usedCredit,
+                creditLimit: account.credit_limit,
+              });
+            }
 
             if (usedPercent >= 90) {
               detectedAlerts.push({
@@ -298,7 +314,8 @@ export default function AlertasPendenciasScreen() {
       await checkAndNotifyAlerts(
         notificationBudgets,
         notificationOverdueBills,
-        notificationUpcomingBills
+        notificationUpcomingBills,
+        notificationCreditCards
       );
     } catch (error) {
       console.error('Error loading alerts:', error);
